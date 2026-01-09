@@ -1,36 +1,59 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 🌸 Fuji Sakura Food Delivery App
 
-## Getting Started
+A premium Japanese-inspired food delivery application built with Next.js 15, TypeScript, and modern web technologies.
 
-First, run the development server:
+## 🚀 Quick Start
 
 ```bash
+# Install dependencies
+npm install
+
+# Start development server
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000) to view the app.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## ✨ Features (Day 1 Complete)
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- **🎨 Japanese Theme**: Cherry blossom inspired design with red gradients
+- **🔐 Authentication**: Complete login/signup flow with validation
+- **📱 Responsive**: Works perfectly on desktop and mobile
+- **🎭 Animations**: Smooth transitions and floating elements
+- **🔒 Password Reset**: 4-step forgot password flow
+- **👤 User Management**: Guest access and session handling
 
-## Learn More
+## 🛠 Tech Stack
 
-To learn more about Next.js, take a look at the following resources:
+- **Framework**: Next.js 15 with App Router
+- **Language**: TypeScript
+- **Styling**: Custom CSS with Japanese theme
+- **Fonts**: Inter + Noto Sans JP
+- **Icons**: Emoji-based for authentic feel
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## 📱 Pages
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- `/` - Animated splash screen
+- `/login` - Authentication with phone/email toggle
+- `/forgot-password` - 4-step password reset
+- `/home` - Welcome dashboard
 
-## Deploy on Vercel
+## 🎯 Development Status
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+✅ **Day 1**: Authentication & UI Foundation  
+🔄 **Day 2**: Restaurant Discovery (Coming Soon)  
+⏳ **Day 3**: Menu & Cart System  
+⏳ **Day 4**: Checkout & Orders  
+⏳ **Day 5**: Tracking & Polish  
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## 🎨 Design Philosophy
+
+- Clean, minimalist Japanese aesthetic
+- Inline CSS for precise control
+- Smooth animations and transitions
+- Mobile-first responsive design
+- Accessibility-focused development
+
+---
+
+**Built with ❤️ for premium food delivery experience**
