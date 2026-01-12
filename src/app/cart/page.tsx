@@ -11,6 +11,8 @@ export default function CartPage() {
   const [userName, setUserName] = useState('');
   const [deliveryAddress, setDeliveryAddress] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
+  const [selectAll, setSelectAll] = useState(false);
 
   useEffect(() => {
     const storedName = localStorage.getItem('userName') || 'Guest';
@@ -18,7 +20,12 @@ export default function CartPage() {
     
     // Mock delivery address
     setDeliveryAddress('123 Sakura Street, Tokyo District, City 12345');
-  }, []);
+    
+    // Select all items by default
+    const allItemIds = cart.map(item => `${item.id}-${item.restaurantId}`);
+    setSelectedItems(new Set(allItemIds));
+    setSelectAll(cart.length > 0);
+  }, [cart]);
 
   // Group cart items by restaurant
   const groupedCart = cart.reduce((acc, item) => {
@@ -32,20 +39,133 @@ export default function CartPage() {
     return acc;
   }, {} as Record<number, { restaurant: any; items: any[] }>);
 
+  // Calculate totals for selected items only
+  const getSelectedItems = () => {
+    return cart.filter(item => selectedItems.has(`${item.id}-${item.restaurantId}`));
+  };
+
+  const getSelectedTotal = () => {
+    return getSelectedItems().reduce((total, item) => total + (item.price * item.quantity), 0);
+  };
+
+  const getSelectedCount = () => {
+    return getSelectedItems().reduce((total, item) => total + item.quantity, 0);
+  };
+
+  // Calculate totals for specific restaurant
+  const getRestaurantTotal = (restaurantId: number) => {
+    const restaurantItems = cart.filter(item => item.restaurantId === restaurantId);
+    return restaurantItems.reduce((total, item) => total + (item.price * item.quantity), 0);
+  };
+
+  const getRestaurantCount = (restaurantId: number) => {
+    const restaurantItems = cart.filter(item => item.restaurantId === restaurantId);
+    return restaurantItems.reduce((total, item) => total + item.quantity, 0);
+  };
+
   const deliveryFee = 2.99;
   const taxRate = 0.08; // 8% tax
   const subtotal = getTotalPrice();
-  const tax = subtotal * taxRate;
-  const total = subtotal + deliveryFee + tax;
+  const selectedSubtotal = getSelectedTotal();
+  const selectedTax = selectedSubtotal * taxRate;
+  const selectedTotal = selectedSubtotal + deliveryFee + selectedTax;
 
-  const handleCheckout = () => {
+  // Selection handlers
+  const handleItemSelect = (itemId: string) => {
+    const newSelected = new Set(selectedItems);
+    if (newSelected.has(itemId)) {
+      newSelected.delete(itemId);
+    } else {
+      newSelected.add(itemId);
+    }
+    setSelectedItems(newSelected);
+    setSelectAll(newSelected.size === cart.length);
+  };
+
+  const handleSelectAll = () => {
+    if (selectAll) {
+      setSelectedItems(new Set());
+      setSelectAll(false);
+    } else {
+      const allItemIds = cart.map(item => `${item.id}-${item.restaurantId}`);
+      setSelectedItems(new Set(allItemIds));
+      setSelectAll(true);
+    }
+  };
+
+  const handleRestaurantSelect = (restaurantId: number) => {
+    const restaurantItems = cart.filter(item => item.restaurantId === restaurantId);
+    const restaurantItemIds = restaurantItems.map(item => `${item.id}-${item.restaurantId}`);
+    const allSelected = restaurantItemIds.every(id => selectedItems.has(id));
+    
+    const newSelected = new Set(selectedItems);
+    if (allSelected) {
+      // Deselect all restaurant items
+      restaurantItemIds.forEach(id => newSelected.delete(id));
+    } else {
+      // Select all restaurant items
+      restaurantItemIds.forEach(id => newSelected.add(id));
+    }
+    setSelectedItems(newSelected);
+    setSelectAll(newSelected.size === cart.length);
+  };
+
+  // Checkout handlers
+  const handleCheckoutAll = () => {
     if (cart.length === 0) return;
     
     setIsLoading(true);
-    // Simulate checkout process
     setTimeout(() => {
-      alert('Order placed successfully! 🎉');
+      alert(`Order placed successfully! 🎉\nTotal: $${(subtotal + deliveryFee + (subtotal * taxRate)).toFixed(2)}\nItems: ${getTotalItems()}`);
       clearCart();
+      router.push('/home');
+      setIsLoading(false);
+    }, 2000);
+  };
+
+  const handleCheckoutSelected = () => {
+    const selectedItemsList = getSelectedItems();
+    if (selectedItemsList.length === 0) {
+      alert('Please select items to checkout');
+      return;
+    }
+    
+    setIsLoading(true);
+    setTimeout(() => {
+      alert(`Selected items ordered successfully! 🎉\nTotal: $${selectedTotal.toFixed(2)}\nItems: ${getSelectedCount()}`);
+      
+      // Remove selected items from cart
+      selectedItemsList.forEach(item => {
+        removeFromCart(item.id, item.restaurantId);
+      });
+      
+      // Clear selection
+      setSelectedItems(new Set());
+      setSelectAll(false);
+      
+      router.push('/home');
+      setIsLoading(false);
+    }, 2000);
+  };
+
+  const handleRestaurantCheckout = (restaurantId: number) => {
+    const restaurantItems = cart.filter(item => item.restaurantId === restaurantId);
+    if (restaurantItems.length === 0) return;
+    
+    const restaurantTotal = getRestaurantTotal(restaurantId);
+    const restaurantTax = restaurantTotal * taxRate;
+    const finalTotal = restaurantTotal + deliveryFee + restaurantTax;
+    
+    setIsLoading(true);
+    setTimeout(() => {
+      const restaurant = restaurants.find(r => r.id === restaurantId);
+      alert(`${restaurant?.name} order placed successfully! 🎉\nTotal: $${finalTotal.toFixed(2)}\nItems: ${getRestaurantCount(restaurantId)}`);
+      
+      // Remove restaurant items from cart
+      restaurantItems.forEach(item => {
+        removeFromCart(item.id, item.restaurantId);
+      });
+      
       router.push('/home');
       setIsLoading(false);
     }, 2000);
@@ -273,15 +393,55 @@ export default function CartPage() {
           border: '1px solid rgba(255, 255, 255, 0.3)',
           height: 'fit-content'
         }}>
-          <h2 style={{
-            fontSize: '1.3rem',
-            fontWeight: '600',
-            color: '#333',
-            marginBottom: '1.5rem',
-            margin: 0
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            marginBottom: '1.5rem'
           }}>
-            Order Details
-          </h2>
+            <h2 style={{
+              fontSize: '1.3rem',
+              fontWeight: '600',
+              color: '#333',
+              margin: 0
+            }}>
+              Order Details
+            </h2>
+            
+            {/* Select All Checkbox */}
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.5rem',
+              background: '#f8fafc',
+              padding: '0.5rem 1rem',
+              borderRadius: '8px',
+              border: '1px solid #e2e8f0'
+            }}>
+              <input
+                type="checkbox"
+                id="selectAll"
+                checked={selectAll}
+                onChange={handleSelectAll}
+                style={{
+                  width: '1.2rem',
+                  height: '1.2rem',
+                  cursor: 'pointer'
+                }}
+              />
+              <label
+                htmlFor="selectAll"
+                style={{
+                  fontSize: '0.9rem',
+                  fontWeight: '500',
+                  color: '#333',
+                  cursor: 'pointer'
+                }}
+              >
+                Select All ({cart.length} items)
+              </label>
+            </div>
+          </div>
 
           {/* Delivery Address */}
           <div style={{
@@ -325,25 +485,99 @@ export default function CartPage() {
                 padding: '1rem 1.5rem',
                 display: 'flex',
                 alignItems: 'center',
-                gap: '1rem'
+                justifyContent: 'space-between'
               }}>
-                <span style={{ fontSize: '2rem' }}>{group.restaurant?.image}</span>
-                <div>
-                  <h3 style={{
-                    fontSize: '1.1rem',
-                    fontWeight: '600',
-                    margin: 0,
-                    marginBottom: '0.25rem'
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '1rem'
+                }}>
+                  <span style={{ fontSize: '2rem' }}>{group.restaurant?.image}</span>
+                  <div>
+                    <h3 style={{
+                      fontSize: '1.1rem',
+                      fontWeight: '600',
+                      margin: 0,
+                      marginBottom: '0.25rem'
+                    }}>
+                      {group.restaurant?.name}
+                    </h3>
+                    <p style={{
+                      fontSize: '0.9rem',
+                      opacity: 0.9,
+                      margin: 0
+                    }}>
+                      {group.restaurant?.cuisine} • {group.restaurant?.deliveryTime}
+                    </p>
+                  </div>
+                </div>
+                
+                {/* Restaurant Actions */}
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '1rem'
+                }}>
+                  {/* Restaurant Select Checkbox */}
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.5rem',
+                    background: 'rgba(255, 255, 255, 0.2)',
+                    padding: '0.5rem',
+                    borderRadius: '6px'
                   }}>
-                    {group.restaurant?.name}
-                  </h3>
-                  <p style={{
-                    fontSize: '0.9rem',
-                    opacity: 0.9,
-                    margin: 0
-                  }}>
-                    {group.restaurant?.cuisine} • {group.restaurant?.deliveryTime}
-                  </p>
+                    <input
+                      type="checkbox"
+                      id={`restaurant-${restaurantId}`}
+                      checked={group.items.every(item => selectedItems.has(`${item.id}-${item.restaurantId}`))}
+                      onChange={() => handleRestaurantSelect(parseInt(restaurantId))}
+                      style={{
+                        width: '1rem',
+                        height: '1rem',
+                        cursor: 'pointer'
+                      }}
+                    />
+                    <label
+                      htmlFor={`restaurant-${restaurantId}`}
+                      style={{
+                        fontSize: '0.8rem',
+                        cursor: 'pointer',
+                        color: 'white'
+                      }}
+                    >
+                      Select All
+                    </label>
+                  </div>
+                  
+                  {/* Restaurant Checkout Button */}
+                  <button
+                    onClick={() => handleRestaurantCheckout(parseInt(restaurantId))}
+                    disabled={isLoading}
+                    style={{
+                      background: 'rgba(255, 255, 255, 0.2)',
+                      border: '1px solid rgba(255, 255, 255, 0.3)',
+                      borderRadius: '8px',
+                      padding: '0.5rem 1rem',
+                      color: 'white',
+                      fontSize: '0.8rem',
+                      fontWeight: '500',
+                      cursor: isLoading ? 'not-allowed' : 'pointer',
+                      transition: 'all 0.2s ease'
+                    }}
+                    onMouseEnter={(e) => {
+                      if (!isLoading) {
+                        e.currentTarget.style.background = 'rgba(255, 255, 255, 0.3)';
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      if (!isLoading) {
+                        e.currentTarget.style.background = 'rgba(255, 255, 255, 0.2)';
+                      }
+                    }}
+                  >
+                    Checkout ${getRestaurantTotal(parseInt(restaurantId)).toFixed(2)}
+                  </button>
                 </div>
               </div>
 
@@ -355,47 +589,69 @@ export default function CartPage() {
                     alignItems: 'center',
                     justifyContent: 'space-between',
                     padding: '1rem',
-                    borderBottom: index < group.items.length - 1 ? '1px solid #f1f5f9' : 'none'
+                    borderBottom: index < group.items.length - 1 ? '1px solid #f1f5f9' : 'none',
+                    background: selectedItems.has(`${item.id}-${item.restaurantId}`) ? '#f0f9ff' : 'transparent',
+                    transition: 'background-color 0.2s ease'
                   }}>
-                    <div style={{ flex: 1 }}>
-                      <h4 style={{
-                        fontSize: '1rem',
-                        fontWeight: '600',
-                        color: '#333',
-                        margin: 0,
-                        marginBottom: '0.25rem'
-                      }}>
-                        {item.name}
-                      </h4>
-                      <p style={{
-                        fontSize: '0.85rem',
-                        color: '#666',
-                        margin: 0,
-                        marginBottom: '0.5rem'
-                      }}>
-                        {item.description}
-                      </p>
-                      <div style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '0.5rem'
-                      }}>
-                        <span style={{
+                    {/* Item Checkbox */}
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '1rem',
+                      flex: 1
+                    }}>
+                      <input
+                        type="checkbox"
+                        id={`item-${item.id}-${item.restaurantId}`}
+                        checked={selectedItems.has(`${item.id}-${item.restaurantId}`)}
+                        onChange={() => handleItemSelect(`${item.id}-${item.restaurantId}`)}
+                        style={{
+                          width: '1.2rem',
+                          height: '1.2rem',
+                          cursor: 'pointer'
+                        }}
+                      />
+                      
+                      <div style={{ flex: 1 }}>
+                        <h4 style={{
                           fontSize: '1rem',
                           fontWeight: '600',
-                          color: '#ff6b6b'
+                          color: '#333',
+                          margin: 0,
+                          marginBottom: '0.25rem'
                         }}>
-                          ${item.price}
-                        </span>
-                        <span style={{
-                          fontSize: '0.8rem',
-                          color: item.isVeg ? '#10b981' : '#ef4444',
-                          background: item.isVeg ? '#dcfce7' : '#fee2e2',
-                          padding: '0.2rem 0.5rem',
-                          borderRadius: '6px'
+                          {item.name}
+                        </h4>
+                        <p style={{
+                          fontSize: '0.85rem',
+                          color: '#666',
+                          margin: 0,
+                          marginBottom: '0.5rem'
                         }}>
-                          {item.isVeg ? '🟢 Veg' : '🔴 Non-Veg'}
-                        </span>
+                          {item.description}
+                        </p>
+                        <div style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '0.5rem'
+                        }}>
+                          <span style={{
+                            fontSize: '1rem',
+                            fontWeight: '600',
+                            color: '#ff6b6b'
+                          }}>
+                            ${item.price} × {item.quantity} = ${(item.price * item.quantity).toFixed(2)}
+                          </span>
+                          <span style={{
+                            fontSize: '0.8rem',
+                            color: item.isVeg ? '#10b981' : '#ef4444',
+                            background: item.isVeg ? '#dcfce7' : '#fee2e2',
+                            padding: '0.2rem 0.5rem',
+                            borderRadius: '6px'
+                          }}>
+                            {item.isVeg ? '🟢 Veg' : '🔴 Non-Veg'}
+                          </span>
+                        </div>
                       </div>
                     </div>
 
@@ -523,7 +779,7 @@ export default function CartPage() {
               marginBottom: '0.5rem'
             }}>
               <span style={{ color: '#666' }}>Tax (8%)</span>
-              <span style={{ fontWeight: '600' }}>${tax.toFixed(2)}</span>
+              <span style={{ fontWeight: '600' }}>${(subtotal * taxRate).toFixed(2)}</span>
             </div>
           </div>
 
@@ -536,12 +792,79 @@ export default function CartPage() {
             marginBottom: '2rem'
           }}>
             <span>Total</span>
-            <span>${total.toFixed(2)}</span>
+            <span>${(subtotal + deliveryFee + (subtotal * taxRate)).toFixed(2)}</span>
           </div>
 
-          {/* Checkout Button */}
+          {/* Checkout Buttons */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginBottom: '1rem' }}>
+            {/* Checkout Selected Button */}
+            {getSelectedCount() > 0 && getSelectedCount() < getTotalItems() && (
+              <button
+                onClick={handleCheckoutSelected}
+                disabled={isLoading}
+                style={{
+                  width: '100%',
+                  background: isLoading ? '#ccc' : 'linear-gradient(135deg, #0369a1, #0284c7)',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '12px',
+                  padding: '1rem',
+                  fontSize: '1rem',
+                  fontWeight: '600',
+                  cursor: isLoading ? 'not-allowed' : 'pointer',
+                  transition: 'all 0.2s ease'
+                }}
+                onMouseEnter={(e) => {
+                  if (!isLoading) {
+                    e.currentTarget.style.background = 'linear-gradient(135deg, #0284c7, #0369a1)';
+                    e.currentTarget.style.transform = 'translateY(-2px)';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (!isLoading) {
+                    e.currentTarget.style.background = 'linear-gradient(135deg, #0369a1, #0284c7)';
+                    e.currentTarget.style.transform = 'translateY(0)';
+                  }
+                }}
+              >
+                {isLoading ? 'Processing...' : `Checkout Selected (${getSelectedCount()}) • $${selectedTotal.toFixed(2)}`}
+              </button>
+            )}
+
+            {/* Checkout All Button */}
+            <button
+              onClick={handleCheckoutAll}
+              disabled={isLoading}
+              style={{
+                width: '100%',
+                background: isLoading ? '#ccc' : 'linear-gradient(135deg, #ff6b6b, #ee5a24)',
+                color: 'white',
+                border: 'none',
+                borderRadius: '12px',
+                padding: '1rem',
+                fontSize: '1rem',
+                fontWeight: '600',
+                cursor: isLoading ? 'not-allowed' : 'pointer',
+                transition: 'all 0.2s ease'
+              }}
+              onMouseEnter={(e) => {
+                if (!isLoading) {
+                  e.currentTarget.style.background = 'linear-gradient(135deg, #ee5a24, #dc2626)';
+                  e.currentTarget.style.transform = 'translateY(-2px)';
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (!isLoading) {
+                  e.currentTarget.style.background = 'linear-gradient(135deg, #ff6b6b, #ee5a24)';
+                  e.currentTarget.style.transform = 'translateY(0)';
+                }
+              }}
+            >
+              {isLoading ? 'Processing...' : `Checkout All (${getTotalItems()}) • $${(subtotal + deliveryFee + (subtotal * taxRate)).toFixed(2)}`}
+            </button>
+          </div>
           <button
-            onClick={handleCheckout}
+            onClick={handleCheckoutAll}
             disabled={isLoading}
             style={{
               width: '100%',
@@ -569,7 +892,7 @@ export default function CartPage() {
               }
             }}
           >
-            {isLoading ? 'Processing...' : `Proceed to Checkout • $${total.toFixed(2)}`}
+            {isLoading ? 'Processing...' : `Proceed to Checkout • $${(subtotal + deliveryFee + (subtotal * taxRate)).toFixed(2)}`}
           </button>
 
           {/* Estimated Delivery */}
