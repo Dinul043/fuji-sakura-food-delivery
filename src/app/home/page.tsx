@@ -56,27 +56,27 @@ export default function HomePage() {
         let result = 0;
         switch (sortBy) {
           case 'rating':
-            result = b.rating - a.rating;
+            result = b.rating - a.rating; // High to low by default
             break;
           case 'distance':
-            result = a.deliveryFee - b.deliveryFee; // Using delivery fee as proxy for distance
+            result = a.deliveryFee - b.deliveryFee; // Low to high by default (closer = cheaper delivery)
             break;
           case 'time':
-            result = parseInt(a.deliveryTime) - parseInt(b.deliveryTime);
+            result = parseInt(a.deliveryTime) - parseInt(b.deliveryTime); // Low to high by default (faster first)
             break;
           case 'price':
-            result = b.deliveryFee - a.deliveryFee;
+            result = a.deliveryFee - b.deliveryFee; // Low to high by default (cheaper first)
             break;
           default:
             return 0;
         }
-        // Reverse if low to high is selected
+        // Reverse if low to high is selected for rating, or high to low for others
         return sortOrder === 'low' ? -result : result;
       });
     }
 
     setFilteredRestaurants(filtered);
-  }, [searchQuery, selectedCategory, sortBy]);
+  }, [searchQuery, selectedCategory, sortBy, sortOrder]);
 
   const handleLogout = () => {
     localStorage.removeItem('userName');
@@ -184,11 +184,6 @@ export default function HomePage() {
       // New sort type, start with high
       setSortBy(sortType);
       setSortOrder('high');
-    }
-    
-    // If clicking same type when already selected, don't clear it
-    if (sortType !== sortBy) {
-      setSortBy(sortType);
     }
     
     // Force scroll after state update
@@ -442,7 +437,9 @@ export default function HomePage() {
 
         {/* Cart & Profile */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <button style={{
+          <button 
+          onClick={() => router.push('/cart')}
+          style={{
             position: 'relative',
             padding: '0.75rem',
             background: 'rgba(255, 255, 255, 0.15)',

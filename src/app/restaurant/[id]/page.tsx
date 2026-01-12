@@ -22,7 +22,7 @@ export default function RestaurantPage() {
   const [restaurant, setRestaurant] = useState<Restaurant | null>(null);
   const [selectedCategory, setSelectedCategory] = useState('recommended');
   const [isCartOpen, setIsCartOpen] = useState(false);
-  const { cartItems, addToCart, removeFromCart, updateQuantity, getTotalAmount, getTotalItems, getCartItemsByRestaurant } = useCart();
+  const { cart, addToCart, removeFromCart, updateQuantity, getTotalPrice, getTotalItems, getCartItemsByRestaurant } = useCart();
 
   // Sample menu data - in real app this would come from API
   const menuItems: MenuItem[] = [
@@ -610,7 +610,7 @@ export default function RestaurantPage() {
                         gap: '0.5rem'
                       }}>
                         <button
-                          onClick={() => updateQuantity(item.id, item.quantity - 1)}
+                          onClick={() => updateQuantity(item.id, item.restaurantId, item.quantity - 1)}
                           style={{
                             width: '24px',
                             height: '24px',
@@ -636,7 +636,7 @@ export default function RestaurantPage() {
                           {item.quantity}
                         </span>
                         <button
-                          onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                          onClick={() => updateQuantity(item.id, item.restaurantId, item.quantity + 1)}
                           style={{
                             width: '24px',
                             height: '24px',

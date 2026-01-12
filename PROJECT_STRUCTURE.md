@@ -107,7 +107,16 @@ food-delivery-ui/
 - **Restaurant-Specific View**: Cart shows only current restaurant's items
 - **Smooth Animations**: Card hover effects and button interactions
 
-### 6. Global Cart System - COMPLETE STATE MANAGEMENT
+### 6. Cart Screen (`/cart`) - COMPLETE CHECKOUT EXPERIENCE
+- **Professional Layout**: Swiggy-style two-panel design (items left, summary right)
+- **Multi-Restaurant Support**: Groups items by restaurant with visual separation
+- **Quantity Controls**: Add, remove, update quantities with smooth animations
+- **Price Breakdown**: Subtotal, delivery fee, tax calculation, and total
+- **Order Summary**: Sticky sidebar with checkout button and delivery estimate
+- **Empty State**: Beautiful empty cart with call-to-action to browse restaurants
+- **Address Display**: Shows delivery address with location icon
+- **Real-time Updates**: All prices and totals update instantly
+- **Premium UI**: Glass-morphism effects, gradient backgrounds, smooth transitions
 - **CartContext**: Global state management with React Context
 - **localStorage Persistence**: Cart survives page refreshes and browser sessions
 - **Multi-Restaurant Support**: Track items from different restaurants

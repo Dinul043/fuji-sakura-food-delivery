@@ -17,13 +17,13 @@ export interface CartItem {
 }
 
 interface CartContextType {
-  cartItems: CartItem[];
+  cart: CartItem[];
   addToCart: (item: Omit<CartItem, 'quantity'>) => void;
-  removeFromCart: (itemId: number) => void;
-  updateQuantity: (itemId: number, newQuantity: number) => void;
+  removeFromCart: (itemId: number, restaurantId: number) => void;
+  updateQuantity: (itemId: number, restaurantId: number, newQuantity: number) => void;
   clearCart: () => void;
   getTotalItems: () => number;
-  getTotalAmount: () => number;
+  getTotalPrice: () => number;
   getCartItemsByRestaurant: (restaurantId: number) => CartItem[];
 }
 
@@ -75,17 +75,19 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
   };
 
-  const removeFromCart = (itemId: number) => {
-    setCartItems(prev => prev.filter(item => item.id !== itemId));
+  const removeFromCart = (itemId: number, restaurantId: number) => {
+    setCartItems(prev => prev.filter(item => !(item.id === itemId && item.restaurantId === restaurantId)));
   };
 
-  const updateQuantity = (itemId: number, newQuantity: number) => {
+  const updateQuantity = (itemId: number, restaurantId: number, newQuantity: number) => {
     if (newQuantity === 0) {
-      removeFromCart(itemId);
+      removeFromCart(itemId, restaurantId);
     } else {
       setCartItems(prev =>
         prev.map(item =>
-          item.id === itemId ? { ...item, quantity: newQuantity } : item
+          item.id === itemId && item.restaurantId === restaurantId 
+            ? { ...item, quantity: newQuantity } 
+            : item
         )
       );
     }
@@ -99,7 +101,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return cartItems.reduce((total, item) => total + item.quantity, 0);
   };
 
-  const getTotalAmount = () => {
+  const getTotalPrice = () => {
     return cartItems.reduce((total, item) => total + (item.price * item.quantity), 0);
   };
 
@@ -109,13 +111,13 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   return (
     <CartContext.Provider value={{
-      cartItems,
+      cart: cartItems,
       addToCart,
       removeFromCart,
       updateQuantity,
       clearCart,
       getTotalItems,
-      getTotalAmount,
+      getTotalPrice,
       getCartItemsByRestaurant
     }}>
       {children}

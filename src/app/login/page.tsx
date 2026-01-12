@@ -22,23 +22,63 @@ export default function LoginPage() {
   const router = useRouter();
 
   const validateEmail = (email: string) => {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return emailRegex.test(email);
+    // Must contain @gmail.com and have at least one character before @
+    if (!email.includes('@gmail.com')) return false;
+    const beforeAt = email.split('@gmail.com')[0];
+    return beforeAt.length > 0 && email.endsWith('@gmail.com');
   };
 
   const validatePhone = (phone: string) => {
-    const phoneRegex = /^[0-9]{10}$/;
-    return phoneRegex.test(phone.replace(/\D/g, ''));
+    // Remove all non-digits and check if exactly 10 digits
+    const cleanPhone = phone.replace(/\D/g, '');
+    return cleanPhone.length === 10;
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
     
-    // Clear error when user starts typing
+    // For phone input, only allow numbers
+    if (name === 'phone') {
+      const numbersOnly = value.replace(/\D/g, '');
+      setFormData(prev => ({ ...prev, [name]: numbersOnly }));
+    } else {
+      setFormData(prev => ({ ...prev, [name]: value }));
+    }
+    
+    // Clear error immediately when user starts typing
     if (errors[name as keyof typeof errors]) {
       setErrors(prev => ({ ...prev, [name]: '' }));
     }
+    
+    // Real-time validation feedback (optional - shows errors as they type)
+    // You can uncomment this if you want instant validation
+    /*
+    if (name === 'email' && value.length > 0) {
+      if (!validateEmail(value)) {
+        setErrors(prev => ({ ...prev, email: 'Email must end with @gmail.com' }));
+      }
+    }
+    if (name === 'phone' && value.length > 0) {
+      if (!validatePhone(value)) {
+        setErrors(prev => ({ ...prev, phone: 'Please enter exactly 10 digits' }));
+      }
+    }
+    */
+  };
+
+  // Clear form data when switching between login/signup or phone/email
+  const handleLoginToggle = (loginState: boolean) => {
+    setIsLogin(loginState);
+    // Clear all form data and errors
+    setFormData({ phone: '', email: '', password: '' });
+    setErrors({ phone: '', email: '', password: '' });
+  };
+
+  const handlePhoneToggle = (phoneState: boolean) => {
+    setIsPhoneLogin(phoneState);
+    // Clear all form data and errors
+    setFormData({ phone: '', email: '', password: '' });
+    setErrors({ phone: '', email: '', password: '' });
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -47,20 +87,20 @@ export default function LoginPage() {
     const newErrors = { phone: '', email: '', password: '' };
     
     if (isPhoneLogin) {
-      if (!formData.phone) {
+      if (!formData.phone.trim()) {
         newErrors.phone = 'Phone number is required';
       } else if (!validatePhone(formData.phone)) {
-        newErrors.phone = 'Please enter a valid 10-digit phone number';
+        newErrors.phone = 'Please enter exactly 10 digits';
       }
     } else {
-      if (!formData.email) {
+      if (!formData.email.trim()) {
         newErrors.email = 'Email is required';
       } else if (!validateEmail(formData.email)) {
-        newErrors.email = 'Please enter a valid email address';
+        newErrors.email = 'Email must end with @gmail.com (e.g., user@gmail.com)';
       }
     }
     
-    if (!formData.password) {
+    if (!formData.password.trim()) {
       newErrors.password = 'Password is required';
     } else if (formData.password.length < 6) {
       newErrors.password = 'Password must be at least 6 characters';
@@ -177,7 +217,7 @@ export default function LoginPage() {
               marginBottom: '1.5rem'
             }}>
               <Button
-                onClick={() => setIsLogin(true)}
+                onClick={() => handleLoginToggle(true)}
                 variant="ghost"
                 style={{
                   flex: 1,
@@ -195,7 +235,7 @@ export default function LoginPage() {
                 Sign In
               </Button>
               <Button
-                onClick={() => setIsLogin(false)}
+                onClick={() => handleLoginToggle(false)}
                 variant="ghost"
                 style={{
                   flex: 1,
@@ -223,7 +263,7 @@ export default function LoginPage() {
               marginBottom: '1.5rem'
             }}>
               <Button
-                onClick={() => setIsPhoneLogin(false)}
+                onClick={() => handlePhoneToggle(false)}
                 variant="ghost"
                 style={{
                   flex: 1,
@@ -242,7 +282,7 @@ export default function LoginPage() {
                 📧 Email
               </Button>
               <Button
-                onClick={() => setIsPhoneLogin(true)}
+                onClick={() => handlePhoneToggle(true)}
                 variant="ghost"
                 style={{
                   flex: 1,
@@ -262,7 +302,7 @@ export default function LoginPage() {
               </Button>
             </div>
 
-            <form onSubmit={handleSubmit}>
+            <form onSubmit={handleSubmit} noValidate>
               {/* Email/Phone Input - Keep Original Styling */}
               <div style={{ marginBottom: '1.5rem' }}>
                 <label style={{
@@ -275,10 +315,12 @@ export default function LoginPage() {
                   {isPhoneLogin ? 'Phone Number' : 'Email Address'}
                 </label>
                 <input
-                  type={isPhoneLogin ? 'tel' : 'email'}
+                  type={isPhoneLogin ? 'tel' : 'text'}
                   name={isPhoneLogin ? 'phone' : 'email'}
                   value={isPhoneLogin ? formData.phone : formData.email}
                   onChange={handleInputChange}
+                  maxLength={isPhoneLogin ? 10 : undefined}
+                  autoComplete="off"
                   style={{
                     width: '100%',
                     padding: '0.75rem',
@@ -289,7 +331,7 @@ export default function LoginPage() {
                     outline: 'none',
                     boxSizing: 'border-box'
                   }}
-                  placeholder={isPhoneLogin ? 'Enter your phone number' : 'Enter your email'}
+                  placeholder={isPhoneLogin ? 'Enter 10-digit phone number' : 'Enter email ending with @gmail.com'}
                   onFocus={(e) => {
                     if (!(isPhoneLogin ? errors.phone : errors.email)) {
                       e.target.style.borderColor = '#ff6b6b';
