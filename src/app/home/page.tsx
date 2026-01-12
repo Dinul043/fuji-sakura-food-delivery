@@ -11,6 +11,7 @@ export default function HomePage() {
   const [selectedCategory, setSelectedCategory] = useState('');
   const [filteredRestaurants, setFilteredRestaurants] = useState<Restaurant[]>(restaurants);
   const [sortBy, setSortBy] = useState('');
+  const [sortOrder, setSortOrder] = useState<'high' | 'low'>('high'); // Track sort order
   const [searchTimeout, setSearchTimeout] = useState<NodeJS.Timeout | null>(null);
   const [hoveredCard, setHoveredCard] = useState<number | null>(null);
   const [clickedCard, setClickedCard] = useState<number | null>(null);
@@ -52,18 +53,25 @@ export default function HomePage() {
     // Sort restaurants
     if (sortBy) {
       filtered = [...filtered].sort((a, b) => {
+        let result = 0;
         switch (sortBy) {
           case 'rating':
-            return b.rating - a.rating;
+            result = b.rating - a.rating;
+            break;
           case 'distance':
-            return a.deliveryFee - b.deliveryFee; // Using delivery fee as proxy for distance
+            result = a.deliveryFee - b.deliveryFee; // Using delivery fee as proxy for distance
+            break;
           case 'time':
-            return parseInt(a.deliveryTime) - parseInt(b.deliveryTime);
+            result = parseInt(a.deliveryTime) - parseInt(b.deliveryTime);
+            break;
           case 'price':
-            return a.deliveryFee - b.deliveryFee;
+            result = b.deliveryFee - a.deliveryFee;
+            break;
           default:
             return 0;
         }
+        // Reverse if low to high is selected
+        return sortOrder === 'low' ? -result : result;
       });
     }
 
@@ -129,47 +137,12 @@ export default function HomePage() {
       setSearchSuggestions([]);
     }
 
-    // Clear existing timeout
+    // Clear existing timeout - REMOVED AUTO-SCROLL ON TYPING
     if (searchTimeout) {
       clearTimeout(searchTimeout);
     }
 
-    // Set new timeout for auto-scroll
-    if (value.trim()) {
-      const timeout = setTimeout(() => {
-        if (restaurantsRef.current) {
-          const targetElement = restaurantsRef.current;
-          const targetPosition = targetElement.offsetTop - 100; // 100px offset from top
-          const startPosition = window.pageYOffset;
-          const distance = targetPosition - startPosition;
-          const duration = 800; // Fast 800ms duration
-          let start: number | null = null;
-
-          // Custom easing function for snappy feel
-          const easeOutCubic = (t: number): number => {
-            return 1 - Math.pow(1 - t, 3);
-          };
-
-          const animation = (currentTime: number) => {
-            if (start === null) start = currentTime;
-            const timeElapsed = currentTime - start;
-            const progress = Math.min(timeElapsed / duration, 1);
-            
-            const easedProgress = easeOutCubic(progress);
-            const currentPosition = startPosition + (distance * easedProgress);
-            
-            window.scrollTo(0, currentPosition);
-            
-            if (progress < 1) {
-              requestAnimationFrame(animation);
-            }
-          };
-
-          requestAnimationFrame(animation);
-        }
-      }, 3000);
-      setSearchTimeout(timeout);
-    }
+    // NO AUTO-SCROLL - Only scroll when Enter is pressed or suggestion is clicked
   };
 
   const handleSearchKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -178,76 +151,84 @@ export default function HomePage() {
       if (searchTimeout) {
         clearTimeout(searchTimeout);
       }
-      // Smooth scroll like category buttons
-      if (restaurantsRef.current) {
-        const targetElement = restaurantsRef.current;
-        const targetPosition = targetElement.offsetTop - 100; // 100px offset from top
-        const startPosition = window.pageYOffset;
-        const distance = targetPosition - startPosition;
-        const duration = 800; // Fast 800ms duration
-        let start: number | null = null;
-
-        // Custom easing function for snappy feel
-        const easeOutCubic = (t: number): number => {
-          return 1 - Math.pow(1 - t, 3);
-        };
-
-        const animation = (currentTime: number) => {
-          if (start === null) start = currentTime;
-          const timeElapsed = currentTime - start;
-          const progress = Math.min(timeElapsed / duration, 1);
-          
-          const easedProgress = easeOutCubic(progress);
-          const currentPosition = startPosition + (distance * easedProgress);
-          
-          window.scrollTo(0, currentPosition);
-          
-          if (progress < 1) {
-            requestAnimationFrame(animation);
-          }
-        };
-
-        requestAnimationFrame(animation);
-      }
+      // Force scroll after clearing suggestions
+      setTimeout(() => {
+        scrollToRestaurants();
+      }, 100);
     }
   };
 
   const handleSuggestionClick = (suggestion: string) => {
-    setSearchQuery(suggestion);
+    // Immediately hide suggestions to prevent multiple clicks
     setShowSuggestions(false);
-    // Smooth scroll like category buttons
+    
+    // Update search query
+    setSearchQuery(suggestion);
+    
+    // Clear any existing timeout
+    if (searchTimeout) {
+      clearTimeout(searchTimeout);
+    }
+    
+    // Force scroll after state updates with longer delay
     setTimeout(() => {
-      if (restaurantsRef.current) {
-        const targetElement = restaurantsRef.current;
-        const targetPosition = targetElement.offsetTop - 100; // 100px offset from top
-        const startPosition = window.pageYOffset;
-        const distance = targetPosition - startPosition;
-        const duration = 800; // Fast 800ms duration
-        let start: number | null = null;
+      scrollToRestaurants();
+    }, 150);
+  };
 
-        // Custom easing function for snappy feel
-        const easeOutCubic = (t: number): number => {
-          return 1 - Math.pow(1 - t, 3);
-        };
+  const handleSortClick = (sortType: string) => {
+    if (sortType === sortBy) {
+      // Toggle between high and low
+      setSortOrder(sortOrder === 'high' ? 'low' : 'high');
+    } else {
+      // New sort type, start with high
+      setSortBy(sortType);
+      setSortOrder('high');
+    }
+    
+    // If clicking same type when already selected, don't clear it
+    if (sortType !== sortBy) {
+      setSortBy(sortType);
+    }
+    
+    // Force scroll after state update
+    setTimeout(() => {
+      scrollToRestaurants();
+    }, 100);
+  };
 
-        const animation = (currentTime: number) => {
-          if (start === null) start = currentTime;
-          const timeElapsed = currentTime - start;
-          const progress = Math.min(timeElapsed / duration, 1);
-          
-          const easedProgress = easeOutCubic(progress);
-          const currentPosition = startPosition + (distance * easedProgress);
-          
-          window.scrollTo(0, currentPosition);
-          
-          if (progress < 1) {
-            requestAnimationFrame(animation);
-          }
-        };
+  // Separate scroll function for reusability - SMOOTH ANIMATION VERSION
+  const scrollToRestaurants = () => {
+    if (restaurantsRef.current) {
+      const targetElement = restaurantsRef.current;
+      const targetPosition = targetElement.offsetTop - 100;
+      const startPosition = window.pageYOffset;
+      const distance = targetPosition - startPosition;
+      const duration = 800; // Smooth 800ms duration
+      let start: number | null = null;
 
-        requestAnimationFrame(animation);
-      }
-    }, 200);
+      // Custom easing function for smooth feel
+      const easeOutCubic = (t: number): number => {
+        return 1 - Math.pow(1 - t, 3);
+      };
+
+      const animation = (currentTime: number) => {
+        if (start === null) start = currentTime;
+        const timeElapsed = currentTime - start;
+        const progress = Math.min(timeElapsed / duration, 1);
+        
+        const easedProgress = easeOutCubic(progress);
+        const currentPosition = startPosition + (distance * easedProgress);
+        
+        window.scrollTo(0, currentPosition);
+        
+        if (progress < 1) {
+          requestAnimationFrame(animation);
+        }
+      };
+
+      requestAnimationFrame(animation);
+    }
   };
 
   const handleCardClick = (restaurantId: number) => {
@@ -280,17 +261,17 @@ export default function HomePage() {
       minHeight: '100vh',
       background: 'linear-gradient(135deg, #ff6b6b 0%, #ee5a24 25%, #ff9ff3 50%, #54a0ff 75%, #5f27cd 100%)',
       backgroundSize: '400% 400%',
-      animation: 'gradientShift 6s ease infinite',
+      animation: 'gradientShift 15s ease infinite',
       position: 'relative',
       overflow: 'hidden'
     }}>
-      {/* Floating Food Emojis - Same as splash/login */}
-      <div style={{ position: 'absolute', top: '10%', left: '10%', fontSize: '2rem', animation: 'float 3s ease-in-out infinite' }}>🍜</div>
-      <div style={{ position: 'absolute', top: '20%', right: '15%', fontSize: '1.5rem', animation: 'float 2.5s ease-in-out infinite 0.5s' }}>🍱</div>
-      <div style={{ position: 'absolute', bottom: '20%', left: '20%', fontSize: '1.8rem', animation: 'float 3.5s ease-in-out infinite 1s' }}>🍣</div>
-      <div style={{ position: 'absolute', bottom: '30%', right: '10%', fontSize: '2.2rem', animation: 'float 2.8s ease-in-out infinite 1.5s' }}>🍙</div>
-      <div style={{ position: 'absolute', top: '50%', left: '5%', fontSize: '1.6rem', animation: 'float 3.2s ease-in-out infinite 2s' }}>🥢</div>
-      <div style={{ position: 'absolute', top: '60%', right: '5%', fontSize: '1.9rem', animation: 'float 2.7s ease-in-out infinite 0.8s' }}>🍵</div>
+      {/* Floating Food Emojis - Same as splash/login but slower and more subtle */}
+      <div style={{ position: 'absolute', top: '10%', left: '10%', fontSize: '2rem', animation: 'float 6s ease-in-out infinite', opacity: 0.6 }}>🍜</div>
+      <div style={{ position: 'absolute', top: '20%', right: '15%', fontSize: '1.5rem', animation: 'float 5s ease-in-out infinite 1s', opacity: 0.5 }}>🍱</div>
+      <div style={{ position: 'absolute', bottom: '20%', left: '20%', fontSize: '1.8rem', animation: 'float 7s ease-in-out infinite 2s', opacity: 0.6 }}>🍣</div>
+      <div style={{ position: 'absolute', bottom: '30%', right: '10%', fontSize: '2.2rem', animation: 'float 5.5s ease-in-out infinite 3s', opacity: 0.5 }}>🍙</div>
+      <div style={{ position: 'absolute', top: '50%', left: '5%', fontSize: '1.6rem', animation: 'float 6.5s ease-in-out infinite 4s', opacity: 0.4 }}>🥢</div>
+      <div style={{ position: 'absolute', top: '60%', right: '5%', fontSize: '1.9rem', animation: 'float 5.2s ease-in-out infinite 1.5s', opacity: 0.5 }}>🍵</div>
 
       {/* HEADER - MATCHING SPLASH/LOGIN THEME WITH CARD-LIKE ENDING */}
       <header style={{
@@ -361,8 +342,8 @@ export default function HomePage() {
                 e.target.style.boxShadow = '0 0 0 3px rgba(255, 255, 255, 0.1)';
               }}
               onBlur={(e) => {
-                // Delay hiding to allow clicking suggestions
-                setTimeout(() => setShowSuggestions(false), 200);
+                // Delay hiding to allow clicking suggestions - INCREASED DELAY
+                setTimeout(() => setShowSuggestions(false), 300);
                 // Style changes
                 e.target.style.background = 'rgba(255, 255, 255, 0.9)';
                 e.target.style.borderColor = 'rgba(255, 255, 255, 0.3)';
@@ -423,6 +404,11 @@ export default function HomePage() {
                 <button
                   key={index}
                   onClick={() => handleSuggestionClick(suggestion)}
+                  onMouseDown={(e) => {
+                    // Prevent blur from happening before click
+                    e.preventDefault();
+                    handleSuggestionClick(suggestion);
+                  }}
                   style={{
                     width: '100%',
                     padding: '0.75rem 1rem',
@@ -522,13 +508,21 @@ export default function HomePage() {
                 fontSize: '0.8rem',
                 fontWeight: '500',
                 cursor: 'pointer',
-                transition: 'all 0.2s ease'
+                transition: 'all 0.3s ease',
+                transform: 'scale(1)',
+                boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)'
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.background = 'rgba(255, 255, 255, 0.3)';
+                e.currentTarget.style.background = 'linear-gradient(135deg, #ff6b6b, #ee5a24)';
+                e.currentTarget.style.transform = 'scale(1.1)';
+                e.currentTarget.style.boxShadow = '0 4px 15px rgba(255, 107, 107, 0.4)';
+                e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.6)';
               }}
               onMouseLeave={(e) => {
                 e.currentTarget.style.background = 'rgba(255, 255, 255, 0.2)';
+                e.currentTarget.style.transform = 'scale(1)';
+                e.currentTarget.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.1)';
+                e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.3)';
               }}
             >
               Logout
@@ -715,7 +709,7 @@ export default function HomePage() {
       {/* SECTION 3: POPULAR RESTAURANTS TITLE */}
       <section style={{
         paddingTop: '4rem',
-        paddingBottom: '2rem',
+        paddingBottom: '1rem',
         position: 'relative',
         zIndex: 5
       }}>
@@ -742,6 +736,179 @@ export default function HomePage() {
           }}>
             {filteredRestaurants.length} restaurants found
           </p>
+        </div>
+      </section>
+
+      {/* SECTION 3.5: SORT BY FUNCTIONALITY */}
+      <section style={{
+        paddingTop: '2rem',
+        paddingBottom: '2rem',
+        position: 'relative',
+        zIndex: 5
+      }}>
+        <div style={{
+          maxWidth: '1200px',
+          margin: '0 auto',
+          padding: '0 2rem',
+          display: 'flex',
+          justifyContent: 'center'
+        }}>
+          <div style={{
+            background: 'rgba(255, 255, 255, 0.95)',
+            borderRadius: '20px',
+            padding: '1.5rem 2rem',
+            border: '1px solid rgba(255, 255, 255, 0.3)',
+            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '1.5rem',
+            flexWrap: 'wrap'
+          }}>
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.5rem',
+              color: '#333',
+              fontWeight: '600',
+              fontSize: '1rem'
+            }}>
+              <span style={{ fontSize: '1.2rem' }}>🔄</span>
+              <span>Sort by:</span>
+            </div>
+            
+            <div style={{
+              display: 'flex',
+              gap: '0.75rem',
+              flexWrap: 'wrap'
+            }}>
+              {[
+                { id: 'rating', label: 'Rating', icon: '⭐' },
+                { id: 'distance', label: 'Distance', icon: '📍' },
+                { id: 'time', label: 'Delivery Time', icon: '⏱️' },
+                { id: 'price', label: 'Delivery Fee', icon: '💰' }
+              ].map((sort) => (
+                <button
+                  key={sort.id}
+                  onClick={() => handleSortClick(sort.id)}
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    gap: '0.25rem',
+                    padding: '0.75rem 1rem',
+                    background: sortBy === sort.id 
+                      ? 'linear-gradient(135deg, #ff6b6b, #ee5a24)' 
+                      : 'rgba(255, 255, 255, 0.9)',
+                    border: sortBy === sort.id 
+                      ? '2px solid rgba(255, 107, 107, 0.5)' 
+                      : '2px solid rgba(0, 0, 0, 0.1)',
+                    borderRadius: '12px',
+                    cursor: 'pointer',
+                    transition: 'all 0.3s ease',
+                    transform: sortBy === sort.id ? 'scale(1.05)' : 'scale(1)',
+                    boxShadow: sortBy === sort.id 
+                      ? '0 6px 20px rgba(255, 107, 107, 0.3)' 
+                      : '0 2px 8px rgba(0, 0, 0, 0.1)',
+                    minWidth: '110px'
+                  }}
+                  onMouseEnter={(e) => {
+                    if (sortBy !== sort.id) {
+                      e.currentTarget.style.background = 'linear-gradient(135deg, #ff6b6b, #ee5a24)';
+                      e.currentTarget.style.transform = 'scale(1.05)';
+                      e.currentTarget.style.boxShadow = '0 6px 20px rgba(255, 107, 107, 0.3)';
+                      // Change text color to white on hover
+                      const textElements = e.currentTarget.querySelectorAll('span, div');
+                      textElements.forEach(el => {
+                        (el as HTMLElement).style.color = 'white';
+                      });
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (sortBy !== sort.id) {
+                      e.currentTarget.style.background = 'rgba(255, 255, 255, 0.9)';
+                      e.currentTarget.style.transform = 'scale(1)';
+                      e.currentTarget.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.1)';
+                      // Change text color back to dark
+                      const textElements = e.currentTarget.querySelectorAll('span, div');
+                      textElements.forEach(el => {
+                        (el as HTMLElement).style.color = '#333';
+                      });
+                    }
+                  }}
+                >
+                  <span style={{
+                    fontSize: '1.5rem',
+                    marginBottom: '0.25rem'
+                  }}>
+                    {sort.icon}
+                  </span>
+                  <div style={{
+                    fontWeight: '600',
+                    fontSize: '0.85rem',
+                    color: sortBy === sort.id ? 'white' : '#333',
+                    textAlign: 'center',
+                    lineHeight: '1.2'
+                  }}>
+                    {sort.label}
+                  </div>
+                  <div style={{
+                    fontSize: '0.7rem',
+                    color: sortBy === sort.id ? 'rgba(255, 255, 255, 0.9)' : '#666',
+                    textAlign: 'center',
+                    fontWeight: '500',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.25rem'
+                  }}>
+                    {sortBy === sort.id && (
+                      <span style={{ fontSize: '0.6rem' }}>
+                        {sortOrder === 'high' ? '↓' : '↑'}
+                      </span>
+                    )}
+                    <span>
+                      {sortBy === sort.id 
+                        ? (sortOrder === 'high' ? 'High → Low' : 'Low → High')
+                        : 'Click to sort'
+                      }
+                    </span>
+                  </div>
+                </button>
+              ))}
+            </div>
+            
+            {/* Clear Sort Button */}
+            {sortBy && (
+              <button
+                onClick={() => {
+                  setSortBy('');
+                  setSortOrder('high');
+                }}
+                style={{
+                  padding: '0.5rem 1rem',
+                  background: 'rgba(239, 68, 68, 0.1)',
+                  border: '1px solid rgba(239, 68, 68, 0.3)',
+                  borderRadius: '8px',
+                  color: '#dc2626',
+                  fontSize: '0.8rem',
+                  fontWeight: '500',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.25rem'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = 'rgba(239, 68, 68, 0.2)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = 'rgba(239, 68, 68, 0.1)';
+                }}
+              >
+                <span>✕</span>
+                <span>Clear Sort</span>
+              </button>
+            )}
+          </div>
         </div>
       </section>
 

@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { Button } from '@/components/ui/button';
 
 export default function LoginPage() {
   const [isLogin, setIsLogin] = useState(true);
@@ -90,16 +91,18 @@ export default function LoginPage() {
       MozOsxFontSmoothing: 'grayscale',
       background: 'linear-gradient(135deg, #ff6b6b 0%, #ee5a24 25%, #ff9ff3 50%, #54a0ff 75%, #5f27cd 100%)',
       backgroundSize: '400% 400%',
-      animation: 'gradientShift 6s ease infinite',
+      animation: 'gradientShift 15s ease infinite',
       minHeight: '100vh',
       position: 'relative',
       overflow: 'hidden'
     }}>
-      {/* Floating Food Emojis */}
-      <div style={{ position: 'absolute', top: '10%', left: '10%', fontSize: '2rem', animation: 'float 3s ease-in-out infinite' }}>🍜</div>
-      <div style={{ position: 'absolute', top: '20%', right: '15%', fontSize: '1.5rem', animation: 'float 2.5s ease-in-out infinite 0.5s' }}>🍱</div>
-      <div style={{ position: 'absolute', bottom: '20%', left: '20%', fontSize: '1.8rem', animation: 'float 3.5s ease-in-out infinite 1s' }}>🍣</div>
-      <div style={{ position: 'absolute', bottom: '30%', right: '10%', fontSize: '2.2rem', animation: 'float 2.8s ease-in-out infinite 1.5s' }}>🍙</div>
+      {/* Floating Food Emojis - Slower and More Subtle */}
+      <div style={{ position: 'absolute', top: '10%', left: '10%', fontSize: '2rem', animation: 'float 6s ease-in-out infinite', opacity: 0.7 }}>🍜</div>
+      <div style={{ position: 'absolute', top: '20%', right: '15%', fontSize: '1.5rem', animation: 'float 5s ease-in-out infinite 1s', opacity: 0.6 }}>🍱</div>
+      <div style={{ position: 'absolute', bottom: '20%', left: '20%', fontSize: '1.8rem', animation: 'float 7s ease-in-out infinite 2s', opacity: 0.7 }}>🍣</div>
+      <div style={{ position: 'absolute', bottom: '30%', right: '10%', fontSize: '2.2rem', animation: 'float 5.5s ease-in-out infinite 3s', opacity: 0.6 }}>🍙</div>
+      <div style={{ position: 'absolute', top: '50%', left: '5%', fontSize: '1.6rem', animation: 'float 6.5s ease-in-out infinite 4s', opacity: 0.5 }}>🥢</div>
+      <div style={{ position: 'absolute', top: '60%', right: '5%', fontSize: '1.9rem', animation: 'float 5.2s ease-in-out infinite 1.5s', opacity: 0.6 }}>🍵</div>
 
       <div style={{
         minHeight: '100vh',
@@ -165,7 +168,7 @@ export default function LoginPage() {
               </p>
             </div>
 
-            {/* Login/Signup Toggle */}
+            {/* Login/Signup Toggle - Using Shadcn Button */}
             <div style={{
               display: 'flex',
               backgroundColor: '#f5f5f5',
@@ -173,8 +176,9 @@ export default function LoginPage() {
               padding: '4px',
               marginBottom: '1.5rem'
             }}>
-              <button
+              <Button
                 onClick={() => setIsLogin(true)}
+                variant="ghost"
                 style={{
                   flex: 1,
                   padding: '0.75rem',
@@ -183,14 +187,16 @@ export default function LoginPage() {
                   fontWeight: '500',
                   cursor: 'pointer',
                   transition: 'all 0.2s ease',
-                  backgroundColor: isLogin ? '#667eea' : 'transparent',
-                  color: isLogin ? 'white' : '#666'
+                  backgroundColor: isLogin ? '#ff6b6b' : 'transparent',
+                  color: isLogin ? 'white' : '#666',
+                  height: 'auto'
                 }}
               >
                 Sign In
-              </button>
-              <button
+              </Button>
+              <Button
                 onClick={() => setIsLogin(false)}
+                variant="ghost"
                 style={{
                   flex: 1,
                   padding: '0.75rem',
@@ -199,15 +205,16 @@ export default function LoginPage() {
                   fontWeight: '500',
                   cursor: 'pointer',
                   transition: 'all 0.2s ease',
-                  backgroundColor: !isLogin ? '#667eea' : 'transparent',
-                  color: !isLogin ? 'white' : '#666'
+                  backgroundColor: !isLogin ? '#ff6b6b' : 'transparent',
+                  color: !isLogin ? 'white' : '#666',
+                  height: 'auto'
                 }}
               >
                 Sign Up
-              </button>
+              </Button>
             </div>
 
-            {/* Phone/Email Toggle */}
+            {/* Phone/Email Toggle - Using Shadcn Button */}
             <div style={{
               display: 'flex',
               backgroundColor: '#f5f5f5',
@@ -215,8 +222,9 @@ export default function LoginPage() {
               padding: '4px',
               marginBottom: '1.5rem'
             }}>
-              <button
+              <Button
                 onClick={() => setIsPhoneLogin(false)}
+                variant="ghost"
                 style={{
                   flex: 1,
                   padding: '0.5rem',
@@ -226,14 +234,16 @@ export default function LoginPage() {
                   fontWeight: '500',
                   cursor: 'pointer',
                   transition: 'all 0.2s ease',
-                  backgroundColor: !isPhoneLogin ? '#667eea' : 'transparent',
-                  color: !isPhoneLogin ? 'white' : '#666'
+                  backgroundColor: !isPhoneLogin ? '#ff6b6b' : 'transparent',
+                  color: !isPhoneLogin ? 'white' : '#666',
+                  height: 'auto'
                 }}
               >
                 📧 Email
-              </button>
-              <button
+              </Button>
+              <Button
                 onClick={() => setIsPhoneLogin(true)}
+                variant="ghost"
                 style={{
                   flex: 1,
                   padding: '0.5rem',
@@ -243,16 +253,17 @@ export default function LoginPage() {
                   fontWeight: '500',
                   cursor: 'pointer',
                   transition: 'all 0.2s ease',
-                  backgroundColor: isPhoneLogin ? '#667eea' : 'transparent',
-                  color: isPhoneLogin ? 'white' : '#666'
+                  backgroundColor: isPhoneLogin ? '#ff6b6b' : 'transparent',
+                  color: isPhoneLogin ? 'white' : '#666',
+                  height: 'auto'
                 }}
               >
                 📱 Phone
-              </button>
+              </Button>
             </div>
 
             <form onSubmit={handleSubmit}>
-              {/* Email/Phone Input */}
+              {/* Email/Phone Input - Keep Original Styling */}
               <div style={{ marginBottom: '1.5rem' }}>
                 <label style={{
                   display: 'block',
@@ -281,7 +292,7 @@ export default function LoginPage() {
                   placeholder={isPhoneLogin ? 'Enter your phone number' : 'Enter your email'}
                   onFocus={(e) => {
                     if (!(isPhoneLogin ? errors.phone : errors.email)) {
-                      e.target.style.borderColor = '#667eea';
+                      e.target.style.borderColor = '#ff6b6b';
                     }
                   }}
                   onBlur={(e) => {
@@ -301,7 +312,7 @@ export default function LoginPage() {
                 )}
               </div>
 
-              {/* Password Input */}
+              {/* Password Input - Keep Original Styling */}
               <div style={{ marginBottom: '1.5rem' }}>
                 <label style={{
                   display: 'block',
@@ -332,7 +343,7 @@ export default function LoginPage() {
                     placeholder="Enter your password"
                     onFocus={(e) => {
                       if (!errors.password) {
-                        e.target.style.borderColor = '#667eea';
+                        e.target.style.borderColor = '#ff6b6b';
                       }
                     }}
                     onBlur={(e) => {
@@ -375,31 +386,35 @@ export default function LoginPage() {
                   textAlign: 'right',
                   marginBottom: '1.5rem'
                 }}>
-                  <button
+                  <Button
                     type="button"
                     onClick={() => router.push('/forgot-password')}
+                    variant="ghost"
                     style={{
                       background: 'none',
                       border: 'none',
-                      color: '#667eea',
+                      color: '#ff6b6b',
                       fontSize: '0.9rem',
                       cursor: 'pointer',
-                      textDecoration: 'underline'
+                      textDecoration: 'underline',
+                      padding: '0',
+                      height: 'auto'
                     }}
                   >
                     Forgot Password?
-                  </button>
+                  </Button>
                 </div>
               )}
 
-              {/* Submit Button */}
-              <button
+              {/* Submit Button - Using Shadcn Button */}
+              <Button
                 type="submit"
                 disabled={isLoading}
+                variant="ghost"
                 style={{
                   width: '100%',
                   padding: '0.75rem',
-                  backgroundColor: isLoading ? '#ccc' : '#667eea',
+                  backgroundColor: isLoading ? '#ccc' : '#ff6b6b',
                   color: 'white',
                   border: 'none',
                   borderRadius: '8px',
@@ -407,26 +422,28 @@ export default function LoginPage() {
                   fontWeight: '600',
                   cursor: isLoading ? 'not-allowed' : 'pointer',
                   transition: 'background-color 0.2s ease',
-                  marginBottom: '1rem'
+                  marginBottom: '1rem',
+                  height: 'auto'
                 }}
                 onMouseEnter={(e) => {
                   if (!isLoading) {
-                    e.currentTarget.style.backgroundColor = '#5a67d8';
+                    e.currentTarget.style.backgroundColor = '#ee5a24';
                   }
                 }}
                 onMouseLeave={(e) => {
                   if (!isLoading) {
-                    e.currentTarget.style.backgroundColor = '#667eea';
+                    e.currentTarget.style.backgroundColor = '#ff6b6b';
                   }
                 }}
               >
                 {isLoading ? 'Please wait...' : (isLogin ? 'Sign In' : 'Create Account')}
-              </button>
+              </Button>
 
-              {/* Continue as Guest */}
-              <button
+              {/* Continue as Guest - Using Shadcn Button */}
+              <Button
                 type="button"
                 onClick={handleGuestLogin}
+                variant="ghost"
                 style={{
                   width: '100%',
                   padding: '0.75rem',
@@ -437,7 +454,8 @@ export default function LoginPage() {
                   fontSize: '1rem',
                   fontWeight: '500',
                   cursor: 'pointer',
-                  transition: 'all 0.2s ease'
+                  transition: 'all 0.2s ease',
+                  height: 'auto'
                 }}
                 onMouseEnter={(e) => {
                   e.currentTarget.style.backgroundColor = '#e1e5e9';
@@ -447,7 +465,7 @@ export default function LoginPage() {
                 }}
               >
                 Continue as Guest
-              </button>
+              </Button>
             </form>
           </div>
         </div>

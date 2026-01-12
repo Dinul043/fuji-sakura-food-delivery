@@ -21,7 +21,7 @@ food-delivery-ui/
 ├── 📄 tailwind.config.ts          # Tailwind CSS configuration
 ├── 📄 tsconfig.json               # TypeScript configuration
 ├── 📁 public/                     # Static assets (cleaned - no unused files)
-└── 📁 src/                        # Source code
+├── 📁 src/                        # Source code
     ├── 📁 app/                    # Next.js App Router
     │   ├── 📄 favicon.ico         # App favicon
     │   ├── 📄 globals.css         # Global styles & theme system
@@ -32,12 +32,17 @@ food-delivery-ui/
     │   ├── 📁 home/               # Home page route
     │   │   └── 📄 page.tsx        # Main home page with restaurant grid & global cart
     │   ├── 📁 login/              # Authentication route
-    │   │   └── 📄 page.tsx        # Login/signup page
+    │   │   └── 📄 page.tsx        # Login/signup page with Shadcn buttons
     │   └── 📁 restaurant/         # Restaurant detail routes
     │       └── 📁 [id]/           # Dynamic restaurant ID route
     │           └── 📄 page.tsx    # Restaurant detail page with menu & cart
     ├── 📁 components/             # Reusable React components
-    │   └── 📄 README.md           # Component organization guide
+    │   ├── 📄 README.md           # Component organization guide
+    │   └── 📁 ui/                 # Shadcn UI components
+    │       ├── 📄 button.tsx      # Universal Button component
+    │       ├── 📄 card.tsx        # Universal Card component
+    │       ├── 📄 input.tsx       # Universal Input component
+    │       └── 📄 label.tsx       # Universal Label component
     ├── 📁 contexts/               # React Context providers
     │   └── 📄 CartContext.tsx     # Global cart state management
     ├── 📁 data/                   # Mock data & API structures
@@ -45,7 +50,8 @@ food-delivery-ui/
     ├── 📁 hooks/                  # Custom React hooks
     │   └── 📄 README.md           # Hooks organization guide
     ├── 📁 lib/                    # Utility libraries
-    │   └── 📄 README.md           # Lib organization guide
+    │   ├── 📄 README.md           # Lib organization guide
+    │   └── 📄 utils.ts            # Shadcn utility functions (cn)
     ├── 📁 types/                  # TypeScript type definitions
     │   └── 📄 README.md           # Types organization guide
     └── 📁 utils/                  # Additional utilities
