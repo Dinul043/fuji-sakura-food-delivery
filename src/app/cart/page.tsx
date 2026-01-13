@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useCart } from '../../contexts/CartContext';
 import { restaurants } from '../../data/restaurants';
+import AuthPopup from '../../components/AuthPopup';
 
 export default function CartPage() {
   const router = useRouter();
@@ -13,6 +14,7 @@ export default function CartPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const [selectAll, setSelectAll] = useState(false);
+  const [showAuthPopup, setShowAuthPopup] = useState(false);
 
   useEffect(() => {
     const storedName = localStorage.getItem('userName') || 'Guest';
@@ -110,17 +112,24 @@ export default function CartPage() {
     setSelectAll(newSelected.size === cart.length);
   };
 
+  // Check if user is guest
+  const checkGuestAndProceed = (proceedFunction: () => void) => {
+    const isGuest = localStorage.getItem('isGuest') === 'true';
+    if (isGuest) {
+      setShowAuthPopup(true);
+      return;
+    }
+    proceedFunction();
+  };
+
   // Checkout handlers
   const handleCheckoutAll = () => {
     if (cart.length === 0) return;
     
-    setIsLoading(true);
-    setTimeout(() => {
-      alert(`Order placed successfully! 🎉\nTotal: $${(subtotal + deliveryFee + (subtotal * taxRate)).toFixed(2)}\nItems: ${getTotalItems()}`);
-      clearCart();
-      router.push('/home');
-      setIsLoading(false);
-    }, 2000);
+    checkGuestAndProceed(() => {
+      // Navigate to checkout page with all items
+      router.push('/checkout?type=all');
+    });
   };
 
   const handleCheckoutSelected = () => {
@@ -130,45 +139,23 @@ export default function CartPage() {
       return;
     }
     
-    setIsLoading(true);
-    setTimeout(() => {
-      alert(`Selected items ordered successfully! 🎉\nTotal: $${selectedTotal.toFixed(2)}\nItems: ${getSelectedCount()}`);
+    checkGuestAndProceed(() => {
+      // Create item IDs string for URL
+      const itemIds = selectedItemsList.map(item => `${item.id}-${item.restaurantId}`).join(',');
       
-      // Remove selected items from cart
-      selectedItemsList.forEach(item => {
-        removeFromCart(item.id, item.restaurantId);
-      });
-      
-      // Clear selection
-      setSelectedItems(new Set());
-      setSelectAll(false);
-      
-      router.push('/home');
-      setIsLoading(false);
-    }, 2000);
+      // Navigate to checkout page with selected items
+      router.push(`/checkout?type=selected&items=${itemIds}`);
+    });
   };
 
   const handleRestaurantCheckout = (restaurantId: number) => {
     const restaurantItems = cart.filter(item => item.restaurantId === restaurantId);
     if (restaurantItems.length === 0) return;
     
-    const restaurantTotal = getRestaurantTotal(restaurantId);
-    const restaurantTax = restaurantTotal * taxRate;
-    const finalTotal = restaurantTotal + deliveryFee + restaurantTax;
-    
-    setIsLoading(true);
-    setTimeout(() => {
-      const restaurant = restaurants.find(r => r.id === restaurantId);
-      alert(`${restaurant?.name} order placed successfully! 🎉\nTotal: $${finalTotal.toFixed(2)}\nItems: ${getRestaurantCount(restaurantId)}`);
-      
-      // Remove restaurant items from cart
-      restaurantItems.forEach(item => {
-        removeFromCart(item.id, item.restaurantId);
-      });
-      
-      router.push('/home');
-      setIsLoading(false);
-    }, 2000);
+    checkGuestAndProceed(() => {
+      // Navigate to checkout page with restaurant items
+      router.push(`/checkout?type=restaurant&restaurant=${restaurantId}`);
+    });
   };
 
   const handleBackToHome = () => {
@@ -279,7 +266,8 @@ export default function CartPage() {
               fontSize: '1rem',
               fontWeight: '600',
               cursor: 'pointer',
-              transition: 'all 0.2s ease'
+              transition: 'all 0.2s ease',
+              marginTop: '1rem' // Added top spacing
             }}
             onMouseEnter={(e) => {
               e.currentTarget.style.background = 'linear-gradient(135deg, #ee5a24, #dc2626)';
@@ -555,7 +543,7 @@ export default function CartPage() {
                     onClick={() => handleRestaurantCheckout(parseInt(restaurantId))}
                     disabled={isLoading}
                     style={{
-                      background: 'rgba(255, 255, 255, 0.2)',
+                      background: isLoading ? 'rgba(255, 255, 255, 0.1)' : 'linear-gradient(135deg, #ff6b6b, #ee5a24)',
                       border: '1px solid rgba(255, 255, 255, 0.3)',
                       borderRadius: '8px',
                       padding: '0.5rem 1rem',
@@ -567,12 +555,12 @@ export default function CartPage() {
                     }}
                     onMouseEnter={(e) => {
                       if (!isLoading) {
-                        e.currentTarget.style.background = 'rgba(255, 255, 255, 0.3)';
+                        e.currentTarget.style.background = 'linear-gradient(135deg, #ee5a24, #dc2626)';
                       }
                     }}
                     onMouseLeave={(e) => {
                       if (!isLoading) {
-                        e.currentTarget.style.background = 'rgba(255, 255, 255, 0.2)';
+                        e.currentTarget.style.background = 'linear-gradient(135deg, #ff6b6b, #ee5a24)';
                       }
                     }}
                   >
@@ -863,37 +851,6 @@ export default function CartPage() {
               {isLoading ? 'Processing...' : `Checkout All (${getTotalItems()}) • $${(subtotal + deliveryFee + (subtotal * taxRate)).toFixed(2)}`}
             </button>
           </div>
-          <button
-            onClick={handleCheckoutAll}
-            disabled={isLoading}
-            style={{
-              width: '100%',
-              background: isLoading ? '#ccc' : 'linear-gradient(135deg, #ff6b6b, #ee5a24)',
-              color: 'white',
-              border: 'none',
-              borderRadius: '12px',
-              padding: '1rem',
-              fontSize: '1.1rem',
-              fontWeight: '600',
-              cursor: isLoading ? 'not-allowed' : 'pointer',
-              transition: 'all 0.2s ease',
-              marginBottom: '1rem'
-            }}
-            onMouseEnter={(e) => {
-              if (!isLoading) {
-                e.currentTarget.style.background = 'linear-gradient(135deg, #ee5a24, #dc2626)';
-                e.currentTarget.style.transform = 'translateY(-2px)';
-              }
-            }}
-            onMouseLeave={(e) => {
-              if (!isLoading) {
-                e.currentTarget.style.background = 'linear-gradient(135deg, #ff6b6b, #ee5a24)';
-                e.currentTarget.style.transform = 'translateY(0)';
-              }
-            }}
-          >
-            {isLoading ? 'Processing...' : `Proceed to Checkout • $${(subtotal + deliveryFee + (subtotal * taxRate)).toFixed(2)}`}
-          </button>
 
           {/* Estimated Delivery */}
           <div style={{
@@ -923,6 +880,13 @@ export default function CartPage() {
           </div>
         </div>
       </div>
+
+      {/* Authentication Popup */}
+      <AuthPopup 
+        isOpen={showAuthPopup}
+        onClose={() => setShowAuthPopup(false)}
+        message="To proceed with checkout and place your order, please create an account or log in. This helps us track your order and provide better service!"
+      />
     </div>
   );
 }

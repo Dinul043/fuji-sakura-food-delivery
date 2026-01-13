@@ -494,6 +494,43 @@ export default function HomePage() {
               <div style={{ fontWeight: '500' }}>Hi, {userName}!</div>
               <div style={{ fontSize: '0.75rem', opacity: 0.8 }}>Welcome back</div>
             </div>
+            
+            {/* Orders Button */}
+            <button
+              onClick={() => router.push('/orders')}
+              style={{
+                padding: '0.5rem 1rem',
+                background: 'rgba(255, 255, 255, 0.2)',
+                border: '1px solid rgba(255, 255, 255, 0.3)',
+                borderRadius: '15px',
+                color: 'white',
+                fontSize: '0.8rem',
+                fontWeight: '500',
+                cursor: 'pointer',
+                transition: 'all 0.3s ease',
+                transform: 'scale(1)',
+                boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = 'linear-gradient(135deg, #3b82f6, #1d4ed8)';
+                e.currentTarget.style.transform = 'scale(1.1)';
+                e.currentTarget.style.boxShadow = '0 4px 15px rgba(59, 130, 246, 0.4)';
+                e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.6)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = 'rgba(255, 255, 255, 0.2)';
+                e.currentTarget.style.transform = 'scale(1)';
+                e.currentTarget.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.1)';
+                e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.3)';
+              }}
+            >
+              <span>📦</span>
+              <span>Orders</span>
+            </button>
+            
             <button
               onClick={handleLogout}
               style={{

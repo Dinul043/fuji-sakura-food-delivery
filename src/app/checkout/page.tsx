@@ -4,64 +4,60 @@ import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useCart } from '../../contexts/CartContext';
 import { restaurants } from '../../data/restaurants';
+import AuthPopup from '../../components/AuthPopup';
 
 export default function CheckoutPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { cart, clearCart, removeFromCart, getTotalItems, getTotalPrice } = useCart();
+  const { cart, clearCart } = useCart();
   
-  const [userName, setUserName] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const [currentStep, setCurrentStep] = useState(1); // 1: Details, 2: Payment, 3: Confirmation
-  
-  // Checkout type from URL params
-  const checkoutType = searchParams.get('type') || 'all'; // 'all', 'selected', 'restaurant'
+  // Get checkout type from URL params
+  const checkoutType = searchParams.get('type') || 'all';
   const selectedItemIds = searchParams.get('items')?.split(',') || [];
-  const restaurantId = searchParams.get('restaurantId');
-  
-  // Form data
-  const [deliveryDetails, setDeliveryDetails] = useState({
-    address: '123 Sakura Street, Tokyo District, City 12345',
+  const restaurantId = searchParams.get('restaurant');
+
+  const [isLoading, setIsLoading] = useState(false);
+  const [showAuthPopup, setShowAuthPopup] = useState(false);
+  const [deliveryAddress, setDeliveryAddress] = useState({
+    fullName: '',
     phone: '',
-    instructions: ''
+    address: '',
+    landmark: '',
+    city: 'Tokyo',
+    pincode: ''
   });
-  
   const [paymentMethod, setPaymentMethod] = useState('card');
-  const [cardDetails, setCardDetails] = useState({
-    number: '',
-    expiry: '',
-    cvv: '',
-    name: ''
-  });
+  const [orderInstructions, setOrderInstructions] = useState('');
 
   useEffect(() => {
-    const storedName = localStorage.getItem('userName') || 'Guest';
-    setUserName(storedName);
-    
-    // If no items to checkout, redirect to cart
-    if (cart.length === 0) {
-      router.push('/cart');
+    // Check if user is guest and show popup
+    const isGuest = localStorage.getItem('isGuest') === 'true';
+    if (isGuest) {
+      setShowAuthPopup(true);
+      return;
     }
-  }, [cart, router]);
 
-  // Get items to checkout based on type
-  const getCheckoutItems = () => {
-    switch (checkoutType) {
-      case 'selected':
-        return cart.filter(item => selectedItemIds.includes(`${item.id}-${item.restaurantId}`));
-      case 'restaurant':
-        return cart.filter(item => item.restaurantId === parseInt(restaurantId || '0'));
-      default:
-        return cart;
+    // Pre-fill address if available
+    const savedAddress = localStorage.getItem('deliveryAddress');
+    if (savedAddress) {
+      setDeliveryAddress(JSON.parse(savedAddress));
+    } else {
+      const storedName = localStorage.getItem('userName') || 'Guest';
+      setDeliveryAddress(prev => ({ ...prev, fullName: storedName }));
     }
+  }, []);
+
+  // Filter items based on checkout type
+  const getCheckoutItems = () => {
+    if (checkoutType === 'selected') {
+      return cart.filter(item => selectedItemIds.includes(`${item.id}-${item.restaurantId}`));
+    } else if (checkoutType === 'restaurant' && restaurantId) {
+      return cart.filter(item => item.restaurantId === parseInt(restaurantId));
+    }
+    return cart; // 'all' type
   };
 
   const checkoutItems = getCheckoutItems();
-  const subtotal = checkoutItems.reduce((total, item) => total + (item.price * item.quantity), 0);
-  const deliveryFee = 2.99;
-  const taxRate = 0.08;
-  const tax = subtotal * taxRate;
-  const total = subtotal + deliveryFee + tax;
 
   // Group items by restaurant
   const groupedItems = checkoutItems.reduce((acc, item) => {
@@ -75,43 +71,70 @@ export default function CheckoutPage() {
     return acc;
   }, {} as Record<number, { restaurant: any; items: any[] }>);
 
-  const handleInputChange = (field: string, value: string) => {
-    if (field.startsWith('card.')) {
-      const cardField = field.split('.')[1];
-      setCardDetails(prev => ({ ...prev, [cardField]: value }));
-    } else {
-      setDeliveryDetails(prev => ({ ...prev, [field]: value }));
-    }
+  // Calculate totals
+  const subtotal = checkoutItems.reduce((total, item) => total + (item.price * item.quantity), 0);
+  const deliveryFee = 2.99;
+  const taxRate = 0.08;
+  const tax = subtotal * taxRate;
+  const total = subtotal + deliveryFee + tax;
+
+  const handleAddressChange = (field: string, value: string) => {
+    setDeliveryAddress(prev => ({ ...prev, [field]: value }));
   };
 
-  const handleNextStep = () => {
-    if (currentStep < 3) {
-      setCurrentStep(currentStep + 1);
-    }
-  };
-
-  const handlePreviousStep = () => {
-    if (currentStep > 1) {
-      setCurrentStep(currentStep - 1);
-    }
+  const validateForm = () => {
+    if (!deliveryAddress.fullName.trim()) return 'Full name is required';
+    if (!deliveryAddress.phone.trim()) return 'Phone number is required';
+    if (!deliveryAddress.address.trim()) return 'Address is required';
+    if (!deliveryAddress.pincode.trim()) return 'Pincode is required';
+    return null;
   };
 
   const handlePlaceOrder = () => {
+    const error = validateForm();
+    if (error) {
+      alert(error);
+      return;
+    }
+
     setIsLoading(true);
     
+    // Save address for future use
+    localStorage.setItem('deliveryAddress', JSON.stringify(deliveryAddress));
+    
+    // Create order object
+    const order = {
+      id: Date.now(),
+      items: checkoutItems,
+      address: deliveryAddress,
+      paymentMethod,
+      instructions: orderInstructions,
+      subtotal,
+      deliveryFee,
+      tax,
+      total,
+      status: 'confirmed',
+      estimatedDelivery: '25-35 minutes',
+      orderTime: new Date().toISOString()
+    };
+
+    // Save order to localStorage (for order history)
+    const existingOrders = JSON.parse(localStorage.getItem('orderHistory') || '[]');
+    existingOrders.push(order);
+    localStorage.setItem('orderHistory', JSON.stringify(existingOrders));
+
     setTimeout(() => {
-      // Remove checked out items from cart
-      checkoutItems.forEach(item => {
-        removeFromCart(item.id, item.restaurantId);
-      });
+      // Remove ordered items from cart based on checkout type
+      if (checkoutType === 'all') {
+        clearCart();
+      }
+      // For 'selected' and 'restaurant' types, we would need additional cart methods
+      // to remove specific items, but for now we'll just clear all for 'all' type
       
-      setCurrentStep(3); // Show confirmation
+      // Redirect to order success page
+      router.push(`/order-success?orderId=${order.id}`);
       setIsLoading(false);
     }, 2000);
-  };
-
-  const handleBackToHome = () => {
-    router.push('/home');
   };
 
   const handleBackToCart = () => {
@@ -132,15 +155,22 @@ export default function CheckoutPage() {
       }}>
         <div style={{
           background: 'rgba(255, 255, 255, 0.95)',
-          borderRadius: '20px',
+          backdropFilter: 'blur(10px)',
+          borderRadius: '24px',
           padding: '3rem',
           textAlign: 'center',
-          maxWidth: '500px'
+          border: '1px solid rgba(255, 255, 255, 0.3)',
+          maxWidth: '400px'
         }}>
-          <h2 style={{ fontSize: '1.5rem', marginBottom: '1rem', color: '#333' }}>No Items to Checkout</h2>
-          <p style={{ color: '#666', marginBottom: '2rem' }}>Please add items to your cart first.</p>
+          <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>🛒</div>
+          <h2 style={{ fontSize: '1.5rem', fontWeight: '600', color: '#333', marginBottom: '1rem', margin: 0 }}>
+            No items to checkout
+          </h2>
+          <p style={{ color: '#666', marginBottom: '2rem', margin: 0 }}>
+            Please add items to your cart first.
+          </p>
           <button
-            onClick={handleBackToCart}
+            onClick={() => router.push('/home')}
             style={{
               background: 'linear-gradient(135deg, #ff6b6b, #ee5a24)',
               color: 'white',
@@ -149,10 +179,20 @@ export default function CheckoutPage() {
               padding: '1rem 2rem',
               fontSize: '1rem',
               fontWeight: '600',
-              cursor: 'pointer'
+              cursor: 'pointer',
+              transition: 'all 0.2s ease',
+              marginTop: '1rem' // Added top spacing
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = 'linear-gradient(135deg, #ee5a24, #dc2626)';
+              e.currentTarget.style.transform = 'translateY(-2px)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = 'linear-gradient(135deg, #ff6b6b, #ee5a24)';
+              e.currentTarget.style.transform = 'translateY(0)';
             }}
           >
-            Back to Cart
+            Browse Restaurants
           </button>
         </div>
       </div>
@@ -193,6 +233,14 @@ export default function CheckoutPage() {
             cursor: 'pointer',
             transition: 'all 0.2s ease'
           }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = 'rgba(255, 255, 255, 0.3)';
+            e.currentTarget.style.transform = 'translateY(-2px)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = 'rgba(255, 255, 255, 0.2)';
+            e.currentTarget.style.transform = 'translateY(0)';
+          }}
         >
           <span>←</span>
           <span>Back to Cart</span>
@@ -208,462 +256,863 @@ export default function CheckoutPage() {
           Checkout
         </h1>
         
-        <div style={{ width: '120px' }}></div>
+        <div style={{ width: '120px' }}></div> {/* Spacer for centering */}
       </div>
 
-      {/* Progress Steps */}
+      {/* Main Content - Two Column Layout */}
       <div style={{
-        display: 'flex',
-        justifyContent: 'center',
-        marginBottom: '2rem'
-      }}>
-        {[1, 2, 3].map((step) => (
-          <div key={step} style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.5rem'
-          }}>
-            <div style={{
-              width: '2.5rem',
-              height: '2.5rem',
-              borderRadius: '50%',
-              background: step <= currentStep ? 'linear-gradient(135deg, #ff6b6b, #ee5a24)' : 'rgba(255, 255, 255, 0.3)',
-              color: 'white',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontWeight: '600'
-            }}>
-              {step === 3 && currentStep === 3 ? '✓' : step}
-            </div>
-            <span style={{
-              color: 'white',
-              fontWeight: '500',
-              marginRight: step < 3 ? '2rem' : '0'
-            }}>
-              {step === 1 ? 'Details' : step === 2 ? 'Payment' : 'Confirmation'}
-            </span>
-            {step < 3 && (
-              <div style={{
-                width: '3rem',
-                height: '2px',
-                background: step < currentStep ? 'linear-gradient(135deg, #ff6b6b, #ee5a24)' : 'rgba(255, 255, 255, 0.3)',
-                marginRight: '2rem'
-              }} />
-            )}
-          </div>
-        ))}
-      </div>
-
-      {/* Main Content */}
-      <div style={{
-        maxWidth: '1200px',
-        margin: '0 auto',
         display: 'grid',
-        gridTemplateColumns: currentStep === 3 ? '1fr' : '2fr 1fr',
-        gap: '2rem'
+        gridTemplateColumns: '1.5fr 1fr',
+        gap: '2rem',
+        maxWidth: '1400px',
+        margin: '0 auto'
       }}>
-        {/* Left Panel - Step Content */}
+        {/* Left Panel - Forms */}
         <div style={{
-          background: 'rgba(255, 255, 255, 0.95)',
-          backdropFilter: 'blur(10px)',
-          borderRadius: '20px',
-          padding: '2rem',
-          border: '1px solid rgba(255, 255, 255, 0.3)'
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '2rem' // Increased gap between sections
         }}>
-          {currentStep === 1 && (
-            <div>
-              <h2 style={{ fontSize: '1.5rem', fontWeight: '600', color: '#333', marginBottom: '2rem' }}>
-                Delivery Details
-              </h2>
-              
-              {/* Delivery Address */}
-              <div style={{ marginBottom: '1.5rem' }}>
-                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500', color: '#333' }}>
-                  Delivery Address
-                </label>
-                <textarea
-                  value={deliveryDetails.address}
-                  onChange={(e) => handleInputChange('address', e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '0.75rem',
-                    border: '2px solid #e1e5e9',
-                    borderRadius: '8px',
-                    fontSize: '1rem',
-                    resize: 'vertical',
-                    minHeight: '80px',
-                    boxSizing: 'border-box'
-                  }}
-                  placeholder="Enter your delivery address"
-                />
-              </div>
-
-              {/* Phone Number */}
-              <div style={{ marginBottom: '1.5rem' }}>
-                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500', color: '#333' }}>
-                  Phone Number
-                </label>
-                <input
-                  type="tel"
-                  value={deliveryDetails.phone}
-                  onChange={(e) => handleInputChange('phone', e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '0.75rem',
-                    border: '2px solid #e1e5e9',
-                    borderRadius: '8px',
-                    fontSize: '1rem',
-                    boxSizing: 'border-box'
-                  }}
-                  placeholder="Enter your phone number"
-                />
-              </div>
-
-              {/* Delivery Instructions */}
-              <div style={{ marginBottom: '2rem' }}>
-                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500', color: '#333' }}>
-                  Delivery Instructions (Optional)
-                </label>
-                <textarea
-                  value={deliveryDetails.instructions}
-                  onChange={(e) => handleInputChange('instructions', e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '0.75rem',
-                    border: '2px solid #e1e5e9',
-                    borderRadius: '8px',
-                    fontSize: '1rem',
-                    resize: 'vertical',
-                    minHeight: '80px',
-                    boxSizing: 'border-box'
-                  }}
-                  placeholder="Any special instructions for delivery..."
-                />
-              </div>
-
-              <button
-                onClick={handleNextStep}
-                style={{
-                  width: '100%',
-                  background: 'linear-gradient(135deg, #ff6b6b, #ee5a24)',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '12px',
-                  padding: '1rem',
-                  fontSize: '1rem',
-                  fontWeight: '600',
-                  cursor: 'pointer'
-                }}
-              >
-                Continue to Payment
-              </button>
-            </div>
-          )}
-
-          {currentStep === 2 && (
-            <div>
-              <h2 style={{ fontSize: '1.5rem', fontWeight: '600', color: '#333', marginBottom: '2rem' }}>
-                Payment Method
-              </h2>
-
-              {/* Payment Method Selection */}
-              <div style={{ marginBottom: '2rem' }}>
-                <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem' }}>
-                  {['card', 'cash'].map((method) => (
-                    <button
-                      key={method}
-                      onClick={() => setPaymentMethod(method)}
-                      style={{
-                        flex: 1,
-                        padding: '1rem',
-                        border: `2px solid ${paymentMethod === method ? '#ff6b6b' : '#e1e5e9'}`,
-                        borderRadius: '12px',
-                        background: paymentMethod === method ? '#fff5f5' : 'white',
-                        cursor: 'pointer',
-                        textAlign: 'center',
-                        fontWeight: '500'
-                      }}
-                    >
-                      {method === 'card' ? '💳 Credit/Debit Card' : '💵 Cash on Delivery'}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {paymentMethod === 'card' && (
-                <div>
-                  {/* Card Number */}
-                  <div style={{ marginBottom: '1rem' }}>
-                    <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500', color: '#333' }}>
-                      Card Number
-                    </label>
-                    <input
-                      type="text"
-                      value={cardDetails.number}
-                      onChange={(e) => handleInputChange('card.number', e.target.value)}
-                      style={{
-                        width: '100%',
-                        padding: '0.75rem',
-                        border: '2px solid #e1e5e9',
-                        borderRadius: '8px',
-                        fontSize: '1rem',
-                        boxSizing: 'border-box'
-                      }}
-                      placeholder="1234 5678 9012 3456"
-                    />
-                  </div>
-
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
-                    {/* Expiry */}
-                    <div>
-                      <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500', color: '#333' }}>
-                        Expiry Date
-                      </label>
-                      <input
-                        type="text"
-                        value={cardDetails.expiry}
-                        onChange={(e) => handleInputChange('card.expiry', e.target.value)}
-                        style={{
-                          width: '100%',
-                          padding: '0.75rem',
-                          border: '2px solid #e1e5e9',
-                          borderRadius: '8px',
-                          fontSize: '1rem',
-                          boxSizing: 'border-box'
-                        }}
-                        placeholder="MM/YY"
-                      />
-                    </div>
-
-                    {/* CVV */}
-                    <div>
-                      <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500', color: '#333' }}>
-                        CVV
-                      </label>
-                      <input
-                        type="text"
-                        value={cardDetails.cvv}
-                        onChange={(e) => handleInputChange('card.cvv', e.target.value)}
-                        style={{
-                          width: '100%',
-                          padding: '0.75rem',
-                          border: '2px solid #e1e5e9',
-                          borderRadius: '8px',
-                          fontSize: '1rem',
-                          boxSizing: 'border-box'
-                        }}
-                        placeholder="123"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Cardholder Name */}
-                  <div style={{ marginBottom: '2rem' }}>
-                    <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500', color: '#333' }}>
-                      Cardholder Name
-                    </label>
-                    <input
-                      type="text"
-                      value={cardDetails.name}
-                      onChange={(e) => handleInputChange('card.name', e.target.value)}
-                      style={{
-                        width: '100%',
-                        padding: '0.75rem',
-                        border: '2px solid #e1e5e9',
-                        borderRadius: '8px',
-                        fontSize: '1rem',
-                        boxSizing: 'border-box'
-                      }}
-                      placeholder="John Doe"
-                    />
-                  </div>
-                </div>
-              )}
-
-              <div style={{ display: 'flex', gap: '1rem' }}>
-                <button
-                  onClick={handlePreviousStep}
-                  style={{
-                    flex: 1,
-                    background: '#f5f5f5',
-                    color: '#666',
-                    border: '1px solid #e1e5e9',
-                    borderRadius: '12px',
-                    padding: '1rem',
-                    fontSize: '1rem',
-                    fontWeight: '600',
-                    cursor: 'pointer'
-                  }}
-                >
-                  Back
-                </button>
-                <button
-                  onClick={handlePlaceOrder}
-                  disabled={isLoading}
-                  style={{
-                    flex: 2,
-                    background: isLoading ? '#ccc' : 'linear-gradient(135deg, #ff6b6b, #ee5a24)',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '12px',
-                    padding: '1rem',
-                    fontSize: '1rem',
-                    fontWeight: '600',
-                    cursor: isLoading ? 'not-allowed' : 'pointer'
-                  }}
-                >
-                  {isLoading ? 'Processing...' : `Place Order • $${total.toFixed(2)}`}
-                </button>
-              </div>
-            </div>
-          )}
-
-          {currentStep === 3 && (
-            <div style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>🎉</div>
-              <h2 style={{ fontSize: '2rem', fontWeight: '600', color: '#333', marginBottom: '1rem' }}>
-                Order Placed Successfully!
-              </h2>
-              <p style={{ fontSize: '1.1rem', color: '#666', marginBottom: '2rem' }}>
-                Thank you for your order, {userName}! Your delicious food is being prepared.
-              </p>
-              
-              <div style={{
-                background: '#f0f9ff',
-                borderRadius: '12px',
-                padding: '1.5rem',
-                marginBottom: '2rem',
-                border: '1px solid #bae6fd'
-              }}>
-                <h3 style={{ fontSize: '1.2rem', fontWeight: '600', color: '#0369a1', marginBottom: '1rem' }}>
-                  Order Details
-                </h3>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-                  <span>Order Total:</span>
-                  <span style={{ fontWeight: '600' }}>${total.toFixed(2)}</span>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-                  <span>Items:</span>
-                  <span>{checkoutItems.reduce((sum, item) => sum + item.quantity, 0)}</span>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-                  <span>Payment:</span>
-                  <span>{paymentMethod === 'card' ? 'Card Payment' : 'Cash on Delivery'}</span>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span>Estimated Delivery:</span>
-                  <span style={{ fontWeight: '600', color: '#0369a1' }}>25-35 minutes</span>
-                </div>
-              </div>
-
-              <button
-                onClick={handleBackToHome}
-                style={{
-                  background: 'linear-gradient(135deg, #ff6b6b, #ee5a24)',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '12px',
-                  padding: '1rem 2rem',
-                  fontSize: '1rem',
-                  fontWeight: '600',
-                  cursor: 'pointer'
-                }}
-              >
-                Continue Shopping
-              </button>
-            </div>
-          )}
-        </div>
-
-        {/* Right Panel - Order Summary (Hidden on confirmation step) */}
-        {currentStep !== 3 && (
+          {/* Delivery Address Section */}
           <div style={{
             background: 'rgba(255, 255, 255, 0.95)',
             backdropFilter: 'blur(10px)',
             borderRadius: '20px',
-            padding: '2rem',
+            padding: '2.5rem', // Increased padding
             border: '1px solid rgba(255, 255, 255, 0.3)',
-            height: 'fit-content',
-            position: 'sticky',
-            top: '2rem'
+            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)' // Added shadow
           }}>
-            <h2 style={{ fontSize: '1.3rem', fontWeight: '600', color: '#333', marginBottom: '1.5rem' }}>
-              Order Summary
+            <h2 style={{
+              fontSize: '1.4rem', // Slightly larger
+              fontWeight: '700', // Bolder
+              color: '#333',
+              marginBottom: '2rem', // Increased spacing after heading
+              margin: 0,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.75rem',
+              paddingBottom: '1rem', // Added padding bottom
+              borderBottom: '2px solid #f1f5f9' // Added separator line
+            }}>
+              <span style={{ fontSize: '1.5rem' }}>📍</span>
+              Delivery Address
             </h2>
 
-            {/* Items */}
-            <div style={{ marginBottom: '1.5rem' }}>
-              {Object.entries(groupedItems).map(([restaurantId, group]) => (
-                <div key={restaurantId} style={{ marginBottom: '1rem' }}>
-                  <h3 style={{
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: '1fr 1fr',
+              gap: '1.5rem', // Increased gap
+              marginBottom: '1.5rem' // Increased margin
+            }}>
+              <div>
+                <label style={{
+                  display: 'block',
+                  marginBottom: '0.75rem', // Increased spacing
+                  color: '#374151', // Darker color
+                  fontWeight: '600', // Bolder
+                  fontSize: '0.95rem' // Slightly larger
+                }}>
+                  Full Name *
+                </label>
+                <input
+                  type="text"
+                  value={deliveryAddress.fullName}
+                  onChange={(e) => handleAddressChange('fullName', e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '1rem', // Increased padding
+                    border: '2px solid #e5e7eb',
+                    borderRadius: '12px', // More rounded
                     fontSize: '1rem',
-                    fontWeight: '600',
-                    color: '#333',
-                    marginBottom: '0.5rem',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.5rem'
-                  }}>
-                    <span>{group.restaurant?.image}</span>
-                    <span>{group.restaurant?.name}</span>
-                  </h3>
-                  {group.items.map((item, index) => (
-                    <div key={index} style={{
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center',
-                      padding: '0.5rem 0',
-                      borderBottom: index < group.items.length - 1 ? '1px solid #f1f5f9' : 'none'
-                    }}>
-                      <div>
-                        <div style={{ fontWeight: '500', fontSize: '0.9rem' }}>{item.name}</div>
-                        <div style={{ fontSize: '0.8rem', color: '#666' }}>Qty: {item.quantity}</div>
-                      </div>
-                      <div style={{ fontWeight: '600', color: '#ff6b6b' }}>
-                        ${(item.price * item.quantity).toFixed(2)}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ))}
+                    transition: 'all 0.3s ease', // Smoother transition
+                    outline: 'none',
+                    boxSizing: 'border-box',
+                    backgroundColor: '#fafafa', // Light background
+                    boxShadow: '0 2px 4px rgba(0, 0, 0, 0.05)' // Subtle shadow
+                  }}
+                  placeholder="Enter your full name"
+                  onFocus={(e) => {
+                    e.target.style.borderColor = '#ff6b6b';
+                    e.target.style.backgroundColor = '#ffffff';
+                    e.target.style.boxShadow = '0 0 0 3px rgba(255, 107, 107, 0.1)';
+                  }}
+                  onBlur={(e) => {
+                    e.target.style.borderColor = '#e5e7eb';
+                    e.target.style.backgroundColor = '#fafafa';
+                    e.target.style.boxShadow = '0 2px 4px rgba(0, 0, 0, 0.05)';
+                  }}
+                />
+              </div>
+
+              <div>
+                <label style={{
+                  display: 'block',
+                  marginBottom: '0.75rem',
+                  color: '#374151',
+                  fontWeight: '600',
+                  fontSize: '0.95rem'
+                }}>
+                  Phone Number *
+                </label>
+                <input
+                  type="tel"
+                  value={deliveryAddress.phone}
+                  onChange={(e) => handleAddressChange('phone', e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '1rem',
+                    border: '2px solid #e5e7eb',
+                    borderRadius: '12px',
+                    fontSize: '1rem',
+                    transition: 'all 0.3s ease',
+                    outline: 'none',
+                    boxSizing: 'border-box',
+                    backgroundColor: '#fafafa',
+                    boxShadow: '0 2px 4px rgba(0, 0, 0, 0.05)'
+                  }}
+                  placeholder="Enter your phone number"
+                  onFocus={(e) => {
+                    e.target.style.borderColor = '#ff6b6b';
+                    e.target.style.backgroundColor = '#ffffff';
+                    e.target.style.boxShadow = '0 0 0 3px rgba(255, 107, 107, 0.1)';
+                  }}
+                  onBlur={(e) => {
+                    e.target.style.borderColor = '#e5e7eb';
+                    e.target.style.backgroundColor = '#fafafa';
+                    e.target.style.boxShadow = '0 2px 4px rgba(0, 0, 0, 0.05)';
+                  }}
+                />
+              </div>
             </div>
 
-            {/* Price Breakdown */}
+            <div style={{ marginBottom: '1.5rem' }}>
+              <label style={{
+                display: 'block',
+                marginBottom: '0.75rem',
+                color: '#374151',
+                fontWeight: '600',
+                fontSize: '0.95rem'
+              }}>
+                Complete Address *
+              </label>
+              <textarea
+                value={deliveryAddress.address}
+                onChange={(e) => handleAddressChange('address', e.target.value)}
+                rows={4} // Increased rows
+                style={{
+                  width: '100%',
+                  padding: '1rem',
+                  border: '2px solid #e5e7eb',
+                  borderRadius: '12px',
+                  fontSize: '1rem',
+                  transition: 'all 0.3s ease',
+                  outline: 'none',
+                  boxSizing: 'border-box',
+                  resize: 'vertical',
+                  backgroundColor: '#fafafa',
+                  boxShadow: '0 2px 4px rgba(0, 0, 0, 0.05)',
+                  fontFamily: 'inherit' // Inherit font family
+                }}
+                placeholder="House/Flat no., Building name, Street, Area"
+                onFocus={(e) => {
+                  e.target.style.borderColor = '#ff6b6b';
+                  e.target.style.backgroundColor = '#ffffff';
+                  e.target.style.boxShadow = '0 0 0 3px rgba(255, 107, 107, 0.1)';
+                }}
+                onBlur={(e) => {
+                  e.target.style.borderColor = '#e5e7eb';
+                  e.target.style.backgroundColor = '#fafafa';
+                  e.target.style.boxShadow = '0 2px 4px rgba(0, 0, 0, 0.05)';
+                }}
+              />
+            </div>
+
             <div style={{
-              borderTop: '1px solid #e2e8f0',
-              paddingTop: '1rem',
-              marginBottom: '1rem'
+              display: 'grid',
+              gridTemplateColumns: '1fr 1fr 1fr',
+              gap: '1.5rem'
             }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-                <span style={{ color: '#666' }}>Subtotal</span>
-                <span>${subtotal.toFixed(2)}</span>
+              <div>
+                <label style={{
+                  display: 'block',
+                  marginBottom: '0.75rem',
+                  color: '#374151',
+                  fontWeight: '600',
+                  fontSize: '0.95rem'
+                }}>
+                  Landmark
+                </label>
+                <input
+                  type="text"
+                  value={deliveryAddress.landmark}
+                  onChange={(e) => handleAddressChange('landmark', e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '1rem',
+                    border: '2px solid #e5e7eb',
+                    borderRadius: '12px',
+                    fontSize: '1rem',
+                    transition: 'all 0.3s ease',
+                    outline: 'none',
+                    boxSizing: 'border-box',
+                    backgroundColor: '#fafafa',
+                    boxShadow: '0 2px 4px rgba(0, 0, 0, 0.05)'
+                  }}
+                  placeholder="Nearby landmark"
+                  onFocus={(e) => {
+                    e.target.style.borderColor = '#ff6b6b';
+                    e.target.style.backgroundColor = '#ffffff';
+                    e.target.style.boxShadow = '0 0 0 3px rgba(255, 107, 107, 0.1)';
+                  }}
+                  onBlur={(e) => {
+                    e.target.style.borderColor = '#e5e7eb';
+                    e.target.style.backgroundColor = '#fafafa';
+                    e.target.style.boxShadow = '0 2px 4px rgba(0, 0, 0, 0.05)';
+                  }}
+                />
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-                <span style={{ color: '#666' }}>Delivery Fee</span>
-                <span>${deliveryFee.toFixed(2)}</span>
+
+              <div>
+                <label style={{
+                  display: 'block',
+                  marginBottom: '0.75rem',
+                  color: '#374151',
+                  fontWeight: '600',
+                  fontSize: '0.95rem'
+                }}>
+                  City
+                </label>
+                <input
+                  type="text"
+                  value={deliveryAddress.city}
+                  onChange={(e) => handleAddressChange('city', e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '1rem',
+                    border: '2px solid #e5e7eb',
+                    borderRadius: '12px',
+                    fontSize: '1rem',
+                    transition: 'all 0.3s ease',
+                    outline: 'none',
+                    boxSizing: 'border-box',
+                    backgroundColor: '#fafafa',
+                    boxShadow: '0 2px 4px rgba(0, 0, 0, 0.05)'
+                  }}
+                  placeholder="City"
+                  onFocus={(e) => {
+                    e.target.style.borderColor = '#ff6b6b';
+                    e.target.style.backgroundColor = '#ffffff';
+                    e.target.style.boxShadow = '0 0 0 3px rgba(255, 107, 107, 0.1)';
+                  }}
+                  onBlur={(e) => {
+                    e.target.style.borderColor = '#e5e7eb';
+                    e.target.style.backgroundColor = '#fafafa';
+                    e.target.style.boxShadow = '0 2px 4px rgba(0, 0, 0, 0.05)';
+                  }}
+                />
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-                <span style={{ color: '#666' }}>Tax (8%)</span>
-                <span>${tax.toFixed(2)}</span>
+
+              <div>
+                <label style={{
+                  display: 'block',
+                  marginBottom: '0.75rem',
+                  color: '#374151',
+                  fontWeight: '600',
+                  fontSize: '0.95rem'
+                }}>
+                  Pincode *
+                </label>
+                <input
+                  type="text"
+                  value={deliveryAddress.pincode}
+                  onChange={(e) => handleAddressChange('pincode', e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '1rem',
+                    border: '2px solid #e5e7eb',
+                    borderRadius: '12px',
+                    fontSize: '1rem',
+                    transition: 'all 0.3s ease',
+                    outline: 'none',
+                    boxSizing: 'border-box',
+                    backgroundColor: '#fafafa',
+                    boxShadow: '0 2px 4px rgba(0, 0, 0, 0.05)'
+                  }}
+                  placeholder="Pincode"
+                  onFocus={(e) => {
+                    e.target.style.borderColor = '#ff6b6b';
+                    e.target.style.backgroundColor = '#ffffff';
+                    e.target.style.boxShadow = '0 0 0 3px rgba(255, 107, 107, 0.1)';
+                  }}
+                  onBlur={(e) => {
+                    e.target.style.borderColor = '#e5e7eb';
+                    e.target.style.backgroundColor = '#fafafa';
+                    e.target.style.boxShadow = '0 2px 4px rgba(0, 0, 0, 0.05)';
+                  }}
+                />
               </div>
             </div>
+          </div>
+
+          {/* Payment Method Section */}
+          <div style={{
+            background: 'rgba(255, 255, 255, 0.95)',
+            backdropFilter: 'blur(10px)',
+            borderRadius: '20px',
+            padding: '2.5rem',
+            border: '1px solid rgba(255, 255, 255, 0.3)',
+            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)'
+          }}>
+            <h2 style={{
+              fontSize: '1.4rem',
+              fontWeight: '700',
+              color: '#333',
+              marginBottom: '2rem',
+              margin: 0,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.75rem',
+              paddingBottom: '1rem',
+              borderBottom: '2px solid #f1f5f9'
+            }}>
+              <span style={{ fontSize: '1.5rem' }}>💳</span>
+              Payment Method
+            </h2>
 
             <div style={{
               display: 'flex',
-              justifyContent: 'space-between',
-              fontSize: '1.2rem',
-              fontWeight: '700',
-              color: '#333',
-              borderTop: '2px solid #e2e8f0',
-              paddingTop: '1rem'
+              flexDirection: 'column',
+              gap: '1rem'
             }}>
-              <span>Total</span>
-              <span>${total.toFixed(2)}</span>
+              {[
+                { id: 'card', icon: '💳', name: 'Credit/Debit Card', desc: 'Visa, Mastercard, Rupay' },
+                { id: 'upi', icon: '📱', name: 'UPI Payment', desc: 'PhonePe, Google Pay, Paytm' },
+                { id: 'wallet', icon: '👛', name: 'Digital Wallet', desc: 'Paytm, Amazon Pay' },
+                { id: 'cod', icon: '💵', name: 'Cash on Delivery', desc: 'Pay when order arrives' }
+              ].map((method) => (
+                <div
+                  key={method.id}
+                  onClick={() => setPaymentMethod(method.id)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '1rem',
+                    padding: '1.25rem', // Increased padding
+                    border: `2px solid ${paymentMethod === method.id ? '#ff6b6b' : '#e5e7eb'}`,
+                    borderRadius: '16px', // More rounded
+                    cursor: 'pointer',
+                    transition: 'all 0.3s ease',
+                    background: paymentMethod === method.id ? '#fff5f5' : '#fafafa',
+                    boxShadow: paymentMethod === method.id 
+                      ? '0 4px 12px rgba(255, 107, 107, 0.15)' 
+                      : '0 2px 4px rgba(0, 0, 0, 0.05)',
+                    transform: paymentMethod === method.id ? 'translateY(-2px)' : 'translateY(0)'
+                  }}
+                  onMouseEnter={(e) => {
+                    if (paymentMethod !== method.id) {
+                      e.currentTarget.style.borderColor = '#ff6b6b';
+                      e.currentTarget.style.background = '#ffffff';
+                      e.currentTarget.style.transform = 'translateY(-1px)';
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (paymentMethod !== method.id) {
+                      e.currentTarget.style.borderColor = '#e5e7eb';
+                      e.currentTarget.style.background = '#fafafa';
+                      e.currentTarget.style.transform = 'translateY(0)';
+                    }
+                  }}
+                >
+                  <div style={{
+                    width: '24px', // Larger radio button
+                    height: '24px',
+                    borderRadius: '50%',
+                    border: `3px solid ${paymentMethod === method.id ? '#ff6b6b' : '#d1d5db'}`,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    background: paymentMethod === method.id ? '#ff6b6b' : 'transparent',
+                    transition: 'all 0.3s ease'
+                  }}>
+                    {paymentMethod === method.id && (
+                      <div style={{
+                        width: '10px',
+                        height: '10px',
+                        borderRadius: '50%',
+                        background: 'white'
+                      }} />
+                    )}
+                  </div>
+                  <span style={{ 
+                    fontSize: '1.8rem', // Larger icon
+                    filter: paymentMethod === method.id ? 'none' : 'grayscale(0.3)'
+                  }}>{method.icon}</span>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ 
+                      fontWeight: '600', 
+                      color: paymentMethod === method.id ? '#ff6b6b' : '#374151',
+                      fontSize: '1.05rem',
+                      marginBottom: '0.25rem'
+                    }}>{method.name}</div>
+                    <div style={{ 
+                      fontSize: '0.9rem', 
+                      color: '#6b7280',
+                      lineHeight: '1.4'
+                    }}>{method.desc}</div>
+                  </div>
+                  {paymentMethod === method.id && (
+                    <div style={{
+                      color: '#ff6b6b',
+                      fontSize: '1.2rem',
+                      fontWeight: '600'
+                    }}>
+                      ✓
+                    </div>
+                  )}
+                </div>
+              ))}
             </div>
           </div>
-        )}
+
+          {/* Order Instructions Section */}
+          <div style={{
+            background: 'rgba(255, 255, 255, 0.95)',
+            backdropFilter: 'blur(10px)',
+            borderRadius: '20px',
+            padding: '2.5rem',
+            border: '1px solid rgba(255, 255, 255, 0.3)',
+            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)'
+          }}>
+            <h2 style={{
+              fontSize: '1.4rem',
+              fontWeight: '700',
+              color: '#333',
+              marginBottom: '2rem',
+              margin: 0,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.75rem',
+              paddingBottom: '1rem',
+              borderBottom: '2px solid #f1f5f9'
+            }}>
+              <span style={{ fontSize: '1.5rem' }}>📝</span>
+              Special Instructions
+            </h2>
+
+            <textarea
+              value={orderInstructions}
+              onChange={(e) => setOrderInstructions(e.target.value)}
+              rows={4}
+              style={{
+                width: '100%',
+                padding: '1rem',
+                border: '2px solid #e5e7eb',
+                borderRadius: '12px',
+                fontSize: '1rem',
+                transition: 'all 0.3s ease',
+                outline: 'none',
+                boxSizing: 'border-box',
+                resize: 'vertical',
+                backgroundColor: '#fafafa',
+                boxShadow: '0 2px 4px rgba(0, 0, 0, 0.05)',
+                fontFamily: 'inherit',
+                lineHeight: '1.5'
+              }}
+              placeholder="Any special instructions for the restaurant or delivery partner... (Optional)"
+              onFocus={(e) => {
+                e.target.style.borderColor = '#ff6b6b';
+                e.target.style.backgroundColor = '#ffffff';
+                e.target.style.boxShadow = '0 0 0 3px rgba(255, 107, 107, 0.1)';
+              }}
+              onBlur={(e) => {
+                e.target.style.borderColor = '#e5e7eb';
+                e.target.style.backgroundColor = '#fafafa';
+                e.target.style.boxShadow = '0 2px 4px rgba(0, 0, 0, 0.05)';
+              }}
+            />
+            
+            <div style={{
+              marginTop: '1rem',
+              padding: '1rem',
+              background: '#f0f9ff',
+              borderRadius: '12px',
+              border: '1px solid #bae6fd'
+            }}>
+              <p style={{
+                fontSize: '0.9rem',
+                color: '#0369a1',
+                margin: 0,
+                lineHeight: '1.5'
+              }}>
+                💡 <strong>Tip:</strong> You can mention dietary preferences, spice level, cooking instructions, or delivery preferences here.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Right Panel - Order Summary */}
+        <div style={{
+          background: 'rgba(255, 255, 255, 0.95)',
+          backdropFilter: 'blur(10px)',
+          borderRadius: '20px',
+          padding: '2.5rem', // Increased padding to match left panel
+          border: '1px solid rgba(255, 255, 255, 0.3)',
+          height: 'fit-content',
+          position: 'sticky',
+          top: '2rem',
+          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)' // Added shadow to match left panel
+        }}>
+          <h2 style={{
+            fontSize: '1.4rem', // Increased to match left panel
+            fontWeight: '700', // Bolder to match left panel
+            color: '#333',
+            marginBottom: '2rem', // Increased spacing
+            margin: 0,
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.75rem',
+            paddingBottom: '1rem', // Added padding bottom
+            borderBottom: '2px solid #f1f5f9' // Added separator line
+          }}>
+            <span style={{ fontSize: '1.5rem' }}>🛒</span>
+            Order Summary ({checkoutItems.reduce((total, item) => total + item.quantity, 0)} items)
+          </h2>
+
+          {/* Restaurant Groups */}
+          {Object.entries(groupedItems).map(([restaurantId, group]) => (
+            <div key={restaurantId} style={{
+              marginBottom: '2rem', // Increased spacing between restaurant groups
+              border: '2px solid #e2e8f0', // Thicker border
+              borderRadius: '16px', // More rounded to match left panel
+              overflow: 'hidden',
+              boxShadow: '0 4px 12px rgba(0, 0, 0, 0.08)' // Added subtle shadow
+            }}>
+              {/* Restaurant Header */}
+              <div style={{
+                background: 'linear-gradient(135deg, #ff6b6b, #ee5a24)',
+                color: 'white',
+                padding: '1.25rem', // Increased padding
+                display: 'flex',
+                alignItems: 'center',
+                gap: '1rem' // Increased gap
+              }}>
+                <span style={{ 
+                  fontSize: '2rem', // Larger emoji
+                  filter: 'drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2))' // Added shadow to emoji
+                }}>{group.restaurant?.image}</span>
+                <div>
+                  <h3 style={{
+                    fontSize: '1.1rem', // Slightly larger
+                    fontWeight: '700', // Bolder
+                    margin: 0,
+                    marginBottom: '0.5rem', // Increased spacing
+                    textShadow: '0 1px 2px rgba(0, 0, 0, 0.1)' // Added text shadow
+                  }}>
+                    {group.restaurant?.name}
+                  </h3>
+                  <p style={{
+                    fontSize: '0.85rem', // Slightly larger
+                    opacity: 0.95, // Less transparent
+                    margin: 0,
+                    fontWeight: '500' // Slightly bolder
+                  }}>
+                    {group.restaurant?.cuisine}
+                  </p>
+                </div>
+              </div>
+
+              {/* Items */}
+              <div style={{ 
+                padding: '1.5rem', // Increased padding
+                background: '#fafafa' // Light background for better contrast
+              }}>
+                {group.items.map((item, index) => (
+                  <div key={`${item.id}-${index}`} style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    padding: '1rem 0', // Increased padding
+                    borderBottom: index < group.items.length - 1 ? '1px solid #e2e8f0' : 'none', // Slightly darker border
+                    transition: 'all 0.2s ease'
+                  }}>
+                    <div style={{ flex: 1 }}>
+                      <div style={{
+                        fontSize: '0.95rem', // Slightly larger
+                        fontWeight: '600',
+                        color: '#1f2937', // Darker color
+                        marginBottom: '0.5rem', // Increased spacing
+                        lineHeight: '1.4'
+                      }}>
+                        {item.name}
+                      </div>
+                      <div style={{
+                        fontSize: '0.85rem', // Slightly larger
+                        color: item.isVeg ? '#059669' : '#dc2626', // Better colors
+                        fontWeight: '500', // Slightly bolder
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.25rem'
+                      }}>
+                        {item.isVeg ? '🟢' : '🔴'}
+                        <span>{item.isVeg ? 'Vegetarian' : 'Non-Vegetarian'}</span>
+                      </div>
+                    </div>
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '1rem', // Increased gap
+                      minWidth: '120px', // Ensure consistent width
+                      justifyContent: 'flex-end'
+                    }}>
+                      <div style={{
+                        background: '#f3f4f6',
+                        borderRadius: '8px',
+                        padding: '0.25rem 0.75rem',
+                        fontSize: '0.85rem',
+                        fontWeight: '600',
+                        color: '#374151'
+                      }}>
+                        × {item.quantity}
+                      </div>
+                      <span style={{
+                        fontSize: '1rem', // Larger price
+                        fontWeight: '700', // Bolder
+                        color: '#ff6b6b',
+                        minWidth: '60px', // Ensure consistent width
+                        textAlign: 'right'
+                      }}>
+                        ${(item.price * item.quantity).toFixed(2)}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+
+          {/* Price Breakdown */}
+          <div style={{
+            borderTop: '2px solid #e2e8f0', // Thicker border to match left panel
+            paddingTop: '1.5rem', // Increased padding
+            marginBottom: '2rem', // Increased margin
+            background: '#f8fafc', // Light background
+            borderRadius: '12px',
+            padding: '1.5rem',
+            marginTop: '1rem'
+          }}>
+            <h3 style={{
+              fontSize: '1.1rem',
+              fontWeight: '700',
+              color: '#374151',
+              marginBottom: '1rem',
+              margin: 0,
+              paddingBottom: '0.75rem',
+              borderBottom: '1px solid #e2e8f0'
+            }}>
+              💰 Price Breakdown
+            </h3>
+            
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              marginBottom: '0.75rem', // Increased spacing
+              padding: '0.5rem 0'
+            }}>
+              <span style={{ 
+                color: '#6b7280',
+                fontSize: '0.95rem',
+                fontWeight: '500'
+              }}>Subtotal</span>
+              <span style={{ 
+                fontWeight: '600',
+                fontSize: '0.95rem',
+                color: '#374151'
+              }}>${subtotal.toFixed(2)}</span>
+            </div>
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              marginBottom: '0.75rem',
+              padding: '0.5rem 0'
+            }}>
+              <span style={{ 
+                color: '#6b7280',
+                fontSize: '0.95rem',
+                fontWeight: '500'
+              }}>Delivery Fee</span>
+              <span style={{ 
+                fontWeight: '600',
+                fontSize: '0.95rem',
+                color: '#374151'
+              }}>${deliveryFee.toFixed(2)}</span>
+            </div>
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              marginBottom: '0.75rem',
+              padding: '0.5rem 0'
+            }}>
+              <span style={{ 
+                color: '#6b7280',
+                fontSize: '0.95rem',
+                fontWeight: '500'
+              }}>Tax (8%)</span>
+              <span style={{ 
+                fontWeight: '600',
+                fontSize: '0.95rem',
+                color: '#374151'
+              }}>${tax.toFixed(2)}</span>
+            </div>
+          </div>
+
+          <div style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            fontSize: '1.3rem', // Larger font
+            fontWeight: '700',
+            color: '#1f2937', // Darker color
+            marginBottom: '2rem',
+            paddingTop: '1.5rem', // Increased padding
+            borderTop: '3px solid #ff6b6b', // Colored border
+            background: 'linear-gradient(135deg, #fff5f5, #fef2f2)', // Light gradient background
+            borderRadius: '12px',
+            padding: '1.5rem',
+            boxShadow: '0 4px 12px rgba(255, 107, 107, 0.1)' // Subtle colored shadow
+          }}>
+            <span style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.5rem'
+            }}>
+              <span style={{ fontSize: '1.2rem' }}>💳</span>
+              Total Amount
+            </span>
+            <span style={{ color: '#ff6b6b' }}>${total.toFixed(2)}</span>
+          </div>
+
+          {/* Place Order Button */}
+          <button
+            onClick={handlePlaceOrder}
+            disabled={isLoading}
+            style={{
+              width: '100%',
+              background: isLoading 
+                ? 'linear-gradient(135deg, #9ca3af, #6b7280)' 
+                : 'linear-gradient(135deg, #ff6b6b, #ee5a24)',
+              color: 'white',
+              border: 'none',
+              borderRadius: '16px', // More rounded
+              padding: '1.25rem', // Increased padding
+              fontSize: '1.15rem', // Slightly larger
+              fontWeight: '700', // Bolder
+              cursor: isLoading ? 'not-allowed' : 'pointer',
+              transition: 'all 0.3s ease', // Smoother transition
+              marginBottom: '1.5rem', // Increased margin
+              boxShadow: isLoading 
+                ? '0 4px 12px rgba(156, 163, 175, 0.3)' 
+                : '0 6px 20px rgba(255, 107, 107, 0.4)', // Enhanced shadow
+              textShadow: '0 1px 2px rgba(0, 0, 0, 0.1)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '0.75rem',
+              position: 'relative',
+              overflow: 'hidden'
+            }}
+            onMouseEnter={(e) => {
+              if (!isLoading) {
+                e.currentTarget.style.background = 'linear-gradient(135deg, #ee5a24, #dc2626)';
+                e.currentTarget.style.transform = 'translateY(-3px)';
+                e.currentTarget.style.boxShadow = '0 8px 25px rgba(255, 107, 107, 0.5)';
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (!isLoading) {
+                e.currentTarget.style.background = 'linear-gradient(135deg, #ff6b6b, #ee5a24)';
+                e.currentTarget.style.transform = 'translateY(0)';
+                e.currentTarget.style.boxShadow = '0 6px 20px rgba(255, 107, 107, 0.4)';
+              }
+            }}
+          >
+            {isLoading ? (
+              <>
+                <div style={{
+                  width: '20px',
+                  height: '20px',
+                  border: '2px solid rgba(255, 255, 255, 0.3)',
+                  borderTop: '2px solid white',
+                  borderRadius: '50%',
+                  animation: 'spin 1s linear infinite'
+                }} />
+                Processing Order...
+              </>
+            ) : (
+              <>
+                <span style={{ fontSize: '1.2rem' }}>🚀</span>
+                Place Order • ${total.toFixed(2)}
+              </>
+            )}
+          </button>
+
+          {/* Estimated Delivery */}
+          <div style={{
+            background: 'linear-gradient(135deg, #f0f9ff, #e0f2fe)', // Enhanced gradient
+            borderRadius: '16px', // More rounded
+            padding: '1.5rem', // Increased padding
+            textAlign: 'center',
+            border: '2px solid #bae6fd', // Thicker border
+            boxShadow: '0 4px 12px rgba(14, 165, 233, 0.1)' // Added shadow
+          }}>
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '0.75rem', // Increased gap
+              marginBottom: '0.75rem' // Increased margin
+            }}>
+              <span style={{ 
+                fontSize: '1.5rem', // Larger emoji
+                filter: 'drop-shadow(0 1px 2px rgba(0, 0, 0, 0.1))'
+              }}>🕒</span>
+              <span style={{ 
+                fontWeight: '700', // Bolder
+                color: '#0369a1',
+                fontSize: '1.05rem' // Slightly larger
+              }}>Estimated Delivery Time</span>
+            </div>
+            <p style={{
+              color: '#0369a1',
+              fontSize: '1rem', // Larger
+              margin: 0,
+              fontWeight: '600', // Bolder
+              background: 'rgba(3, 105, 161, 0.1)',
+              borderRadius: '8px',
+              padding: '0.5rem 1rem',
+              display: 'inline-block'
+            }}>
+              ⚡ 25-35 minutes
+            </p>
+            <div style={{
+              marginTop: '0.75rem',
+              fontSize: '0.85rem',
+              color: '#0284c7',
+              fontStyle: 'italic'
+            }}>
+              We'll keep you updated via notifications
+            </div>
+          </div>
+        </div>
       </div>
+
+      {/* Authentication Popup */}
+      <AuthPopup 
+        isOpen={showAuthPopup}
+        onClose={() => {
+          setShowAuthPopup(false);
+          router.push('/cart'); // Redirect back to cart
+        }}
+        message="To proceed with checkout and place your order, please create an account or log in. This helps us track your order and provide better service!"
+      />
     </div>
   );
 }

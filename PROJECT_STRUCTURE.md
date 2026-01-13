@@ -17,14 +17,16 @@ food-delivery-ui/
 │   │   ├── layout.tsx           # Root layout with CartProvider wrapper
 │   │   ├── page.tsx             # Splash screen with animations
 │   │   ├── login/
-│   │   │   └── page.tsx         # Login/Signup with Shadcn buttons
+│   │   │   └── page.tsx         # Login/Signup with enhanced validation
 │   │   ├── forgot-password/
 │   │   │   └── page.tsx         # 4-step password reset flow
 │   │   ├── home/
-│   │   │   └── page.tsx         # COMPLETE restaurant discovery with sort & global cart
-│   │   └── restaurant/
-│   │       └── [id]/
-│   │           └── page.tsx     # Restaurant detail page with menu & cart
+│   │   │   └── page.tsx         # Restaurant discovery with sort & global cart
+│   │   ├── restaurant/
+│   │   │   └── [id]/
+│   │   │       └── page.tsx     # Restaurant detail page with menu & cart
+│   │   └── cart/
+│   │       └── page.tsx         # Enhanced cart with multiple checkout options
 │   ├── components/              # Shadcn UI components
 │   │   └── ui/
 │   │       ├── button.tsx      # Universal Button component
@@ -48,6 +50,126 @@ food-delivery-ui/
 ├── UI_REPLACEMENT_GUIDE.md    # Shadcn integration guide
 └── GITHUB_SETUP.md           # Git repository setup guide
 ```
+
+## 🎨 **UI Replacement Guide - How to Update Each Page**
+
+### 🏠 **1. Splash Screen (`src/app/page.tsx`)**
+**Current Implementation**: Animated gradient background with floating food emojis, glass-morphism design
+**What to Change When UI Team Provides Design**:
+- **Background**: Replace gradient animation in main div style
+- **Logo/Branding**: Update the "Fuji Sakura" text and styling
+- **Animation**: Modify floating emoji positions and animations
+- **Auto-redirect**: Keep the 3-second redirect logic to `/login`
+- **Key Sections**: Main container, logo area, floating elements
+
+### 🔐 **2. Login Page (`src/app/login/page.tsx`)**
+**Current Implementation**: Dual toggle system (Login/Signup + Phone/Email), enhanced validation
+**What to Change When UI Team Provides Design**:
+- **Form Layout**: Update form container styling and positioning
+- **Toggle Buttons**: Replace Shadcn Button styling while keeping functionality
+- **Input Fields**: Update input styling but keep validation logic intact
+- **Background**: Replace gradient background and floating emojis
+- **KEEP FUNCTIONALITY**: Form validation, toggle logic, error handling
+- **Key Sections**: Header, form container, toggle buttons, input fields, submit buttons
+
+### 🏡 **3. Home Page (`src/app/home/page.tsx`)**
+**Current Implementation**: Header, search, categories, sort, restaurant grid, footer
+**What to Change When UI Team Provides Design**:
+- **Header Section** (lines ~250-450): Logo, location, search bar, cart, profile
+- **Search Suggestions** (lines ~450-500): Dropdown styling and positioning
+- **Category Filters** (lines ~650-750): 8-capsule layout and hover effects
+- **Sort Section** (lines ~750-850): Sort buttons and toggle functionality
+- **Restaurant Cards** (lines ~930-1150): Card layout, hover effects, gradient colors
+- **Footer** (lines ~1150-1300): 4-column layout and styling
+- **KEEP FUNCTIONALITY**: Search logic, filtering, sorting, cart integration
+- **Key Variables**: `hoveredCard`, `selectedCategory`, `sortBy`, `searchQuery`
+
+### 🍽️ **4. Restaurant Detail Page (`src/app/restaurant/[id]/page.tsx`)**
+**Current Implementation**: Restaurant header, menu categories, item cards, sidebar cart
+**What to Change When UI Team Provides Design**:
+- **Restaurant Header** (lines ~200-350): Restaurant info, rating, delivery details
+- **Menu Categories** (lines ~350-450): Category navigation tabs
+- **Menu Items** (lines ~450-650): Item cards with add-to-cart buttons
+- **Sidebar Cart** (lines ~650-850): Cart slide-in panel and item list
+- **KEEP FUNCTIONALITY**: Add to cart logic, quantity controls, cart state
+- **Key Variables**: `showCart`, `cartItems`, `selectedCategory`
+
+### 🛒 **5. Cart Page (`src/app/cart/page.tsx`)**
+**Current Implementation**: Enhanced cart with item selection, multiple checkout options
+**What to Change When UI Team Provides Design**:
+- **Header Section** (lines ~200-300): Back button, title, clear cart
+- **Selection Controls** (lines ~400-500): Select all checkbox, item checkboxes
+- **Restaurant Groups** (lines ~500-700): Restaurant headers with selection
+- **Item Cards** (lines ~600-800): Individual item display with controls
+- **Order Summary** (lines ~800-950): Price breakdown and totals
+- **Checkout Buttons** (lines ~950-1100): Multiple checkout options
+- **KEEP FUNCTIONALITY**: Selection logic, checkout handlers, cart state
+- **Key Variables**: `selectedItems`, `selectAll`, checkout functions
+
+### 🔄 **6. Forgot Password (`src/app/forgot-password/page.tsx`)**
+**Current Implementation**: 4-step flow with validation
+**What to Change When UI Team Provides Design**:
+- **Step Indicators**: Update progress indicator styling
+- **Form Steps**: Update each step's form layout and styling
+- **Navigation**: Update back/next button styling
+- **KEEP FUNCTIONALITY**: Step navigation logic, validation, form state
+
+## 🎨 **Global Styling Guide**
+
+### **Theme System (`src/app/globals.css`)**
+**Current Colors**: Pink/Rose gradient theme (Japanese sakura inspired)
+**To Update Theme**:
+1. **CSS Variables** (lines 1-50): Update color palette
+2. **Animations** (lines 100-200): Modify gradient and float animations
+3. **Utility Classes** (lines 200-300): Update theme-specific classes
+
+### **Shadcn Components (`src/components/ui/`)**
+**Current**: Button, Card, Input, Label components
+**To Update**: Modify component styling while keeping props and functionality
+
+## 🔧 **Key Functionality to NEVER Change**
+
+### **Cart System (`src/contexts/CartContext.tsx`)**
+- ✅ **Keep**: All cart functions, localStorage logic, multi-restaurant support
+- ✅ **Keep**: `addToCart`, `removeFromCart`, `updateQuantity`, `clearCart`
+- ✅ **Keep**: Global state management and persistence
+
+### **Data Structure (`src/data/restaurants.ts`)**
+- ✅ **Keep**: Restaurant interface and data structure
+- ✅ **Keep**: All restaurant data and menu items
+- ✅ **Update**: Only add new restaurants or modify existing data
+
+### **Routing (`src/app/layout.tsx`)**
+- ✅ **Keep**: CartProvider wrapper and global layout
+- ✅ **Keep**: Metadata and font configurations
+- ✅ **Update**: Only global styling and theme
+
+## 📋 **Step-by-Step UI Replacement Process**
+
+### **When UI Team Provides New Design:**
+
+1. **Identify the Page**: Match design to existing page structure
+2. **Backup Current**: Create a backup of current styling
+3. **Update Styling Only**: 
+   - Replace CSS styles and layout
+   - Keep all JavaScript logic intact
+   - Maintain all state variables and functions
+4. **Test Functionality**: Ensure all features still work
+5. **Update Documentation**: Note changes made
+
+### **Safe Replacement Areas:**
+- ✅ CSS styles and Tailwind classes
+- ✅ Layout structure and positioning
+- ✅ Colors, fonts, and animations
+- ✅ Background images and gradients
+
+### **NEVER Touch Areas:**
+- ❌ State management logic
+- ❌ Event handlers and functions
+- ❌ API calls and data fetching
+- ❌ Form validation logic
+- ❌ Cart functionality
+- ❌ Routing and navigation logic
 
 ## 🎨 Design Theme
 - **Primary Colors**: Pink/Rose gradient theme (Japanese sakura inspired)
@@ -254,42 +376,75 @@ The application now has a complete food delivery experience with:
 
 ## 🚧 **Still Need to be Done**
 
-### 🛒 **Checkout & Payment System**
-- **Checkout Page** (`/checkout`) - Dedicated checkout flow with:
-  - Order summary and item review
-  - Delivery address form with validation
-  - Payment method selection (Credit Card, PayPal, etc.)
-  - Order confirmation and tracking number
-  - Estimated delivery time calculation
-- **Payment Integration** - Mock payment processing with:
-  - Credit card form validation
-  - Payment success/failure handling
-  - Order receipt generation
-- **Order Confirmation** - Post-checkout confirmation page
+### 7. Checkout Page (`/checkout`) - COMPLETE PROFESSIONAL CHECKOUT SYSTEM ✅
+- **Swiggy-Style Layout**: Professional two-column design with enhanced UI/UX
+- **Left Panel - Forms**: Comprehensive form sections with improved styling:
+  - **Delivery Address**: Enhanced form fields with focus states, better spacing, validation
+  - **Payment Methods**: 4 payment options (Card, UPI, Wallet, COD) with visual feedback
+  - **Special Instructions**: Textarea with tips and better styling
+- **Right Panel - Order Summary**: Sticky sidebar with enhanced design:
+  - **Restaurant Groups**: Items grouped by restaurant with gradient headers
+  - **Enhanced Item Display**: Better typography, spacing, and visual hierarchy
+  - **Price Breakdown**: Professional pricing section with background and icons
+  - **Total Amount**: Highlighted total with gradient background and colored border
+  - **Place Order Button**: Enhanced button with loading spinner, emoji, and better hover effects
+  - **Delivery Estimate**: Improved design with gradient background and additional info
+- **Form Validation**: Comprehensive validation for all required fields
+- **Loading States**: Professional loading spinner with smooth animations
+- **localStorage Integration**: Saves addresses and order history
+- **Multiple Checkout Types**: Supports all items, selected items, or restaurant-specific
+- **Order Success Flow**: Redirects to success page with order details
+- **Enhanced Styling**: Better spacing, typography, colors, shadows, and animations
+- **Professional UI**: Glass-morphism effects, gradient backgrounds, improved contrast
 
-### 📋 **Order Management System**
-- **Order History** (`/orders`) - User's past orders with:
-  - Order status tracking (Preparing, On the way, Delivered)
-  - Reorder functionality
-  - Order details and receipts
-  - Rating and review system for completed orders
-- **Order Tracking** (`/orders/[id]`) - Real-time order tracking:
-  - Live status updates
-  - Delivery person details and contact
-  - Estimated arrival time
-  - Order modification/cancellation (if allowed)
+### 8. Order Success Page (`/order-success`) - COMPLETE ORDER CONFIRMATION ✅
+- **Order Confirmation**: Professional success page with order details
+- **Order Summary**: Shows ordered items, total amount, and delivery info
+- **Estimated Delivery**: Clear delivery time and tracking information
+- **Navigation**: Options to continue shopping or view order history
 
-### 👤 **User Profile & Account Management**
-- **Profile Page** (`/profile`) - User account management:
-  - Personal information editing
-  - Saved delivery addresses
-  - Payment methods management
-  - Notification preferences
-- **Address Management** - Multiple delivery addresses:
-  - Add/edit/delete addresses
-  - Set default delivery address
-  - Address validation and autocomplete
-- **Favorites System** - Save favorite restaurants and dishes
+### 9. Order History Page (`/orders`) - COMPLETE ORDER MANAGEMENT SYSTEM ✅
+- **Professional Layout**: Clean design with status filters and order cards
+- **Order Filtering**: Filter by status (All, Confirmed, Preparing, On the Way, Delivered, Cancelled)
+- **Order Cards**: Detailed order information with restaurant grouping
+- **Order Actions**: Track order and reorder functionality
+- **Status Indicators**: Visual status badges with colors and emojis
+- **Restaurant Grouping**: Items grouped by restaurant with visual separation
+- **Price Display**: Clear pricing breakdown for each order
+- **Date Formatting**: User-friendly date and time display
+- **Empty States**: Beautiful empty state when no orders exist
+- **Navigation**: Easy navigation back to home and to individual orders
+- **localStorage Integration**: Loads order history from localStorage
+- **Reorder Functionality**: Add previous order items back to cart
+- **Professional UI**: Glass-morphism effects, gradient backgrounds, smooth animations
+
+### 10. Order Tracking Page (`/orders/[id]`) - COMPLETE ORDER TRACKING SYSTEM ✅
+- **Dynamic Routing**: Individual tracking pages for each order
+- **Two-Column Layout**: Order status tracking (left) and order details (right)
+- **Visual Order Tracking**: Step-by-step progress with animated indicators
+- **Order Status Steps**: Confirmed → Preparing → On the Way → Delivered
+- **Current Step Highlighting**: Visual indication of current order status
+- **Delivery Information**: Complete delivery address and contact details
+- **Order Summary**: Detailed breakdown of items, prices, and totals
+- **Restaurant Grouping**: Items organized by restaurant with headers
+- **Payment Information**: Payment method and order details
+- **Special Instructions**: Display any special delivery instructions
+- **Estimated Delivery**: Clear delivery time information
+- **Professional Design**: Consistent with app theme and excellent UX
+- **Error Handling**: Proper handling for non-existent orders
+- **Loading States**: Professional loading spinners and animations
+
+## 🚧 **Still Need to be Done**
+
+### 📱 **Mobile Responsiveness & UI Polish**
+- **Mobile Layout** - Responsive design for all pages:
+  - Touch-friendly navigation
+  - Mobile-optimized cart and checkout
+  - Swipe gestures for restaurant cards
+- **Progressive Web App (PWA)** - App-like experience:
+  - Offline functionality
+  - Push notifications for order updates
+  - Install prompt for mobile devices
 
 ### 🔍 **Enhanced Search & Discovery**
 - **Advanced Filters** - More filtering options:
@@ -299,16 +454,6 @@ The application now has a complete food delivery experience with:
   - Customer ratings filter
 - **Search History** - Remember user's search queries
 - **Personalized Recommendations** - Based on order history
-
-### 📱 **Mobile Responsiveness**
-- **Mobile Layout** - Responsive design for all pages:
-  - Touch-friendly navigation
-  - Mobile-optimized cart and checkout
-  - Swipe gestures for restaurant cards
-- **Progressive Web App (PWA)** - App-like experience:
-  - Offline functionality
-  - Push notifications for order updates
-  - Install prompt for mobile devices
 
 ### 🔔 **Notifications System**
 - **Order Notifications** - Real-time updates:
@@ -364,11 +509,50 @@ The application now has a complete food delivery experience with:
 ---
 
 **Priority Order for Next Development:**
-1. **Checkout Page** - Complete the ordering flow
-2. **Order Management** - Track and manage orders
-3. **Mobile Responsiveness** - Ensure mobile compatibility
+1. **Mobile Responsiveness** - Critical for real-world usage
+2. **Enhanced Search & Discovery** - Better user experience  
+3. **Performance Optimization** - Faster loading and smoother interactions
+4. **Error Handling & Polish** - Professional user experience
+5. **Real Payment Integration** - Connect with actual payment gateways
 4. **User Profile** - Account management features
 5. **API Integration** - Replace mock data with real services
+
+## 📚 **Quick Reference for UI Updates**
+
+### **Most Common UI Update Scenarios:**
+
+**🎨 Changing Colors/Theme:**
+- Update `src/app/globals.css` CSS variables (lines 1-50)
+- Modify gradient backgrounds in each page's main container
+- Update button colors while keeping Shadcn structure
+
+**📱 Updating Layout:**
+- Modify container styles and grid layouts
+- Keep all `useState`, `useEffect`, and function logic
+- Update only the JSX structure and CSS classes
+
+**🔄 Adding New Components:**
+- Create in `src/components/ui/` following Shadcn pattern
+- Import and use in pages while keeping existing functionality
+- Update `components.json` if needed
+
+**🎯 Page-Specific Quick Fixes:**
+- **Home Page**: Restaurant cards styling (lines 930-1150)
+- **Cart Page**: Checkout buttons styling (lines 950-1100)  
+- **Login Page**: Form container and input styling (lines 200-400)
+- **Restaurant Page**: Menu item cards (lines 450-650)
+
+### **Emergency Backup Commands:**
+```bash
+# Create backup before major changes
+git checkout -b backup-before-ui-update
+git add .
+git commit -m "Backup before UI team design integration"
+
+# If something breaks, restore:
+git checkout main
+git reset --hard HEAD~1
+```
 
 ---
 

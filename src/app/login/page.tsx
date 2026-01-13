@@ -111,6 +111,10 @@ export default function LoginPage() {
     if (!newErrors.phone && !newErrors.email && !newErrors.password) {
       setIsLoading(true);
       setTimeout(() => {
+        // Store user data for regular login
+        const userName = isPhoneLogin ? formData.phone : formData.email.split('@')[0];
+        localStorage.setItem('userName', userName);
+        localStorage.setItem('isGuest', 'false');
         router.push('/home');
         setIsLoading(false);
       }, 1000);
@@ -118,6 +122,8 @@ export default function LoginPage() {
   };
 
   const handleGuestLogin = () => {
+    localStorage.setItem('userName', 'Guest');
+    localStorage.setItem('isGuest', 'true');
     router.push('/home');
   };
 

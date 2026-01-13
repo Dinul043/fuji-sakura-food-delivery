@@ -677,6 +677,7 @@ export default function RestaurantPage() {
                     </span>
                   </div>
                   <button
+                    onClick={() => router.push(`/checkout?type=restaurant&restaurant=${params.id}`)}
                     style={{
                       width: '100%',
                       background: 'linear-gradient(135deg, #ff6b6b, #ee5a24)',
