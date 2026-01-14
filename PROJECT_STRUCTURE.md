@@ -186,15 +186,29 @@ food-delivery-ui/
 - Auto-redirect to login after 3 seconds
 - Smooth fade-out transition
 
-### 2. Authentication (`/login`)
-- **Login/Signup Toggle**: Switch between sign in and sign up modes
-- **Phone/Email Toggle**: Users can choose login method
-- **Form Validation**: Real-time validation with error messages
-- **Password Visibility**: Show/hide password toggle with emoji icons
-- **Guest Access**: Continue as guest option
+### 2. Authentication (`/login`) - **COMPLETELY REDESIGNED** ✨
+- **New Professional UI**: Split-screen design with food images on left, forms on right
+- **Multi-Step Flow**: Welcome → Sign In/Sign Up → OTP Verification → Complete
+- **9 Authentication Screens**:
+  1. Welcome screen with Sign in/Sign up/Google/Guest options
+  2. Sign In with email and password
+  3. OTP verification for sign in
+  4. Sign Up with email entry
+  5. OTP verification for sign up
+  6. Register name and password
+  7. Forgot password email entry
+  8. Change password form
+  9. Success/navigation screens
+- **OTP System**: 4-digit OTP with timer and resend functionality
+- **Enhanced Validation**: Strict password requirements (8 chars, 5 uppercase, 1 lowercase, 1 number)
+- **Auto-Clear Forms**: Fields clear when switching between steps
+- **Error Handling**: Real-time validation with clear error messages
+- **Guest Access**: Continue as guest option maintained
+- **Google Sign-in**: Mock Google authentication
+- **Remember Me**: Checkbox for persistent login
 - **localStorage Integration**: Mock authentication with session persistence
-- **Responsive Design**: Works on desktop and mobile
-- **Clean Styling**: Inline CSS approach for precise control
+- **Professional Design**: Orange (#FF5722) theme matching Fuji foods branding
+- **Food Photography**: 4 vertical food images (230×938px each) with 0.65 opacity
 
 ### 3. Forgot Password (`/forgot-password`)
 - **4-Step Flow**:
