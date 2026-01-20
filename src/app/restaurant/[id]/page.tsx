@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { restaurants, Restaurant } from '../../../data/restaurants';
 import { useCart } from '../../../contexts/CartContext';
+import AuthPopup from '../../../components/AuthPopup';
 
 interface MenuItem {
   id: number;
@@ -22,6 +23,7 @@ export default function RestaurantPage() {
   const [restaurant, setRestaurant] = useState<Restaurant | null>(null);
   const [selectedCategory, setSelectedCategory] = useState('recommended');
   const [isCartOpen, setIsCartOpen] = useState(false);
+  const [showAuthPopup, setShowAuthPopup] = useState(false);
   const { cart, addToCart, removeFromCart, updateQuantity, getTotalPrice, getTotalItems, getCartItemsByRestaurant } = useCart();
 
   // Sample menu data - in real app this would come from API
@@ -142,6 +144,16 @@ export default function RestaurantPage() {
 
   const currentRestaurantCartItems = restaurant ? getCartItemsByRestaurant(restaurant.id) : [];
   const currentRestaurantTotal = currentRestaurantCartItems.reduce((total, item) => total + (item.price * item.quantity), 0);
+
+  // Handle checkout with guest protection
+  const handleCheckout = () => {
+    const isGuest = localStorage.getItem('isGuest') === 'true';
+    if (isGuest) {
+      setShowAuthPopup(true);
+      return;
+    }
+    router.push(`/checkout?type=restaurant&restaurant=${params.id}`);
+  };
 
   const filteredMenuItems = menuItems.filter(item => item.category === selectedCategory);
 
@@ -677,7 +689,7 @@ export default function RestaurantPage() {
                     </span>
                   </div>
                   <button
-                    onClick={() => router.push(`/checkout?type=restaurant&restaurant=${params.id}`)}
+                    onClick={handleCheckout}
                     style={{
                       width: '100%',
                       background: 'linear-gradient(135deg, #ff6b6b, #ee5a24)',
@@ -705,6 +717,12 @@ export default function RestaurantPage() {
           </div>
         )}
       </div>
+
+      {/* Auth Popup for Guest Users */}
+      <AuthPopup 
+        isOpen={showAuthPopup} 
+        onClose={() => setShowAuthPopup(false)} 
+      />
 
       <style jsx>{`
         @keyframes gradientShift {

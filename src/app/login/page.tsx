@@ -7,6 +7,13 @@ import Image from 'next/image';
 type AuthStep = 'welcome' | 'signin' | 'signup' | 'otp-signin' | 'otp-signup' | 'forgot-password' | 'change-password' | 'register-name';
 
 export default function LoginPage() {
+  // Load Anuphan font
+  useEffect(() => {
+    const link = document.createElement('link');
+    link.href = 'https://fonts.googleapis.com/css2?family=Anuphan:wght@400;500;600;700&display=swap';
+    link.rel = 'stylesheet';
+    document.head.appendChild(link);
+  }, []);
   const [currentStep, setCurrentStep] = useState<AuthStep>('welcome');
   const [showPassword, setShowPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
@@ -14,6 +21,7 @@ export default function LoginPage() {
   const [otp, setOtp] = useState(['', '', '', '']);
   const [otpTimer, setOtpTimer] = useState(5);
   const [canResend, setCanResend] = useState(false);
+  const [focusedOtpIndex, setFocusedOtpIndex] = useState(-1);
   
   const [formData, setFormData] = useState({
     email: '',
@@ -53,6 +61,7 @@ export default function LoginPage() {
     setOtp(['', '', '', '']);
     setOtpTimer(5);
     setCanResend(false);
+    setFocusedOtpIndex(-1);
   };
 
   const validateEmail = (email: string) => {
@@ -85,6 +94,7 @@ export default function LoginPage() {
     if (value && index < 3) {
       const nextInput = document.getElementById(`otp-${index + 1}`);
       nextInput?.focus();
+      setFocusedOtpIndex(index + 1);
     }
     if (errors.otp) {
       setErrors(prev => ({ ...prev, otp: '' }));
@@ -95,7 +105,16 @@ export default function LoginPage() {
     if (e.key === 'Backspace' && !otp[index] && index > 0) {
       const prevInput = document.getElementById(`otp-${index - 1}`);
       prevInput?.focus();
+      setFocusedOtpIndex(index - 1);
     }
+  };
+
+  const handleOtpFocus = (index: number) => {
+    setFocusedOtpIndex(index);
+  };
+
+  const handleOtpBlur = () => {
+    setFocusedOtpIndex(-1);
   };
 
   const handleResendOtp = () => {
@@ -305,8 +324,31 @@ export default function LoginPage() {
           {/* Welcome Screen */}
           {currentStep === 'welcome' && (
             <div>
-              <h1 style={{ fontSize: '2rem', fontWeight: '700', marginBottom: '0.75rem', color: '#1F2937', textAlign: 'center' }}>Welcome</h1>
-              <p style={{ color: '#6B7280', marginBottom: '2rem', fontSize: '0.95rem', textAlign: 'center', lineHeight: '1.5' }}>Get Started by signing in to your account or create a new one to began your journey</p>
+              <h1 style={{ 
+                fontFamily: 'Anuphan, system-ui, sans-serif', 
+                fontWeight: 600, 
+                fontSize: '32px', 
+                lineHeight: '40px', 
+                letterSpacing: '0%', 
+                marginBottom: '1rem', 
+                color: '#1a1a1a', 
+                textAlign: 'center' 
+              }}>
+                Welcome
+              </h1>
+              <p style={{ 
+                fontFamily: 'Anuphan, system-ui, sans-serif',
+                fontWeight: 500,
+                fontSize: '16px',
+                lineHeight: '24px',
+                letterSpacing: '0%',
+                textAlign: 'center',
+                color: '#667085',
+                marginBottom: '2rem',
+                marginTop: '0.5rem'
+              }}>
+                Get Started by signing in to your account or create a new one to began your journey
+              </p>
               
               {/* Sign in button */}
               <button 
@@ -320,8 +362,9 @@ export default function LoginPage() {
                   color: 'white', 
                   border: 'none', 
                   borderRadius: '8px', 
-                  fontSize: '1rem', 
-                  fontWeight: '600', 
+                  fontFamily: 'Anuphan, system-ui, sans-serif',
+                  fontSize: '16px', 
+                  fontWeight: 600, 
                   cursor: 'pointer', 
                   marginBottom: '1rem',
                   padding: '16px 28px',
@@ -348,8 +391,9 @@ export default function LoginPage() {
                   color: '#F15D31', 
                   border: '1px solid #F15D31', 
                   borderRadius: '8px', 
-                  fontSize: '1rem', 
-                  fontWeight: '600', 
+                  fontFamily: 'Anuphan, system-ui, sans-serif',
+                  fontSize: '16px', 
+                  fontWeight: 600, 
                   cursor: 'pointer',
                   marginBottom: '1.5rem',
                   padding: '16px 28px',
@@ -364,7 +408,8 @@ export default function LoginPage() {
               <div style={{ display: 'flex', alignItems: 'center', marginBottom: '1.5rem', gap: '1rem' }}>
                 <div style={{ flex: 1, height: '1px', backgroundColor: '#D7CDCD' }}></div>
                 <span style={{ 
-                  fontWeight: '600', 
+                  fontFamily: 'Anuphan, system-ui, sans-serif',
+                  fontWeight: 600, 
                   fontSize: '16px', 
                   lineHeight: '24px', 
                   color: '#667085',
@@ -390,11 +435,14 @@ export default function LoginPage() {
                   width: '100%', 
                   height: '52px', 
                   backgroundColor: 'white', 
-                  color: '#344054', 
+                  color: '#1D2939', 
                   border: '1px solid #D0D5DD', 
                   borderRadius: '8px', 
-                  fontSize: '0.95rem', 
-                  fontWeight: '500', 
+                  fontFamily: 'Anuphan, system-ui, sans-serif',
+                  fontSize: '16px',
+                  fontWeight: 600,
+                  lineHeight: '24px',
+                  letterSpacing: '0%',
                   cursor: 'pointer', 
                   display: 'flex', 
                   alignItems: 'center', 
@@ -430,8 +478,9 @@ export default function LoginPage() {
                   color: '#666', 
                   border: 'none', 
                   borderRadius: '8px', 
-                  fontSize: '1rem', 
-                  fontWeight: '500', 
+                  fontFamily: 'Anuphan, system-ui, sans-serif',
+                  fontSize: '16px', 
+                  fontWeight: 500, 
                   cursor: 'pointer', 
                   transition: 'all 0.2s ease',
                   textAlign: 'center'
@@ -452,7 +501,31 @@ export default function LoginPage() {
                   <label style={{ display: 'block', marginBottom: '0.5rem', color: '#333', fontWeight: '500', fontSize: '0.95rem' }}>E-mail</label>
                   <div style={{ position: 'relative' }}>
                     <span style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: '#999' }}>✉️</span>
-                    <input type="email" name="email" value={formData.email} onChange={handleInputChange} placeholder="viaoli@untitledui.com" style={{ width: '100%', padding: '0.75rem 0.75rem 0.75rem 3rem', border: `1px solid ${errors.email ? '#dc3545' : '#ddd'}`, borderRadius: '8px', fontSize: '0.95rem', outline: 'none' }} />
+                    <input 
+                      type="text" 
+                      name="email" 
+                      value={formData.email} 
+                      onChange={handleInputChange} 
+                      placeholder="viaoli@untitledui.com" 
+                      style={{ 
+                        width: '100%', 
+                        padding: '0.75rem 0.75rem 0.75rem 3rem', 
+                        border: `1px solid ${errors.email ? '#dc3545' : '#ddd'}`, 
+                        borderRadius: '8px', 
+                        fontSize: '0.95rem', 
+                        outline: 'none' 
+                      }}
+                      onFocus={(e) => {
+                        if (!errors.email) {
+                          e.target.style.borderColor = '#F15D31';
+                        }
+                      }}
+                      onBlur={(e) => {
+                        if (!errors.email) {
+                          e.target.style.borderColor = '#ddd';
+                        }
+                      }}
+                    />
                   </div>
                   {errors.email && <p style={{ color: '#dc3545', fontSize: '0.875rem', marginTop: '0.25rem' }}>{errors.email}</p>}
                 </div>
@@ -492,13 +565,39 @@ export default function LoginPage() {
           {/* OTP Verification for Sign In */}
           {currentStep === 'otp-signin' && (
             <div>
-              <h2 style={{ fontSize: '1.5rem', fontWeight: '700', marginBottom: '0.5rem', color: '#333' }}>Enter OTP to verify your email</h2>
+              <h2 style={{ fontSize: '1.5rem', fontWeight: '700', marginBottom: '0.5rem', color: '#1F2937', textAlign: 'center' }}>Enter OTP to verify your email</h2>
               
               <div style={{ marginTop: '2rem' }}>
                 <label style={{ display: 'block', marginBottom: '1rem', color: '#333', fontWeight: '500' }}>Enter OTP</label>
                 <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem' }}>
                   {otp.map((digit, index) => (
-                    <input key={index} id={`otp-${index}`} type="text" maxLength={1} value={digit} onChange={(e) => handleOtpChange(index, e.target.value)} onKeyDown={(e) => handleOtpKeyDown(index, e)} style={{ width: '60px', height: '60px', textAlign: 'center', fontSize: '1.5rem', border: `2px solid ${errors.otp ? '#dc3545' : '#ddd'}`, borderRadius: '8px', outline: 'none' }} />
+                    <input 
+                      key={index} 
+                      id={`otp-${index}`} 
+                      type="text" 
+                      maxLength={1} 
+                      value={digit} 
+                      onChange={(e) => handleOtpChange(index, e.target.value)} 
+                      onKeyDown={(e) => handleOtpKeyDown(index, e)}
+                      onFocus={() => handleOtpFocus(index)}
+                      onBlur={handleOtpBlur}
+                      style={{ 
+                        width: '60px', 
+                        height: '60px', 
+                        textAlign: 'center', 
+                        fontSize: '1.5rem', 
+                        border: `2px solid ${
+                          errors.otp ? '#dc3545' : 
+                          focusedOtpIndex === index ? '#F15D31' : 
+                          '#ddd'
+                        }`, 
+                        borderRadius: '8px', 
+                        outline: 'none',
+                        transition: 'border-color 0.2s ease',
+                        fontFamily: 'Anuphan, system-ui, sans-serif',
+                        fontWeight: 600
+                      }} 
+                    />
                   ))}
                 </div>
                 {errors.otp && <p style={{ color: '#dc3545', fontSize: '0.875rem', marginBottom: '1rem' }}>{errors.otp}</p>}
@@ -531,7 +630,7 @@ export default function LoginPage() {
                   <label style={{ display: 'block', marginBottom: '0.5rem', color: '#333', fontWeight: '500' }}>E-mail</label>
                   <div style={{ position: 'relative' }}>
                     <span style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: '#999' }}>✉️</span>
-                    <input type="email" name="email" value={formData.email} onChange={handleInputChange} placeholder="viaoli@untitledui.com" style={{ width: '100%', padding: '0.75rem 0.75rem 0.75rem 3rem', border: `1px solid ${errors.email ? '#dc3545' : '#ddd'}`, borderRadius: '8px', fontSize: '1rem', outline: 'none' }} />
+                    <input type="text" name="email" value={formData.email} onChange={handleInputChange} placeholder="viaoli@untitledui.com" style={{ width: '100%', padding: '0.75rem 0.75rem 0.75rem 3rem', border: `1px solid ${errors.email ? '#dc3545' : '#ddd'}`, borderRadius: '8px', fontSize: '1rem', outline: 'none' }} />
                   </div>
                   {errors.email && <p style={{ color: '#dc3545', fontSize: '0.875rem', marginTop: '0.25rem' }}>{errors.email}</p>}
                 </div>
@@ -558,7 +657,33 @@ export default function LoginPage() {
                 <label style={{ display: 'block', marginBottom: '1rem', color: '#333', fontWeight: '500' }}>Enter OTP</label>
                 <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem' }}>
                   {otp.map((digit, index) => (
-                    <input key={index} id={`otp-${index}`} type="text" maxLength={1} value={digit} onChange={(e) => handleOtpChange(index, e.target.value)} onKeyDown={(e) => handleOtpKeyDown(index, e)} style={{ width: '60px', height: '60px', textAlign: 'center', fontSize: '1.5rem', border: `2px solid ${errors.otp ? '#dc3545' : '#ddd'}`, borderRadius: '8px', outline: 'none' }} />
+                    <input 
+                      key={index} 
+                      id={`otp-${index}`} 
+                      type="text" 
+                      maxLength={1} 
+                      value={digit} 
+                      onChange={(e) => handleOtpChange(index, e.target.value)} 
+                      onKeyDown={(e) => handleOtpKeyDown(index, e)}
+                      onFocus={() => handleOtpFocus(index)}
+                      onBlur={handleOtpBlur}
+                      style={{ 
+                        width: '60px', 
+                        height: '60px', 
+                        textAlign: 'center', 
+                        fontSize: '1.5rem', 
+                        border: `2px solid ${
+                          errors.otp ? '#dc3545' : 
+                          focusedOtpIndex === index ? '#F15D31' : 
+                          '#ddd'
+                        }`, 
+                        borderRadius: '8px', 
+                        outline: 'none',
+                        transition: 'border-color 0.2s ease',
+                        fontFamily: 'Anuphan, system-ui, sans-serif',
+                        fontWeight: 600
+                      }} 
+                    />
                   ))}
                 </div>
                 {errors.otp && <p style={{ color: '#dc3545', fontSize: '0.875rem', marginBottom: '1rem' }}>{errors.otp}</p>}
@@ -643,7 +768,7 @@ export default function LoginPage() {
                   <label style={{ display: 'block', marginBottom: '0.5rem', color: '#333', fontWeight: '500' }}>E-mail</label>
                   <div style={{ position: 'relative' }}>
                     <span style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: '#999' }}>✉️</span>
-                    <input type="email" name="email" value={formData.email} onChange={handleInputChange} placeholder="viaoli@untitledui.com" style={{ width: '100%', padding: '0.75rem 0.75rem 0.75rem 3rem', border: `1px solid ${errors.email ? '#dc3545' : '#ddd'}`, borderRadius: '8px', fontSize: '1rem', outline: 'none' }} />
+                    <input type="text" name="email" value={formData.email} onChange={handleInputChange} placeholder="viaoli@untitledui.com" style={{ width: '100%', padding: '0.75rem 0.75rem 0.75rem 3rem', border: `1px solid ${errors.email ? '#dc3545' : '#ddd'}`, borderRadius: '8px', fontSize: '1rem', outline: 'none' }} />
                   </div>
                   {errors.email && <p style={{ color: '#dc3545', fontSize: '0.875rem', marginTop: '0.25rem' }}>{errors.email}</p>}
                 </div>
