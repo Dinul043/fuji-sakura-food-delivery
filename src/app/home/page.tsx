@@ -9,7 +9,8 @@ export default function HomePage() {
   const [userName, setUserName] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
-  const [filteredRestaurants, setFilteredRestaurants] = useState<Restaurant[]>(restaurants);
+  // Show only first 20 restaurants for better performance
+  const [filteredRestaurants, setFilteredRestaurants] = useState<Restaurant[]>(restaurants.slice(0, 20));
   const [sortBy, setSortBy] = useState('');
   const [sortOrder, setSortOrder] = useState<'high' | 'low'>('high'); // Track sort order
   const [searchTimeout, setSearchTimeout] = useState<NodeJS.Timeout | null>(null);
@@ -33,7 +34,8 @@ export default function HomePage() {
   }, []);
 
   useEffect(() => {
-    let filtered = restaurants;
+    // Use only first 20 restaurants for better performance
+    let filtered = restaurants.slice(0, 20);
 
     // Apply both filters independently
     // Filter by search query first
@@ -256,17 +258,14 @@ export default function HomePage() {
       minHeight: '100vh',
       background: 'linear-gradient(135deg, #ff6b6b 0%, #ee5a24 25%, #ff9ff3 50%, #54a0ff 75%, #5f27cd 100%)',
       backgroundSize: '400% 400%',
-      animation: 'gradientShift 15s ease infinite',
+      animation: 'gradientShift 20s ease infinite', // Slower animation for better performance
       position: 'relative',
       overflow: 'hidden'
     }}>
-      {/* Floating Food Emojis - Same as splash/login but slower and more subtle */}
-      <div style={{ position: 'absolute', top: '10%', left: '10%', fontSize: '2rem', animation: 'float 6s ease-in-out infinite', opacity: 0.6 }}>🍜</div>
-      <div style={{ position: 'absolute', top: '20%', right: '15%', fontSize: '1.5rem', animation: 'float 5s ease-in-out infinite 1s', opacity: 0.5 }}>🍱</div>
-      <div style={{ position: 'absolute', bottom: '20%', left: '20%', fontSize: '1.8rem', animation: 'float 7s ease-in-out infinite 2s', opacity: 0.6 }}>🍣</div>
-      <div style={{ position: 'absolute', bottom: '30%', right: '10%', fontSize: '2.2rem', animation: 'float 5.5s ease-in-out infinite 3s', opacity: 0.5 }}>🍙</div>
-      <div style={{ position: 'absolute', top: '50%', left: '5%', fontSize: '1.6rem', animation: 'float 6.5s ease-in-out infinite 4s', opacity: 0.4 }}>🥢</div>
-      <div style={{ position: 'absolute', top: '60%', right: '5%', fontSize: '1.9rem', animation: 'float 5.2s ease-in-out infinite 1.5s', opacity: 0.5 }}>🍵</div>
+      {/* Floating Food Emojis - Reduced for performance */}
+      <div style={{ position: 'absolute', top: '10%', left: '10%', fontSize: '2rem', animation: 'float 8s ease-in-out infinite', opacity: 0.4 }}>🍜</div>
+      <div style={{ position: 'absolute', top: '20%', right: '15%', fontSize: '1.5rem', animation: 'float 7s ease-in-out infinite 1s', opacity: 0.3 }}>🍱</div>
+      <div style={{ position: 'absolute', bottom: '20%', left: '20%', fontSize: '1.8rem', animation: 'float 9s ease-in-out infinite 2s', opacity: 0.4 }}>🍣</div>
 
       {/* HEADER - MATCHING SPLASH/LOGIN THEME WITH CARD-LIKE ENDING */}
       <header style={{
