@@ -1,45 +1,6 @@
-# Fuji Sakura Food Delivery - Full Stack Project
+# Fuji Sakura Food Delivery - Frontend Project Structure
 
-## 📁 Monorepo Structure
-```
-fuji-sakura-food-delivery/
-├── 📱 Frontend (Next.js) - Root Level
-│   ├── src/app/          # Next.js app router
-│   ├── src/components/   # UI components
-│   ├── src/lib/         # Utilities & API
-│   ├── public/          # Static assets
-│   └── package.json     # Frontend dependencies
-└── 🔧 backend/          # FastAPI Backend
-    ├── app/             # FastAPI application
-    ├── main.py          # Server entry point
-    └── requirements.txt # Python dependencies
-```
-
-## 🚀 How to Run Both Apps
-
-### 1. Frontend (Next.js)
-```bash
-npm run dev
-# Runs on http://localhost:3000
-```
-
-### 2. Backend (FastAPI)  
-```bash
-cd backend
-python main.py
-# Runs on http://localhost:8000
-```
-
-## 🔗 Full Stack Integration
-- ✅ Frontend calls backend APIs at `http://localhost:8000`
-- ✅ Configurable via `.env.local` file
-- ✅ Complete authentication flow working
-- ✅ Database integration (MySQL)
-- ✅ Email system (Mailtrap)
-
----
-
-## 🏗️ Frontend Architecture
+## 🏗️ Architecture Overview
 Next.js 16 application with TypeScript, Tailwind CSS, and shadcn/ui components. Features complete authentication flow integrated with FastAPI backend.
 
 ## 📁 Clean Project Structure
