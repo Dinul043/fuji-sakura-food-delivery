@@ -122,9 +122,9 @@ export default function AdminDashboard() {
     message: ''
   });
 
-  // Enhanced Admin Authentication Check
+  // Enhanced Admin Authentication Check with continuous validation
   useEffect(() => {
-    const checkAdminAuth = () => {
+    const checkAdminAuth = async () => {
       const adminToken = localStorage.getItem('adminToken');
       const userRole = localStorage.getItem('userRole');
       const isAdmin = localStorage.getItem('isAdmin');
@@ -161,11 +161,93 @@ export default function AdminDashboard() {
         return;
       }
       
+      // CRITICAL: Verify token with backend to check if admin still exists
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/admin/verify`, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${adminToken}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        if (!response.ok) {
+          console.log('Admin access denied: Token verification failed');
+          showNotification('error', 'Access Revoked', 'Your admin access has been revoked. Redirecting to login...');
+          
+          // Clear all admin session data
+          localStorage.removeItem('adminToken');
+          localStorage.removeItem('isAdmin');
+          localStorage.removeItem('userRole');
+          localStorage.removeItem('adminEmail');
+          localStorage.removeItem('adminName');
+          localStorage.removeItem('adminLoginTime');
+          
+          setTimeout(() => router.push('/admin'), 2000);
+          return;
+        }
+        
+        const verificationData = await response.json();
+        console.log('Admin verification successful:', verificationData);
+        
+        // Update admin info if needed
+        if (verificationData.admin) {
+          localStorage.setItem('adminName', verificationData.admin.name);
+          localStorage.setItem('adminEmail', verificationData.admin.email);
+        }
+        
+      } catch (error) {
+        console.error('Admin verification error:', error);
+        showNotification('error', 'Connection Error', 'Unable to verify admin status. Please check your connection.');
+        return;
+      }
+      
       console.log('Admin authentication passed - loading applications');
       fetchApplications();
     };
     
     checkAdminAuth();
+  }, [router]);
+
+  // Continuous session validation - check every 30 seconds
+  useEffect(() => {
+    const validateSession = async () => {
+      const adminToken = localStorage.getItem('adminToken');
+      if (!adminToken) return;
+      
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/admin/verify`, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${adminToken}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        if (!response.ok) {
+          console.log('🚫 Session validation failed - admin access revoked');
+          showNotification('error', 'Session Expired', 'Your admin session has been revoked. Redirecting to login...');
+          
+          // Clear all session data
+          localStorage.removeItem('adminToken');
+          localStorage.removeItem('isAdmin');
+          localStorage.removeItem('userRole');
+          localStorage.removeItem('adminEmail');
+          localStorage.removeItem('adminName');
+          localStorage.removeItem('adminLoginTime');
+          
+          setTimeout(() => router.push('/admin'), 2000);
+        }
+      } catch (error) {
+        console.error('Session validation error:', error);
+      }
+    };
+    
+    // Validate immediately, then every 30 seconds
+    validateSession();
+    const validationInterval = setInterval(validateSession, 30000); // 30 seconds
+    
+    return () => clearInterval(validationInterval);
   }, [router]);
 
   // Session timer - updates every second
