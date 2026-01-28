@@ -646,26 +646,26 @@ export default function LoginPage() {
   };
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', width: '100%', margin: 0, padding: 0, fontFamily: 'system-ui, -apple-system, sans-serif', overflow: 'hidden' }}>
+    <div style={{ display: 'flex', minHeight: '100vh', width: '100%', margin: 0, padding: 0, fontFamily: 'system-ui, -apple-system, sans-serif' }}>
       {/* Left Column - 60% width - 4 Image Panels */}
-      <div style={{ width: '60%', display: 'flex', height: '100vh', margin: 0, padding: 0, backgroundColor: '#D9D9D9' }}>
+      <div style={{ width: '60%', display: 'flex', minHeight: '100vh', margin: 0, padding: 0, backgroundColor: '#D9D9D9' }}>
         {/* Image Panel 1 - visible but lighter */}
-        <div style={{ width: '231px', height: '100vh', margin: 0, padding: 0, position: 'relative' }}>
+        <div style={{ width: '231px', minHeight: '100vh', height: '100%', margin: 0, padding: 0, position: 'relative', flex: '1', display: 'flex' }}>
           <Image src="/images/auth/Rectangle 1681 .png" alt="" fill style={{ objectFit: 'cover', opacity: 0.45 }} />
         </div>
         
         {/* Image Panel 2 - high opacity (clear/HD) */}
-        <div style={{ width: '230px', height: '100vh', margin: 0, padding: 0, position: 'relative' }}>
+        <div style={{ width: '230px', minHeight: '100vh', height: '100%', margin: 0, padding: 0, position: 'relative', flex: '1', display: 'flex' }}>
           <Image src="/images/auth/Rectangle 1682 (1).png" alt="" fill style={{ objectFit: 'cover', opacity: 0.85 }} />
         </div>
         
         {/* Image Panel 3 - visible but lighter (same as Image 1) */}
-        <div style={{ width: '230px', height: '100vh', margin: 0, padding: 0, position: 'relative' }}>
+        <div style={{ width: '230px', minHeight: '100vh', height: '100%', margin: 0, padding: 0, position: 'relative', flex: '1', display: 'flex' }}>
           <Image src="/images/auth/Rectangle 1683 .png" alt="" fill style={{ objectFit: 'cover', opacity: 0.45 }} />
         </div>
         
         {/* Image Panel 4 - high opacity (same as Image 2) */}
-        <div style={{ width: '231px', height: '100vh', margin: 0, padding: 0, position: 'relative' }}>
+        <div style={{ width: '231px', minHeight: '100vh', height: '100%', margin: 0, padding: 0, position: 'relative', flex: '1', display: 'flex' }}>
           <Image src="/images/auth/Rectangle 1684 .png" alt="" fill style={{ objectFit: 'cover', opacity: 0.85 }} />
         </div>
       </div>
@@ -857,11 +857,73 @@ export default function LoginPage() {
                   fontWeight: 500, 
                   cursor: 'pointer', 
                   transition: 'all 0.2s ease',
-                  textAlign: 'center'
+                  textAlign: 'center',
+                  marginBottom: '1.5rem'
                 }}
               >
                 Continue as Guest
               </button>
+
+              {/* Restaurant Partner Section */}
+              <div style={{
+                textAlign: 'center',
+                padding: '1.5rem 0 1rem 0',
+                borderTop: '1px solid #F5D5C8',
+                marginTop: '0.5rem'
+              }}>
+                <p style={{
+                  fontFamily: 'Anuphan, system-ui, sans-serif',
+                  fontSize: '0.95rem',
+                  color: '#8B4513',
+                  margin: '0 0 1rem 0',
+                  fontWeight: '600'
+                }}>
+                  🏪 Own a restaurant?
+                </p>
+                
+                <a 
+                  href="/restaurant/apply"
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '0.5rem',
+                    padding: '0.875rem 1.5rem',
+                    background: 'linear-gradient(135deg, #FF5722 0%, #FF7043 100%)',
+                    color: 'white',
+                    textDecoration: 'none',
+                    borderRadius: '8px',
+                    fontFamily: 'Anuphan, system-ui, sans-serif',
+                    fontSize: '0.95rem',
+                    fontWeight: '600',
+                    transition: 'all 0.2s ease',
+                    boxShadow: '0 4px 15px rgba(255, 87, 34, 0.3)',
+                    border: 'none'
+                  }}
+                  onMouseOver={(e) => {
+                    e.currentTarget.style.background = 'linear-gradient(135deg, #E64A19 0%, #FF5722 100%)';
+                    e.currentTarget.style.transform = 'translateY(-2px)';
+                    e.currentTarget.style.boxShadow = '0 6px 20px rgba(255, 87, 34, 0.4)';
+                  }}
+                  onMouseOut={(e) => {
+                    e.currentTarget.style.background = 'linear-gradient(135deg, #FF5722 0%, #FF7043 100%)';
+                    e.currentTarget.style.transform = 'translateY(0)';
+                    e.currentTarget.style.boxShadow = '0 4px 15px rgba(255, 87, 34, 0.3)';
+                  }}
+                >
+                  <span>🚀</span>
+                  Join as Restaurant Partner
+                </a>
+                
+                <p style={{
+                  fontFamily: 'Anuphan, system-ui, sans-serif',
+                  fontSize: '0.8rem',
+                  color: '#A0522D',
+                  margin: '0.75rem 0 0 0',
+                  lineHeight: '1.4'
+                }}>
+                  Grow your business with our platform
+                </p>
+              </div>
             </div>
           )}
 

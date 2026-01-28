@@ -1,7 +1,7 @@
 # Fuji Sakura Food Delivery - Frontend Project Structure
 
 ## 🏗️ Architecture Overview
-Next.js 16 application with TypeScript, Tailwind CSS, and shadcn/ui components. Features complete authentication flow integrated with FastAPI backend.
+Next.js 16 application with TypeScript, Tailwind CSS, and role-based authentication system. Features complete customer authentication and restaurant partnership application flow integrated with FastAPI backend.
 
 ## 📁 Clean Project Structure
 
@@ -13,14 +13,19 @@ food-delivery-ui/
 │       └── logo/          # Brand logo assets
 ├── src/
 │   ├── app/               # Next.js App Router pages
+│   │   ├── admin/         # Super Admin Portal
+│   │   │   └── page.tsx   # Admin login (role-based)
 │   │   ├── cart/          # Shopping cart page
 │   │   ├── checkout/      # Checkout flow
 │   │   ├── forgot-password/ # Password reset
 │   │   ├── home/          # Main dashboard
-│   │   ├── login/         # Authentication (Sign in/Sign up)
+│   │   ├── login/         # Customer authentication (Sign in/Sign up)
 │   │   ├── order-success/ # Order confirmation
 │   │   ├── orders/        # Order history & tracking
-│   │   ├── restaurant/    # Restaurant details & menu
+│   │   ├── restaurant/    # Restaurant system
+│   │   │   ├── [id]/      # Restaurant details & menu
+│   │   │   └── apply/     # Restaurant partnership application
+│   │   │       └── page.tsx # 3-step application form
 │   │   ├── globals.css    # Global styles
 │   │   ├── layout.tsx     # Root layout
 │   │   └── page.tsx       # Landing page
@@ -34,46 +39,57 @@ food-delivery-ui/
 │   ├── contexts/
 │   │   └── CartContext.tsx # Shopping cart state management
 │   ├── data/
-│   │   └── restaurants.ts  # Mock restaurant data
+│   │   └── restaurants.ts  # Mock restaurant data (55+ restaurants)
 │   └── lib/
 │       ├── api.ts         # API utilities
+│       ├── auth.ts        # Authentication helpers
 │       └── utils.ts       # Utility functions
-├── .gitignore             # Git ignore rules (includes IDE settings)
+├── .env.local             # Environment variables
+├── .gitignore             # Git ignore rules
 ├── components.json        # shadcn/ui configuration
 ├── next.config.ts         # Next.js configuration
 ├── package.json           # Dependencies & scripts
 ├── tailwind.config.ts     # Tailwind CSS configuration
 ├── tsconfig.json          # TypeScript configuration
 ├── PROJECT_STRUCTURE.md   # This documentation
-├── README.md              # Project overview
-└── UI_REPLACEMENT_GUIDE.md # UI customization guide
+└── README.md              # Project overview
 ```
 
 ## 🔧 Core Features
 
-### ✅ **Authentication System**
-- **Complete signup flow**: Email → OTP → Details → Login
-- **Backend integration**: Real API calls to FastAPI server
-- **Email verification**: 4-digit OTP via Mailtrap
-- **Form validation**: Client-side and server-side validation
-- **Error handling**: User-friendly error messages
-- **Guest mode**: Continue without account (limited features)
+### ✅ **Multi-Tier Authentication System**
+- **Customer Authentication**: Email → OTP → Details → Login
+- **Admin Portal**: Role-based admin login with professional UI
+- **Restaurant Partnership**: 3-step application system for restaurant owners
+- **Backend Integration**: Real API calls to FastAPI server with role management
+- **Email Verification**: 4-digit OTP via Mailtrap
+- **Form Validation**: Comprehensive client-side and server-side validation
+- **Error Handling**: Production-ready error messages
+- **Guest Mode**: Continue without account (limited features)
+
+### ✅ **Restaurant Partnership System**
+- **Application Flow**: Business Info → Restaurant Details → Documents
+- **Form Validation**: Step-by-step validation with error handling
+- **Professional UI**: Consistent orange theme with smooth animations
+- **User Discovery**: Restaurant partner entry point in customer login
+- **Progress Tracking**: Visual progress indicator across 3 steps
 
 ### ✅ **Shopping Experience**
-- **Restaurant browsing**: Grid layout with search/filter
-- **Menu system**: Categories, items, customization
-- **Cart management**: Add/remove items, quantity control
-- **Checkout flow**: Address, payment, order confirmation
-- **Order tracking**: Status updates and history
+- **Restaurant Browsing**: Grid layout with search/filter
+- **Menu System**: Categories, items, customization
+- **Cart Management**: Add/remove items, quantity control
+- **Checkout Flow**: Address, payment, order confirmation
+- **Order Tracking**: Status updates and history
 
 ### ✅ **UI/UX Design**
-- **Japanese theme**: Fuji Sakura branding
-- **Responsive design**: Mobile-first approach
-- **Modern components**: shadcn/ui component library
-- **Smooth animations**: Tailwind CSS transitions
+- **Consistent Theming**: Unified orange theme across all portals
+- **Role-Based Branding**: Appropriate styling for each user type
+- **Responsive Design**: Mobile-first approach
+- **Modern Components**: shadcn/ui component library
+- **Smooth Animations**: Tailwind CSS transitions with hover effects
 - **Accessibility**: ARIA labels and keyboard navigation
 
-## 🚀 Development
+## � Development
 
 ### **Scripts**
 ```bash
@@ -92,67 +108,91 @@ npm run lint     # Run ESLint
 
 ## 🔗 **Backend Integration**
 
-### **API Endpoints Used**
+### **User Management APIs**
 - `POST /api/auth/signup` - User registration
 - `POST /api/auth/verify-otp` - Email verification
+- `POST /api/auth/login` - User authentication with role-based response
 - `PUT /api/auth/update-user-details` - Complete registration
 - `POST /api/auth/resend-otp` - Resend verification code
+- `POST /api/auth/forgot-password` - Password reset flow
 
-### **Authentication Flow**
-1. **Email Entry** → Creates user + sends OTP
-2. **OTP Verification** → Activates account
-3. **Details Completion** → Updates user info
-4. **Login Success** → Redirects to dashboard
+### **Database Schema**
+- **Users Table**: Enhanced with role field (`customer`, `restaurant_owner`, `admin`)
+- **User Tokens**: Separate table for OTP and reset tokens
+- **Role-Based Access**: Proper user role management
 
 ## 📱 **Pages & Routes**
 
-| Route | Component | Description |
-|-------|-----------|-------------|
-| `/` | `page.tsx` | Landing page |
-| `/login` | `login/page.tsx` | Sign in/Sign up |
-| `/home` | `home/page.tsx` | Restaurant dashboard |
-| `/restaurant/[id]` | `restaurant/[id]/page.tsx` | Menu & ordering |
-| `/cart` | `cart/page.tsx` | Shopping cart |
-| `/checkout` | `checkout/page.tsx` | Order placement |
-| `/orders` | `orders/page.tsx` | Order history |
-| `/orders/[id]` | `orders/[id]/page.tsx` | Order details |
-| `/order-success` | `order-success/page.tsx` | Confirmation |
-| `/forgot-password` | `forgot-password/page.tsx` | Password reset |
+| Route | Component | Description | User Type |
+|-------|-----------|-------------|-----------|
+| `/` | `page.tsx` | Landing page | All |
+| `/login` | `login/page.tsx` | Customer sign in/sign up | Customer |
+| `/admin` | `admin/page.tsx` | Admin login portal | Admin |
+| `/restaurant/apply` | `restaurant/apply/page.tsx` | Restaurant application | Restaurant Owner |
+| `/home` | `home/page.tsx` | Restaurant dashboard | Customer |
+| `/restaurant/[id]` | `restaurant/[id]/page.tsx` | Menu & ordering | Customer |
+| `/cart` | `cart/page.tsx` | Shopping cart | Customer |
+| `/checkout` | `checkout/page.tsx` | Order placement | Customer |
+| `/orders` | `orders/page.tsx` | Order history | Customer |
+| `/orders/[id]` | `orders/[id]/page.tsx` | Order details | Customer |
+| `/order-success` | `order-success/page.tsx` | Confirmation | Customer |
+| `/forgot-password` | `forgot-password/page.tsx` | Password reset | All |
 
 ## 🎨 **Styling & Theming**
 
-### **Color Scheme**
-- **Primary**: Orange (#F15D31) - Fuji Sakura brand
+### **Unified Color Scheme**
+- **Primary**: Orange (#FF5722) - Fuji Sakura brand
+- **Secondary**: Orange variants (#FF7043, #FF8A65)
 - **Background**: Warm cream (#FFF7EE)
 - **Text**: Dark gray (#1a1a1a)
-- **Accent**: Light orange variants
+- **Accent**: Light orange variants for hover states
 
 ### **Typography**
 - **Primary Font**: Anuphan (Google Fonts)
 - **Fallback**: System fonts (system-ui, sans-serif)
+- **Consistent Weights**: 400, 500, 600, 700
 
-### **Components**
-- **Cards**: Rounded corners, subtle shadows
-- **Buttons**: Consistent sizing, hover effects
-- **Forms**: Clean inputs with validation states
-- **Navigation**: Intuitive layout with breadcrumbs
+### **Component Design**
+- **Cards**: Rounded corners (12px-24px), subtle shadows
+- **Buttons**: Gradient backgrounds, consistent hover effects
+- **Forms**: Clean inputs with orange focus states
+- **Navigation**: Intuitive layout with proper spacing
 
-## 🧹 **Cleaned Structure**
+## 🔄 **Next Development Phase**
 
-### **Removed Files**
-- ❌ `NEW_LOGIN_SUMMARY.md` - Development documentation
-- ❌ `GITHUB_SETUP.md` - Setup guide
-- ❌ `IMAGE_REPLACEMENT_INSTRUCTIONS.md` - Development guide
-- ❌ `.vscode/` - IDE-specific settings
+### **Pending Implementation**
+1. **Admin Dashboard** (`/admin/dashboard`)
+   - Restaurant application review interface
+   - Approve/reject workflow with email notifications
+   - User management and system analytics
 
-### **Benefits**
-- **Cleaner repository**: Only essential files
-- **Better maintainability**: Clear structure
-- **Team-friendly**: No IDE-specific configurations
-- **Production-ready**: Optimized for deployment
+2. **Restaurant Portal** (`/restaurant`)
+   - Restaurant owner login page
+   - Restaurant dashboard for approved owners
+   - Menu management system with image uploads
+
+3. **Backend APIs**
+   - Restaurant application submission endpoints
+   - Admin approval/rejection APIs
+   - Menu management and restaurant data APIs
+
+### **Planned Database Extensions**
+- `restaurant_applications` - Application submissions with status tracking
+- `restaurants` - Approved restaurant data with owner relationships
+- `menu_items` - Restaurant menu management with categories
+
+## 🧹 **Clean Structure Benefits**
+
+### **Organized Architecture**
+- ✅ **Role-Based Organization**: Clear separation of user types
+- ✅ **Consistent Theming**: Unified orange brand across all portals
+- ✅ **Scalable Structure**: Easy to add new user types and features
+- ✅ **Professional UI**: Enterprise-ready interface design
+- ✅ **Type Safety**: Full TypeScript implementation
+- ✅ **Production Ready**: Proper error handling and validation
 
 ---
 
-**Status**: Production-ready frontend with complete authentication integration  
-**Last Updated**: January 21, 2026  
-**Next Phase**: Restaurant management features
+**Status**: Multi-tier authentication system with restaurant partnership flow  
+**Last Updated**: January 27, 2026  
+**Next Phase**: Admin dashboard and restaurant management portal
