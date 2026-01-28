@@ -65,15 +65,21 @@ export default function AdminLoginPage() {
       try {
         setIsLoading(true);
         
-        // Call admin login API (new endpoint)
+        // Call admin login API (new endpoint) with timeout
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+        
         const response = await fetch(`${API_BASE_URL}/api/admin/login`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             email: cleanEmail.toLowerCase(),
             password: formData.password
-          })
+          }),
+          signal: controller.signal
         });
+        
+        clearTimeout(timeoutId);
         
         if (response.ok) {
           const data = await response.json();
@@ -88,24 +94,48 @@ export default function AdminLoginPage() {
           // Redirect to admin dashboard
           router.push('/admin/dashboard');
         } else {
-          const error = await response.json();
           let errorMessage = 'Login failed. Please check your credentials.';
           
-          if (response.status === 401) {
-            errorMessage = 'Invalid email or password. Please try again.';
-          } else if (response.status === 403) {
-            errorMessage = 'Account access denied. Please contact system administrator.';
-          } else if (error.detail) {
-            if (typeof error.detail === 'string') {
-              errorMessage = error.detail;
+          try {
+            const error = await response.json();
+            
+            if (response.status === 401) {
+              errorMessage = 'Invalid email or password. Please try again.';
+            } else if (response.status === 403) {
+              errorMessage = 'Account access denied. Please contact system administrator.';
+            } else if (response.status === 500) {
+              errorMessage = 'Server error. Please try again later.';
+            } else if (error.detail) {
+              if (typeof error.detail === 'string') {
+                errorMessage = error.detail;
+              }
             }
+          } catch (parseError) {
+            console.error('Error parsing response:', parseError);
+            errorMessage = `Server error (${response.status}). Please try again.`;
           }
           
           setErrors(prev => ({ ...prev, password: errorMessage }));
         }
       } catch (error) {
         console.error('Admin login error:', error);
-        setErrors(prev => ({ ...prev, password: 'Network error. Please try again.' }));
+        
+        // Handle different types of network errors
+        let errorMessage = 'Network error. Please try again.';
+        
+        if (error instanceof Error) {
+          if (error.name === 'AbortError') {
+            errorMessage = 'Request timed out. Please check your connection and try again.';
+          } else if (error.message === 'Failed to fetch') {
+            errorMessage = 'Unable to connect to server. Please check your internet connection and try again.';
+          } else if (error.message.includes('NetworkError')) {
+            errorMessage = 'Network connection failed. Please check your internet connection.';
+          } else if (error.message.includes('timeout')) {
+            errorMessage = 'Request timed out. Please try again.';
+          }
+        }
+        
+        setErrors(prev => ({ ...prev, password: errorMessage }));
       } finally {
         setIsLoading(false);
       }
