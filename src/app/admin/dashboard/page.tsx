@@ -26,8 +26,39 @@ interface Application {
 }
 
 export default function AdminDashboard() {
-  const router = useRouter(); // Move router to top
-  
+  const router = useRouter();
+  const [isAuthenticating, setIsAuthenticating] = useState(true);
+  const [applications, setApplications] = useState<Application[]>([]);
+  const [filteredApplications, setFilteredApplications] = useState<Application[]>([]);
+  const [selectedStatus, setSelectedStatus] = useState<string>('all');
+  const [selectedApplication, setSelectedApplication] = useState<Application | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [adminNotes, setAdminNotes] = useState('');
+  const [sessionTimeLeft, setSessionTimeLeft] = useState<number>(10 * 60); // 10 minutes in seconds
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const [showAddAdminModal, setShowAddAdminModal] = useState(false);
+  const [showAdminListModal, setShowAdminListModal] = useState(false);
+  const [adminList, setAdminList] = useState<any[]>([]);
+  const [currentAdmin, setCurrentAdmin] = useState<any>(null);
+  const [showConfirmDeactivate, setShowConfirmDeactivate] = useState<{show: boolean, admin: any}>({show: false, admin: null});
+  const [newAdmin, setNewAdmin] = useState({
+    name: '',
+    email: '',
+    password: ''
+  });
+  const [notification, setNotification] = useState<{
+    show: boolean;
+    type: 'success' | 'error' | 'warning';
+    title: string;
+    message: string;
+  }>({
+    show: false,
+    type: 'success',
+    title: '',
+    message: ''
+  });
+
   // Load Anuphan font
   useEffect(() => {
     const link = document.createElement('link');
@@ -36,28 +67,91 @@ export default function AdminDashboard() {
     document.head.appendChild(link);
   }, []);
 
-  // IMMEDIATE AUTH CHECK - Before any state initialization
+  // Prevent background scrolling when modals are open
   useEffect(() => {
-    const adminToken = localStorage.getItem('adminToken');
-    const userRole = localStorage.getItem('userRole');
-    const isAdmin = localStorage.getItem('isAdmin');
+    const isModalOpen = selectedApplication || showLogoutConfirm || showAddAdminModal || showAdminListModal || showConfirmDeactivate.show;
     
-    console.log('🔍 Admin Dashboard Auth Check:', { 
-      hasToken: !!adminToken, 
-      userRole, 
-      isAdmin 
-    });
-    
-    if (!adminToken || userRole !== 'admin' || isAdmin !== 'true') {
-      console.log('🚫 Unauthorized access - redirecting to admin login');
-      router.push('/admin');
-      return;
+    if (isModalOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
     }
     
-    console.log('✅ Admin authenticated - access granted');
+    // Cleanup on unmount
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [selectedApplication, showLogoutConfirm, showAddAdminModal, showAdminListModal, showConfirmDeactivate.show]);
+
+  // SINGLE AUTHENTICATION CHECK - handles both initial load and refresh
+  useEffect(() => {
+    const authenticateAdmin = async () => {
+      try {
+        const adminToken = localStorage.getItem('adminToken');
+        const userRole = localStorage.getItem('userRole');
+        const isAdmin = localStorage.getItem('isAdmin');
+        const adminEmail = localStorage.getItem('adminEmail');
+        
+        // Check if we have basic credentials
+        if (!adminToken || userRole !== 'admin' || isAdmin !== 'true' || !adminEmail) {
+          setIsAuthenticating(false);
+          router.push('/admin');
+          return;
+        }
+        
+        // Verify token with backend
+        const response = await fetch(`${API_BASE_URL}/api/admin/verify`, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${adminToken}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        if (response.ok) {
+          const verificationData = await response.json();
+          
+          // Update admin info if needed
+          if (verificationData.admin) {
+            localStorage.setItem('adminName', verificationData.admin.name);
+            localStorage.setItem('adminEmail', verificationData.admin.email);
+            setCurrentAdmin(verificationData.admin);
+          }
+          
+          setIsAuthenticating(false);
+          // Load applications after successful authentication
+          fetchApplications();
+        } else {
+          // Clear invalid session
+          localStorage.removeItem('adminToken');
+          localStorage.removeItem('isAdmin');
+          localStorage.removeItem('userRole');
+          localStorage.removeItem('adminEmail');
+          localStorage.removeItem('adminName');
+          localStorage.removeItem('adminLoginTime');
+          
+          setIsAuthenticating(false);
+          router.push('/admin');
+        }
+        
+      } catch (error) {
+        console.error('❌ Admin authentication error:', error);
+        
+        // On network error, allow access with cached credentials
+        if (error instanceof TypeError && error.message.includes('fetch')) {
+          setIsAuthenticating(false);
+          fetchApplications();
+        } else {
+          setIsAuthenticating(false);
+          router.push('/admin');
+        }
+      }
+    };
+    
+    authenticateAdmin();
   }, [router]);
 
-  // AUTO LOGOUT with 10-minute timer + manual logout button
+  // AUTO LOGOUT with 10-minute timer
   useEffect(() => {
     // Set login time
     const loginTime = Date.now();
@@ -65,7 +159,6 @@ export default function AdminDashboard() {
     
     // 10-minute auto-logout timer
     const autoLogoutTimer = setTimeout(() => {
-      console.log('🕐 10-minute auto-logout triggered');
       showNotification('error', 'Session Expired', 'Your admin session has expired after 10 minutes. Redirecting to login...');
       
       // Delay redirect to show notification
@@ -82,172 +175,10 @@ export default function AdminDashboard() {
       }, 2000);
     }, 10 * 60 * 1000); // 10 minutes in milliseconds
     
-    // Also logout when closing tab/browser
-    const handleBeforeUnload = () => {
-      localStorage.removeItem('adminToken');
-      localStorage.removeItem('isAdmin');
-      localStorage.removeItem('userRole');
-      localStorage.removeItem('adminEmail');
-      localStorage.removeItem('adminName');
-      localStorage.removeItem('adminLoginTime');
-      console.log('🚪 Admin logout on page close');
-    };
-
-    window.addEventListener('beforeunload', handleBeforeUnload);
-
     // Cleanup
     return () => {
       clearTimeout(autoLogoutTimer);
-      window.removeEventListener('beforeunload', handleBeforeUnload);
     };
-  }, [router]);
-
-  const [applications, setApplications] = useState<Application[]>([]);
-  const [filteredApplications, setFilteredApplications] = useState<Application[]>([]);
-  const [selectedStatus, setSelectedStatus] = useState<string>('all');
-  const [selectedApplication, setSelectedApplication] = useState<Application | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isUpdating, setIsUpdating] = useState(false);
-  const [adminNotes, setAdminNotes] = useState('');
-  const [sessionTimeLeft, setSessionTimeLeft] = useState<number>(10 * 60); // 10 minutes in seconds
-  const [notification, setNotification] = useState<{
-    show: boolean;
-    type: 'success' | 'error' | 'warning';
-    title: string;
-    message: string;
-  }>({
-    show: false,
-    type: 'success',
-    title: '',
-    message: ''
-  });
-
-  // Enhanced Admin Authentication Check with continuous validation
-  useEffect(() => {
-    const checkAdminAuth = async () => {
-      const adminToken = localStorage.getItem('adminToken');
-      const userRole = localStorage.getItem('userRole');
-      const isAdmin = localStorage.getItem('isAdmin');
-      const adminEmail = localStorage.getItem('adminEmail');
-      
-      console.log('Auth Check:', { adminToken: !!adminToken, userRole, isAdmin, adminEmail });
-      
-      // Strict validation: ALL must be present and correct
-      if (!adminToken || !isAdmin || userRole !== 'admin' || !adminEmail) {
-        console.log('Admin access denied: Missing or invalid credentials');
-        // Clear any invalid/partial credentials
-        localStorage.removeItem('adminToken');
-        localStorage.removeItem('isAdmin');
-        localStorage.removeItem('userRole');
-        localStorage.removeItem('adminEmail');
-        localStorage.removeItem('adminName');
-        
-        router.push('/admin');
-        return;
-      }
-      
-      // Additional check: adminToken should look like a JWT (has 3 parts separated by dots)
-      const tokenParts = adminToken.split('.');
-      if (tokenParts.length !== 3) {
-        console.log('Admin access denied: Invalid token format');
-        // Clear invalid token
-        localStorage.removeItem('adminToken');
-        localStorage.removeItem('isAdmin');
-        localStorage.removeItem('userRole');
-        localStorage.removeItem('adminEmail');
-        localStorage.removeItem('adminName');
-        
-        router.push('/admin');
-        return;
-      }
-      
-      // CRITICAL: Verify token with backend to check if admin still exists
-      try {
-        const response = await fetch(`${API_BASE_URL}/api/admin/verify`, {
-          method: 'GET',
-          headers: {
-            'Authorization': `Bearer ${adminToken}`,
-            'Content-Type': 'application/json'
-          }
-        });
-        
-        if (!response.ok) {
-          console.log('Admin access denied: Token verification failed');
-          showNotification('error', 'Access Revoked', 'Your admin access has been revoked. Redirecting to login...');
-          
-          // Clear all admin session data
-          localStorage.removeItem('adminToken');
-          localStorage.removeItem('isAdmin');
-          localStorage.removeItem('userRole');
-          localStorage.removeItem('adminEmail');
-          localStorage.removeItem('adminName');
-          localStorage.removeItem('adminLoginTime');
-          
-          setTimeout(() => router.push('/admin'), 2000);
-          return;
-        }
-        
-        const verificationData = await response.json();
-        console.log('Admin verification successful:', verificationData);
-        
-        // Update admin info if needed
-        if (verificationData.admin) {
-          localStorage.setItem('adminName', verificationData.admin.name);
-          localStorage.setItem('adminEmail', verificationData.admin.email);
-        }
-        
-      } catch (error) {
-        console.error('Admin verification error:', error);
-        showNotification('error', 'Connection Error', 'Unable to verify admin status. Please check your connection.');
-        return;
-      }
-      
-      console.log('Admin authentication passed - loading applications');
-      fetchApplications();
-    };
-    
-    checkAdminAuth();
-  }, [router]);
-
-  // Continuous session validation - check every 30 seconds
-  useEffect(() => {
-    const validateSession = async () => {
-      const adminToken = localStorage.getItem('adminToken');
-      if (!adminToken) return;
-      
-      try {
-        const response = await fetch(`${API_BASE_URL}/api/admin/verify`, {
-          method: 'GET',
-          headers: {
-            'Authorization': `Bearer ${adminToken}`,
-            'Content-Type': 'application/json'
-          }
-        });
-        
-        if (!response.ok) {
-          console.log('🚫 Session validation failed - admin access revoked');
-          showNotification('error', 'Session Expired', 'Your admin session has been revoked. Redirecting to login...');
-          
-          // Clear all session data
-          localStorage.removeItem('adminToken');
-          localStorage.removeItem('isAdmin');
-          localStorage.removeItem('userRole');
-          localStorage.removeItem('adminEmail');
-          localStorage.removeItem('adminName');
-          localStorage.removeItem('adminLoginTime');
-          
-          setTimeout(() => router.push('/admin'), 2000);
-        }
-      } catch (error) {
-        console.error('Session validation error:', error);
-      }
-    };
-    
-    // Validate immediately, then every 30 seconds
-    validateSession();
-    const validationInterval = setInterval(validateSession, 30000); // 30 seconds
-    
-    return () => clearInterval(validationInterval);
   }, [router]);
 
   // Session timer - updates every second
@@ -300,104 +231,206 @@ export default function AdminDashboard() {
         setApplications(data);
         setFilteredApplications(data);
       } else {
-        console.error('Failed to fetch applications');
+        showNotification('error', 'Error', 'Failed to fetch applications');
       }
     } catch (error) {
       console.error('Error fetching applications:', error);
+      showNotification('error', 'Error', 'Failed to fetch applications');
     } finally {
       setIsLoading(false);
     }
   };
 
-  const filterApplications = (status: string) => {
-    setSelectedStatus(status);
-    if (status === 'all') {
+  // Filter applications by status
+  useEffect(() => {
+    if (selectedStatus === 'all') {
       setFilteredApplications(applications);
     } else {
-      setFilteredApplications(applications.filter(app => app.status === status));
+      setFilteredApplications(applications.filter(app => app.status === selectedStatus));
     }
-  };
+  }, [selectedStatus, applications]);
 
-  const updateApplicationStatus = async (applicationId: number, newStatus: 'approved' | 'rejected') => {
+  const handleStatusUpdate = async (applicationId: number, newStatus: string) => {
     try {
       setIsUpdating(true);
       
-      // Get admin info from localStorage
-      const adminToken = localStorage.getItem('adminToken');
-      const adminEmail = localStorage.getItem('adminEmail');
-      
-      if (!adminToken) {
-        console.error('No admin token found - redirecting to login');
-        showNotification('error', 'Session Expired', 'Your session has expired. Please login again.');
-        setTimeout(() => router.push('/admin'), 2000);
-        return;
-      }
-      
-      const response = await fetch(`${API_BASE_URL}/api/restaurant/applications/${applicationId}/status?new_status=${newStatus}&admin_notes=${encodeURIComponent(adminNotes || '')}`, {
+      const response = await fetch(`${API_BASE_URL}/api/restaurant/applications/${applicationId}/status?new_status=${newStatus}&admin_notes=${encodeURIComponent(adminNotes || '')}&reviewed_by=1`, {
         method: 'PUT',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${adminToken}`
-        }
+        headers: { 'Content-Type': 'application/json' }
       });
       
       if (response.ok) {
-        // Refresh applications
-        await fetchApplications();
+        showNotification('success', 'Success', `Application ${newStatus} successfully`);
         setSelectedApplication(null);
         setAdminNotes('');
-        console.log(`Application ${applicationId} ${newStatus} successfully by ${adminEmail}`);
-        
-        // Show success message
-        const actionText = newStatus === 'approved' ? 'approved' : 'rejected';
-        const actionIcon = newStatus === 'approved' ? '✅' : '❌';
-        showNotification('success', 'Application Updated', `${actionIcon} Application ${actionText} successfully!`);
+        fetchApplications(); // Refresh the list
       } else {
-        const errorData = await response.json().catch(() => ({}));
-        console.error('Failed to update application status:', errorData);
-        showNotification('error', 'Update Failed', `Failed to ${newStatus} application. Please try again.`);
+        showNotification('error', 'Error', `Failed to ${newStatus} application`);
       }
     } catch (error) {
       console.error('Error updating application:', error);
-      showNotification('error', 'Network Error', `Network error while trying to ${newStatus} application. Please check your connection.`);
+      showNotification('error', 'Error', `Failed to ${newStatus} application`);
     } finally {
       setIsUpdating(false);
     }
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'pending': return '#FF9800';
-      case 'approved': return '#4CAF50';
-      case 'rejected': return '#F44336';
-      default: return '#666';
-    }
+  const handleLogout = () => {
+    setShowLogoutConfirm(true);
   };
 
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'pending': return '⏳';
-      case 'approved': return '✅';
-      case 'rejected': return '❌';
-      default: return '📄';
-    }
-  };
-
-  const formatDate = (dateString: string) => {
-    // The backend sends UTC time without timezone info
-    // We need to explicitly treat it as UTC and convert to local time
-    const utcDate = new Date(dateString + 'Z'); // Add 'Z' to indicate UTC
+  const confirmLogout = () => {
+    // Clear all admin session data
+    localStorage.removeItem('adminToken');
+    localStorage.removeItem('isAdmin');
+    localStorage.removeItem('userRole');
+    localStorage.removeItem('adminEmail');
+    localStorage.removeItem('adminName');
+    localStorage.removeItem('adminLoginTime');
     
-    return utcDate.toLocaleString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: true,
-      timeZoneName: 'short'
-    });
+    showNotification('success', 'Logged Out', 'You have been logged out successfully');
+    setTimeout(() => router.push('/admin'), 1000);
   };
+
+  const handleAddAdmin = async () => {
+    if (!newAdmin.name || !newAdmin.email || !newAdmin.password) {
+      showNotification('error', 'Validation Error', 'Please fill in all fields');
+      return;
+    }
+
+    if (newAdmin.password.length < 8) {
+      showNotification('error', 'Validation Error', 'Password must be at least 8 characters long');
+      return;
+    }
+
+    try {
+      const adminToken = localStorage.getItem('adminToken');
+      const response = await fetch(`${API_BASE_URL}/api/admin/create-admin`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${adminToken}`
+        },
+        body: JSON.stringify({
+          name: newAdmin.name,
+          email: newAdmin.email,
+          password: newAdmin.password
+        })
+      });
+
+      if (response.ok) {
+        showNotification('success', 'Success', 'New admin created successfully!');
+        setNewAdmin({ name: '', email: '', password: '' });
+        setShowAddAdminModal(false);
+        // Refresh admin list if it's open
+        if (showAdminListModal) {
+          fetchAdminList();
+        }
+      } else {
+        const error = await response.json();
+        showNotification('error', 'Error', error.detail || 'Failed to create admin');
+      }
+    } catch (error) {
+      showNotification('error', 'Error', 'Network error. Please try again.');
+    }
+  };
+
+  const fetchAdminList = async () => {
+    try {
+      const adminToken = localStorage.getItem('adminToken');
+      const response = await fetch(`${API_BASE_URL}/api/admin/list-admins`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${adminToken}`
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setAdminList(data.admins);
+      } else {
+        showNotification('error', 'Error', 'Failed to fetch admin list');
+      }
+    } catch (error) {
+      showNotification('error', 'Error', 'Failed to fetch admin list');
+    }
+  };
+
+  const handleDeactivateAdmin = async (adminId: number, adminName: string) => {
+    try {
+      const adminToken = localStorage.getItem('adminToken');
+      const response = await fetch(`${API_BASE_URL}/api/admin/deactivate-admin/${adminId}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${adminToken}`
+        }
+      });
+
+      if (response.ok) {
+        showNotification('success', 'Success', `Admin "${adminName}" has been deactivated and logged out`);
+        setShowConfirmDeactivate({show: false, admin: null});
+        fetchAdminList(); // Refresh the list
+      } else {
+        const error = await response.json();
+        showNotification('error', 'Error', error.detail || 'Failed to deactivate admin');
+      }
+    } catch (error) {
+      showNotification('error', 'Error', 'Network error. Please try again.');
+    }
+  };
+
+  const handleReactivateAdmin = async (adminId: number, adminName: string) => {
+    try {
+      const adminToken = localStorage.getItem('adminToken');
+      const response = await fetch(`${API_BASE_URL}/api/admin/reactivate-admin/${adminId}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${adminToken}`
+        }
+      });
+
+      if (response.ok) {
+        showNotification('success', 'Success', `Admin "${adminName}" has been reactivated`);
+        fetchAdminList(); // Refresh the list
+      } else {
+        const error = await response.json();
+        showNotification('error', 'Error', error.detail || 'Failed to reactivate admin');
+      }
+    } catch (error) {
+      showNotification('error', 'Error', 'Network error. Please try again.');
+    }
+  };
+
+  // Show authentication loading screen
+  if (isAuthenticating) {
+    return (
+      <div style={{ 
+        display: 'flex', 
+        justifyContent: 'center', 
+        alignItems: 'center', 
+        minHeight: '100vh',
+        background: 'linear-gradient(135deg, #FF5722 0%, #FF7043 50%, #FF8A65 100%)',
+        fontFamily: 'Anuphan, system-ui, sans-serif'
+      }}>
+        <div style={{ textAlign: 'center', color: 'white' }}>
+          <div style={{
+            width: '60px',
+            height: '60px',
+            border: '4px solid rgba(255, 255, 255, 0.3)',
+            borderTop: '4px solid white',
+            borderRadius: '50%',
+            margin: '0 auto 2rem auto'
+          }}></div>
+          <h2 style={{ fontSize: '1.5rem', fontWeight: '600', margin: '0 0 1rem 0' }}>
+            Verifying Admin Access...
+          </h2>
+          <p style={{ fontSize: '1rem', opacity: 0.9, margin: 0 }}>
+            Please wait while we authenticate your session
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   if (isLoading) {
     return (
@@ -409,49 +442,19 @@ export default function AdminDashboard() {
         background: 'linear-gradient(135deg, #FF5722 0%, #FF7043 50%, #FF8A65 100%)',
         fontFamily: 'Anuphan, system-ui, sans-serif'
       }}>
-        <div style={{ 
-          textAlign: 'center',
-          background: 'rgba(255, 255, 255, 0.95)',
-          borderRadius: '24px',
-          padding: '3rem',
-          boxShadow: '0 20px 60px rgba(255, 87, 34, 0.3)',
-          border: '2px solid rgba(255, 87, 34, 0.2)'
-        }}>
-          <div style={{ 
-            fontSize: '4rem', 
-            marginBottom: '1.5rem',
-            background: 'linear-gradient(135deg, #FF5722 0%, #FF7043 100%)',
-            WebkitBackgroundClip: 'text',
-            WebkitTextFillColor: 'transparent',
-            animation: 'spin 2s linear infinite'
-          }}>
-            🔄
-          </div>
-          <p style={{ 
-            fontSize: '1.5rem', 
-            color: '#FF5722',
-            margin: 0,
-            fontWeight: '700'
-          }}>
-            Loading Restaurant Applications...
-          </p>
-          <p style={{ 
-            fontSize: '1rem', 
-            color: '#64748b',
-            margin: '0.5rem 0 0 0',
-            fontWeight: '500'
-          }}>
-            Please wait while we fetch the data
-          </p>
+        <div style={{ textAlign: 'center', color: 'white' }}>
+          <div style={{
+            width: '50px',
+            height: '50px',
+            border: '3px solid rgba(255, 255, 255, 0.3)',
+            borderTop: '3px solid white',
+            borderRadius: '50%',
+            margin: '0 auto 1.5rem auto'
+          }}></div>
+          <h2 style={{ fontSize: '1.3rem', fontWeight: '600', margin: '0 0 0.5rem 0' }}>
+            Loading Applications...
+          </h2>
         </div>
-        
-        {/* CSS Animation */}
-        <style jsx>{`
-          @keyframes spin {
-            from { transform: rotate(0deg); }
-            to { transform: rotate(360deg); }
-          }
-        `}</style>
       </div>
     );
   }
@@ -460,1042 +463,1323 @@ export default function AdminDashboard() {
     <div style={{ 
       minHeight: '100vh', 
       background: 'linear-gradient(135deg, #FF5722 0%, #FF7043 50%, #FF8A65 100%)',
-      fontFamily: 'Anuphan, system-ui, sans-serif',
-      padding: '2rem'
+      fontFamily: 'Anuphan, system-ui, sans-serif'
     }}>
-      {/* Optimized Background Pattern */}
-      <div style={{
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        backgroundImage: 'radial-gradient(circle at 25px 25px, rgba(255, 255, 255, 0.1) 2px, transparent 0)',
-        backgroundSize: '50px 50px',
-        zIndex: 0,
-        pointerEvents: 'none'
-      }}></div>
-
-      <div style={{ position: 'relative', zIndex: 1 }}>
-        {/* Header */}
+      {/* Header */}
+      <div style={{ 
+        background: 'rgba(255, 255, 255, 0.15)', 
+        borderBottom: '1px solid rgba(255, 255, 255, 0.2)',
+        padding: '1.5rem 2rem'
+      }}>
         <div style={{ 
-          background: 'rgba(255, 255, 255, 0.95)',
-          borderRadius: '24px', 
-          padding: '2.5rem', 
-          marginBottom: '2rem',
-          boxShadow: '0 8px 25px rgba(255, 87, 34, 0.2)',
-          border: '2px solid rgba(255, 87, 34, 0.2)'
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          alignItems: 'center',
+          maxWidth: '1200px',
+          margin: '0 auto'
         }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1rem' }}>
-                <div style={{
-                  width: '80px',
-                  height: '80px',
-                  background: 'linear-gradient(135deg, #FF5722 0%, #FF7043 100%)',
-                  borderRadius: '20px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: '2.5rem',
-                  boxShadow: '0 8px 25px rgba(255, 87, 34, 0.4)'
-                }}>
-                  🏪
-                </div>
-                <div>
-                  <h1 style={{ 
-                    fontSize: '3rem', 
-                    fontWeight: '800', 
-                    background: 'linear-gradient(135deg, #FF5722 0%, #FF7043 100%)',
-                    WebkitBackgroundClip: 'text',
-                    WebkitTextFillColor: 'transparent',
-                    margin: '0 0 0.5rem 0',
-                    letterSpacing: '-0.02em'
-                  }}>
-                    Restaurant Hub
-                  </h1>
-                  <p style={{ 
-                    fontSize: '1.2rem', 
-                    color: '#64748b', 
-                    margin: 0,
-                    fontWeight: '500'
-                  }}>
-                    Partnership Management Dashboard
-                  </p>
-                </div>
-              </div>
-              
-              <div style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '0.5rem',
-                padding: '0.75rem 1.5rem',
-                background: 'linear-gradient(135deg, #FF5722 0%, #FF7043 100%)',
+          <div>
+            <h1 style={{ 
+              fontSize: '2rem', 
+              fontWeight: '700', 
+              color: 'white', 
+              margin: '0 0 0.5rem 0' 
+            }}>
+              🛡️ Admin Dashboard
+            </h1>
+            <p style={{ 
+              fontSize: '1rem', 
+              color: 'rgba(255, 255, 255, 0.9)', 
+              margin: 0 
+            }}>
+              Restaurant Application Management System
+            </p>
+          </div>
+          
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+            {/* Add Admin Button */}
+            <button
+              onClick={() => setShowAddAdminModal(true)}
+              style={{
+                background: 'rgba(255, 255, 255, 0.2)',
+                border: '1px solid rgba(255, 255, 255, 0.3)',
                 color: 'white',
-                borderRadius: '50px',
-                fontSize: '0.9rem',
+                padding: '0.75rem 1.25rem',
+                borderRadius: '25px',
+                fontSize: '1rem',
                 fontWeight: '600',
-                boxShadow: '0 4px 15px rgba(255, 87, 34, 0.3)'
-              }}>
-                <span style={{ fontSize: '1.2rem' }}>👨‍💼</span>
-                Admin Portal Active
-              </div>
-            </div>
-            
-            <div style={{ display: 'flex', gap: '1rem' }}>
-              <button
-                onClick={() => window.location.reload()}
-                style={{
-                  padding: '1rem 1.5rem',
-                  background: 'rgba(255, 255, 255, 0.9)',
-                  color: '#FF5722',
-                  border: '2px solid rgba(255, 87, 34, 0.3)',
-                  borderRadius: '16px',
-                  fontSize: '1rem',
-                  fontWeight: '600',
-                  cursor: 'pointer',
-                  transition: 'all 0.2s ease',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.5rem'
-                }}
-              >
-                <span>🔄</span>
-                Refresh
-              </button>
-              
+                cursor: 'pointer',
+                transition: 'background 0.2s ease'
+              }}
+              onMouseOver={(e) => {
+                e.currentTarget.style.background = 'rgba(255, 255, 255, 0.3)';
+              }}
+              onMouseOut={(e) => {
+                e.currentTarget.style.background = 'rgba(255, 255, 255, 0.2)';
+              }}
+            >
+              👤+ Add Admin
+            </button>
+
+            {/* Manage Admins Button - Only for Super Admins */}
+            {currentAdmin?.is_super_admin && (
               <button
                 onClick={() => {
-                  // Manual logout
-                  localStorage.removeItem('adminToken');
-                  localStorage.removeItem('isAdmin');
-                  localStorage.removeItem('userRole');
-                  localStorage.removeItem('adminEmail');
-                  localStorage.removeItem('adminName');
-                  localStorage.removeItem('adminLoginTime');
-                  console.log('🚪 Manual admin logout');
-                  router.push('/admin');
+                  setShowAdminListModal(true);
+                  fetchAdminList();
                 }}
                 style={{
-                  padding: '1rem 1.5rem',
-                  background: 'linear-gradient(135deg, #dc3545 0%, #e57373 100%)',
+                  background: 'rgba(255, 255, 255, 0.2)',
+                  border: '1px solid rgba(255, 255, 255, 0.3)',
                   color: 'white',
-                  border: 'none',
-                  borderRadius: '16px',
+                  padding: '0.75rem 1.25rem',
+                  borderRadius: '25px',
                   fontSize: '1rem',
                   fontWeight: '600',
                   cursor: 'pointer',
-                  transition: 'all 0.2s ease',
-                  boxShadow: '0 4px 15px rgba(220, 53, 69, 0.4)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.5rem'
+                  transition: 'background 0.2s ease'
+                }}
+                onMouseOver={(e) => {
+                  e.currentTarget.style.background = 'rgba(255, 255, 255, 0.3)';
+                }}
+                onMouseOut={(e) => {
+                  e.currentTarget.style.background = 'rgba(255, 255, 255, 0.2)';
                 }}
               >
-                <span>🚪</span>
-                Logout ({formatSessionTime(sessionTimeLeft)})
+                👥 Manage Admins
               </button>
-              
-              <button
-                onClick={() => router.push('/admin')}
-                style={{
-                  padding: '1rem 2rem',
-                  background: 'linear-gradient(135deg, #FF5722 0%, #FF7043 100%)',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '16px',
-                  fontSize: '1rem',
-                  fontWeight: '600',
-                  cursor: 'pointer',
-                  transition: 'all 0.2s ease',
-                  boxShadow: '0 4px 15px rgba(255, 87, 34, 0.4)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.5rem'
-                }}
-              >
-                <span>🏠</span>
-                Admin Home
-              </button>
+            )}
+            
+            {/* Session Timer */}
+            <div style={{
+              background: 'rgba(255, 255, 255, 0.2)',
+              padding: '0.75rem 1.25rem',
+              borderRadius: '25px',
+              color: 'white',
+              fontSize: '1rem',
+              fontWeight: '600',
+              border: '1px solid rgba(255, 255, 255, 0.3)'
+            }}>
+              ⏱️ {formatSessionTime(sessionTimeLeft)}
             </div>
+            
+            {/* Logout Button */}
+            <button
+              onClick={handleLogout}
+              style={{
+                background: 'rgba(255, 255, 255, 0.2)',
+                border: '1px solid rgba(255, 255, 255, 0.3)',
+                color: 'white',
+                padding: '0.75rem 1.25rem',
+                borderRadius: '25px',
+                fontSize: '1rem',
+                fontWeight: '600',
+                cursor: 'pointer',
+                transition: 'background 0.2s ease'
+              }}
+              onMouseOver={(e) => {
+                e.currentTarget.style.background = 'rgba(255, 255, 255, 0.3)';
+              }}
+              onMouseOut={(e) => {
+                e.currentTarget.style.background = 'rgba(255, 255, 255, 0.2)';
+              }}
+            >
+              🚪 Logout
+            </button>
           </div>
         </div>
+      </div>
 
-        {/* Stats Cards - Orange Theme */}
+      {/* Main Content */}
+      <div style={{ padding: '2rem', maxWidth: '1200px', margin: '0 auto' }}>
+        {/* Stats Cards */}
         <div style={{ 
           display: 'grid', 
-          gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', 
-          gap: '2rem', 
-          marginBottom: '2rem' 
+          gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', 
+          gap: '1.5rem',
+          marginBottom: '2rem'
         }}>
           {[
-            { 
-              title: 'Total Applications', 
-              value: applications.length, 
-              icon: '📊', 
-              gradient: 'linear-gradient(135deg, #FF5722 0%, #FF7043 100%)',
-              bgColor: 'rgba(255, 87, 34, 0.1)',
-              borderColor: 'rgba(255, 87, 34, 0.3)'
-            },
-            { 
-              title: 'Pending Review', 
-              value: applications.filter(app => app.status === 'pending').length, 
-              icon: '⏳', 
-              gradient: 'linear-gradient(135deg, #FF9800 0%, #FFB74D 100%)',
-              bgColor: 'rgba(255, 152, 0, 0.1)',
-              borderColor: 'rgba(255, 152, 0, 0.3)'
-            },
-            { 
-              title: 'Approved', 
-              value: applications.filter(app => app.status === 'approved').length, 
-              icon: '✅', 
-              gradient: 'linear-gradient(135deg, #4CAF50 0%, #66BB6A 100%)',
-              bgColor: 'rgba(76, 175, 80, 0.1)',
-              borderColor: 'rgba(76, 175, 80, 0.3)'
-            },
-            { 
-              title: 'Rejected', 
-              value: applications.filter(app => app.status === 'rejected').length, 
-              icon: '❌', 
-              gradient: 'linear-gradient(135deg, #F44336 0%, #E57373 100%)',
-              bgColor: 'rgba(244, 67, 54, 0.1)',
-              borderColor: 'rgba(244, 67, 54, 0.3)'
-            }
+            { label: 'Total Applications', value: applications.length, icon: '📋', color: '#4CAF50' },
+            { label: 'Pending Review', value: applications.filter(app => app.status === 'pending').length, icon: '⏳', color: '#FF9800' },
+            { label: 'Approved', value: applications.filter(app => app.status === 'approved').length, icon: '✅', color: '#2196F3' },
+            { label: 'Rejected', value: applications.filter(app => app.status === 'rejected').length, icon: '❌', color: '#F44336' }
           ].map((stat, index) => (
-            <div key={index} style={{ 
-              background: 'rgba(255, 255, 255, 0.95)',
-              borderRadius: '24px', 
-              padding: '2rem', 
-              boxShadow: '0 8px 25px rgba(255, 87, 34, 0.15)',
-              border: `2px solid ${stat.borderColor}`,
-              transition: 'transform 0.2s ease'
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.5rem' }}>
-                <div style={{
-                  width: '70px',
-                  height: '70px',
-                  background: stat.gradient,
-                  borderRadius: '18px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: '2rem',
-                  boxShadow: '0 8px 20px rgba(0, 0, 0, 0.15)'
-                }}>
-                  {stat.icon}
-                </div>
-                
-                <div style={{
-                  padding: '0.5rem 1rem',
-                  background: stat.bgColor,
-                  borderRadius: '20px',
-                  fontSize: '0.8rem',
-                  fontWeight: '600',
-                  color: '#475569'
-                }}>
-                  Live Data
-                </div>
+            <div key={index} style={{
+              background: 'white',
+              borderRadius: '16px',
+              padding: '2rem',
+              textAlign: 'center',
+              boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
+              border: '1px solid rgba(255, 255, 255, 0.3)',
+              cursor: 'pointer',
+              transition: 'transform 0.2s ease, box-shadow 0.2s ease'
+            }}
+            onMouseOver={(e) => {
+              e.currentTarget.style.transform = 'translateY(-4px)';
+              e.currentTarget.style.boxShadow = '0 12px 40px rgba(0, 0, 0, 0.15)';
+            }}
+            onMouseOut={(e) => {
+              e.currentTarget.style.transform = 'translateY(0)';
+              e.currentTarget.style.boxShadow = '0 8px 32px rgba(0, 0, 0, 0.1)';
+            }}
+            >
+              <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>{stat.icon}</div>
+              <div style={{ 
+                fontSize: '2.5rem', 
+                fontWeight: '700', 
+                color: stat.color, 
+                marginBottom: '0.5rem' 
+              }}>
+                {stat.value}
               </div>
-              
-              <div>
-                <p style={{ 
-                  fontSize: '3rem', 
-                  fontWeight: '800', 
-                  background: stat.gradient,
-                  WebkitBackgroundClip: 'text',
-                  WebkitTextFillColor: 'transparent',
-                  margin: '0 0 0.5rem 0',
-                  lineHeight: '1'
-                }}>
-                  {stat.value}
-                </p>
-                <p style={{ 
-                  fontSize: '1.1rem', 
-                  color: '#64748b', 
-                  margin: 0,
-                  fontWeight: '600'
-                }}>
-                  {stat.title}
-                </p>
+              <div style={{ 
+                fontSize: '1rem', 
+                color: '#666', 
+                fontWeight: '600' 
+              }}>
+                {stat.label}
               </div>
             </div>
           ))}
         </div>
 
-        {/* Filter Section */}
+        {/* Filter Buttons */}
         <div style={{ 
-          background: 'rgba(255, 255, 255, 0.95)',
-          borderRadius: '24px', 
-          padding: '2rem', 
+          background: 'white',
+          borderRadius: '16px',
+          padding: '2rem',
           marginBottom: '2rem',
-          boxShadow: '0 8px 25px rgba(255, 87, 34, 0.15)',
-          border: '2px solid rgba(255, 87, 34, 0.2)'
+          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)'
         }}>
-          <div style={{ marginBottom: '1.5rem' }}>
-            <h3 style={{
-              fontSize: '1.5rem',
-              fontWeight: '700',
-              color: '#FF5722',
-              margin: '0 0 0.5rem 0',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.5rem'
-            }}>
-              <span>🎯</span>
-              Filter Applications
-            </h3>
-            <p style={{ color: '#64748b', margin: 0, fontSize: '1rem' }}>
-              View applications by status or see all submissions
-            </p>
-          </div>
-          
+          <h3 style={{ 
+            fontSize: '1.3rem', 
+            fontWeight: '700', 
+            color: '#333', 
+            margin: '0 0 1.5rem 0',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.5rem'
+          }}>
+            🔍 Filter Applications
+          </h3>
           <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
             {[
-              { key: 'all', label: 'All Applications', icon: '📄', gradient: 'linear-gradient(135deg, #FF5722 0%, #FF7043 100%)' },
-              { key: 'pending', label: 'Pending Review', icon: '⏳', gradient: 'linear-gradient(135deg, #FF9800 0%, #FFB74D 100%)' },
-              { key: 'approved', label: 'Approved', icon: '✅', gradient: 'linear-gradient(135deg, #4CAF50 0%, #66BB6A 100%)' },
-              { key: 'rejected', label: 'Rejected', icon: '❌', gradient: 'linear-gradient(135deg, #F44336 0%, #E57373 100%)' }
-            ].map(filter => (
+              { key: 'all', label: 'All Applications', color: '#666' },
+              { key: 'pending', label: 'Pending', color: '#FF9800' },
+              { key: 'approved', label: 'Approved', color: '#4CAF50' },
+              { key: 'rejected', label: 'Rejected', color: '#F44336' }
+            ].map((filter) => (
               <button
                 key={filter.key}
-                onClick={() => filterApplications(filter.key)}
+                onClick={() => setSelectedStatus(filter.key)}
                 style={{
-                  padding: '1rem 2rem',
-                  background: selectedStatus === filter.key 
-                    ? filter.gradient
-                    : 'rgba(255, 255, 255, 0.8)',
-                  color: selectedStatus === filter.key ? 'white' : '#475569',
-                  border: selectedStatus === filter.key ? 'none' : '2px solid rgba(255, 87, 34, 0.2)',
-                  borderRadius: '16px',
+                  background: selectedStatus === filter.key ? filter.color : 'white',
+                  color: selectedStatus === filter.key ? 'white' : filter.color,
+                  border: `2px solid ${filter.color}`,
+                  padding: '0.75rem 1.5rem',
+                  borderRadius: '25px',
                   fontSize: '1rem',
                   fontWeight: '600',
                   cursor: 'pointer',
-                  transition: 'all 0.2s ease',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.75rem',
-                  boxShadow: selectedStatus === filter.key ? '0 4px 15px rgba(0, 0, 0, 0.2)' : 'none'
+                  transition: 'all 0.2s ease'
+                }}
+                onMouseOver={(e) => {
+                  if (selectedStatus !== filter.key) {
+                    e.currentTarget.style.background = filter.color;
+                    e.currentTarget.style.color = 'white';
+                  }
+                }}
+                onMouseOut={(e) => {
+                  if (selectedStatus !== filter.key) {
+                    e.currentTarget.style.background = 'white';
+                    e.currentTarget.style.color = filter.color;
+                  }
                 }}
               >
-                <span style={{ fontSize: '1.2rem' }}>{filter.icon}</span>
-                {filter.label}
-                <span style={{
-                  background: selectedStatus === filter.key ? 'rgba(255, 255, 255, 0.2)' : 'rgba(255, 87, 34, 0.1)',
-                  color: selectedStatus === filter.key ? 'white' : '#FF5722',
-                  padding: '0.25rem 0.5rem',
-                  borderRadius: '12px',
-                  fontSize: '0.8rem',
-                  fontWeight: '700',
-                  minWidth: '24px',
-                  textAlign: 'center'
-                }}>
-                  {filter.key === 'all' ? applications.length : applications.filter(app => app.status === filter.key).length}
-                </span>
+                {filter.label} ({filter.key === 'all' ? applications.length : applications.filter(app => app.status === filter.key).length})
               </button>
             ))}
           </div>
         </div>
 
-        {/* Applications List - Optimized for Performance */}
-        <div style={{ 
-          background: 'rgba(255, 255, 255, 0.95)',
-          borderRadius: '24px', 
-          overflow: 'hidden',
-          boxShadow: '0 8px 25px rgba(255, 87, 34, 0.15)',
-          border: '2px solid rgba(255, 87, 34, 0.2)'
+        {/* Applications List */}
+        <div style={{
+          background: 'white',
+          borderRadius: '16px',
+          padding: '2rem',
+          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)'
         }}>
+          <h3 style={{ 
+            fontSize: '1.3rem', 
+            fontWeight: '700', 
+            color: '#333', 
+            margin: '0 0 2rem 0',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.5rem'
+          }}>
+            📋 Restaurant Applications ({filteredApplications.length})
+          </h3>
+          
           {filteredApplications.length === 0 ? (
             <div style={{ 
-              padding: '5rem 2rem', 
-              textAlign: 'center',
-              color: '#64748b'
+              textAlign: 'center', 
+              padding: '4rem 2rem',
+              color: '#666'
             }}>
-              <div style={{ 
-                fontSize: '5rem', 
-                marginBottom: '2rem',
-                background: 'linear-gradient(135deg, #FF5722 0%, #FF7043 100%)',
-                WebkitBackgroundClip: 'text',
-                WebkitTextFillColor: 'transparent'
-              }}>
-                📭
-              </div>
-              <h3 style={{ 
-                fontSize: '2rem', 
-                fontWeight: '700', 
-                margin: '0 0 1rem 0',
-                color: '#FF5722'
-              }}>
-                No applications found
-              </h3>
-              <p style={{ 
-                fontSize: '1.2rem', 
-                margin: 0,
-                color: '#64748b'
-              }}>
-                {selectedStatus === 'all' 
-                  ? 'No restaurant applications have been submitted yet.' 
-                  : `No ${selectedStatus} applications found.`}
+              <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>📭</div>
+              <h4 style={{ fontSize: '1.5rem', fontWeight: '600', margin: '0 0 0.5rem 0' }}>
+                No Applications Found
+              </h4>
+              <p style={{ fontSize: '1rem', margin: 0 }}>
+                Try adjusting your filters or check back later
               </p>
-              
-              <div style={{
-                marginTop: '2rem',
-                padding: '1.5rem',
-                background: 'rgba(255, 87, 34, 0.1)',
-                borderRadius: '16px',
-                border: '2px dashed rgba(255, 87, 34, 0.3)'
-              }}>
-                <p style={{ 
-                  fontSize: '1rem', 
-                  color: '#FF5722',
-                  margin: 0,
-                  fontWeight: '500'
-                }}>
-                  💡 Applications will appear here once restaurant owners submit their partnership requests
-                </p>
-              </div>
             </div>
           ) : (
-            <div style={{ padding: '2rem' }}>
-              <div style={{ marginBottom: '2rem' }}>
-                <h3 style={{
-                  fontSize: '1.8rem',
-                  fontWeight: '700',
-                  color: '#FF5722',
-                  margin: '0 0 0.5rem 0',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.75rem'
-                }}>
-                  <span style={{
-                    background: 'linear-gradient(135deg, #FF5722 0%, #FF7043 100%)',
-                    borderRadius: '12px',
-                    padding: '0.5rem',
-                    fontSize: '1.5rem'
-                  }}>
-                    📋
-                  </span>
-                  {selectedStatus === 'all' ? 'All Applications' : `${selectedStatus.charAt(0).toUpperCase() + selectedStatus.slice(1)} Applications`}
-                </h3>
-                <p style={{ 
-                  color: '#64748b', 
-                  margin: 0, 
-                  fontSize: '1.1rem',
-                  fontWeight: '500'
-                }}>
-                  {filteredApplications.length} application{filteredApplications.length !== 1 ? 's' : ''} found
-                </p>
-              </div>
-              
-              <div style={{ 
-                display: 'grid', 
-                gap: '2rem'
-              }}>
-                {filteredApplications.map((application, index) => (
-                  <div
-                    key={application.id}
-                    style={{
-                      background: 'rgba(255, 255, 255, 0.95)',
-                      border: '2px solid rgba(255, 87, 34, 0.2)',
-                      borderRadius: '20px',
-                      padding: '2rem',
-                      transition: 'transform 0.2s ease, box-shadow 0.2s ease',
-                      cursor: 'pointer',
-                      position: 'relative'
-                    }}
-                    onClick={() => setSelectedApplication(application)}
-                    onMouseOver={(e) => {
-                      e.currentTarget.style.transform = 'translateY(-4px)';
-                      e.currentTarget.style.boxShadow = '0 12px 35px rgba(255, 87, 34, 0.2)';
-                    }}
-                    onMouseOut={(e) => {
-                      e.currentTarget.style.transform = 'translateY(0)';
-                      e.currentTarget.style.boxShadow = 'none';
-                    }}
-                  >
-                    {/* Status Indicator */}
-                    <div style={{
-                      position: 'absolute',
-                      top: '1.5rem',
-                      right: '1.5rem',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '0.5rem',
-                      padding: '0.75rem 1.25rem',
-                      background: `linear-gradient(135deg, ${getStatusColor(application.status)}20, ${getStatusColor(application.status)}40)`,
-                      color: getStatusColor(application.status),
-                      borderRadius: '25px',
-                      fontSize: '0.9rem',
-                      fontWeight: '700',
-                      border: `2px solid ${getStatusColor(application.status)}30`
-                    }}>
-                      <span style={{ fontSize: '1.1rem' }}>{getStatusIcon(application.status)}</span>
-                      {application.status.charAt(0).toUpperCase() + application.status.slice(1)}
-                    </div>
-
-                    {/* Application Number */}
-                    <div style={{
-                      position: 'absolute',
-                      top: '1.5rem',
-                      left: '1.5rem',
-                      width: '40px',
-                      height: '40px',
-                      background: 'linear-gradient(135deg, #FF5722 0%, #FF7043 100%)',
-                      borderRadius: '12px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      color: 'white',
-                      fontSize: '1rem',
-                      fontWeight: '700',
-                      boxShadow: '0 4px 15px rgba(255, 87, 34, 0.3)'
-                    }}>
-                      #{index + 1}
-                    </div>
-
-                    <div style={{ marginTop: '3rem' }}>
-                      {/* Restaurant Info */}
-                      <div style={{ marginBottom: '2rem' }}>
-                        <h3 style={{ 
-                          fontSize: '2rem', 
-                          fontWeight: '800', 
-                          background: 'linear-gradient(135deg, #FF5722 0%, #FF7043 100%)',
-                          WebkitBackgroundClip: 'text',
-                          WebkitTextFillColor: 'transparent',
-                          margin: '0 0 0.75rem 0',
-                          letterSpacing: '-0.01em'
-                        }}>
-                          {application.business_name}
-                        </h3>
-                        
-                        <div style={{ 
-                          display: 'flex', 
-                          alignItems: 'center', 
-                          gap: '1rem',
-                          marginBottom: '1rem'
-                        }}>
-                          <div style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '0.5rem',
-                            padding: '0.5rem 1rem',
-                            background: 'rgba(255, 87, 34, 0.1)',
-                            borderRadius: '20px',
-                            fontSize: '0.9rem',
-                            fontWeight: '600',
-                            color: '#FF5722'
-                          }}>
-                            <span>👨‍💼</span>
-                            {application.owner_name}
-                          </div>
-                          
-                          <div style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '0.5rem',
-                            padding: '0.5rem 1rem',
-                            background: 'rgba(76, 175, 80, 0.1)',
-                            borderRadius: '20px',
-                            fontSize: '0.9rem',
-                            fontWeight: '600',
-                            color: '#4CAF50'
-                          }}>
-                            <span>🍽️</span>
-                            {application.cuisine_type}
-                          </div>
-                        </div>
-                        
-                        <div style={{ 
-                          display: 'grid',
-                          gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-                          gap: '1rem',
-                          marginBottom: '1.5rem'
-                        }}>
-                          <div style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '0.5rem',
-                            color: '#64748b',
-                            fontSize: '0.95rem'
-                          }}>
-                            <span>📧</span>
-                            {application.email}
-                          </div>
-                          <div style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '0.5rem',
-                            color: '#64748b',
-                            fontSize: '0.95rem'
-                          }}>
-                            <span>📱</span>
-                            {application.phone}
-                          </div>
-                          <div style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '0.5rem',
-                            color: '#64748b',
-                            fontSize: '0.95rem'
-                          }}>
-                            <span>📅</span>
-                            {formatDate(application.created_at)}
-                          </div>
-                        </div>
-                      </div>
-                      
-                      {/* Address */}
-                      <div style={{ 
-                        padding: '1.5rem', 
-                        background: 'linear-gradient(135deg, rgba(255, 87, 34, 0.05), rgba(255, 112, 67, 0.05))',
-                        borderRadius: '16px',
-                        marginBottom: '1.5rem',
-                        border: '1px solid rgba(255, 87, 34, 0.1)'
-                      }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem' }}>
-                          <span style={{ fontSize: '1.2rem' }}>📍</span>
-                          <h4 style={{ fontSize: '1rem', fontWeight: '700', color: '#FF5722', margin: 0 }}>
-                            Restaurant Location
-                          </h4>
-                        </div>
-                        <p style={{ margin: 0, color: '#475569', fontSize: '0.95rem', lineHeight: '1.5' }}>
-                          {application.address}
-                        </p>
-                      </div>
-                      
-                      {/* Description */}
-                      <div style={{ 
-                        padding: '1.5rem', 
-                        background: 'linear-gradient(135deg, rgba(76, 175, 80, 0.05), rgba(102, 187, 106, 0.05))',
-                        borderRadius: '16px',
-                        marginBottom: '1.5rem',
-                        border: '1px solid rgba(76, 175, 80, 0.1)'
-                      }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem' }}>
-                          <span style={{ fontSize: '1.2rem' }}>📝</span>
-                          <h4 style={{ fontSize: '1rem', fontWeight: '700', color: '#4CAF50', margin: 0 }}>
-                            About the Restaurant
-                          </h4>
-                        </div>
-                        <p style={{ margin: 0, color: '#475569', fontSize: '0.95rem', lineHeight: '1.6' }}>
-                          {application.description.length > 200 
-                            ? application.description.substring(0, 200) + '...' 
-                            : application.description}
-                        </p>
-                      </div>
-                      
-                      {/* Documents & Action */}
-                      <div style={{ 
-                        display: 'flex', 
-                        justifyContent: 'space-between', 
+            <div style={{ display: 'grid', gap: '1.5rem' }}>
+              {filteredApplications.map((application) => (
+                <div key={application.id} style={{
+                  background: '#f8f9fa',
+                  border: '2px solid #e9ecef',
+                  borderRadius: '12px',
+                  padding: '2rem',
+                  transition: 'all 0.2s ease',
+                  cursor: 'pointer'
+                }}
+                onMouseOver={(e) => {
+                  e.currentTarget.style.borderColor = '#FF5722';
+                  e.currentTarget.style.background = '#fff';
+                  e.currentTarget.style.transform = 'translateY(-2px)';
+                  e.currentTarget.style.boxShadow = '0 8px 25px rgba(0, 0, 0, 0.1)';
+                }}
+                onMouseOut={(e) => {
+                  e.currentTarget.style.borderColor = '#e9ecef';
+                  e.currentTarget.style.background = '#f8f9fa';
+                  e.currentTarget.style.transform = 'translateY(0)';
+                  e.currentTarget.style.boxShadow = 'none';
+                }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                    <div style={{ flex: 1 }}>
+                      <h4 style={{ 
+                        fontSize: '1.4rem', 
+                        fontWeight: '700', 
+                        color: '#333', 
+                        margin: '0 0 1rem 0',
+                        display: 'flex',
                         alignItems: 'center',
-                        paddingTop: '1.5rem',
-                        borderTop: '2px solid rgba(255, 87, 34, 0.1)'
+                        gap: '0.5rem'
                       }}>
-                        <div style={{ display: 'flex', gap: '1.5rem' }}>
-                          <div style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '0.5rem',
-                            padding: '0.5rem 1rem',
-                            background: 'rgba(244, 67, 54, 0.1)',
-                            borderRadius: '20px',
-                            fontSize: '0.85rem',
-                            fontWeight: '600',
-                            color: '#F44336'
-                          }}>
-                            <span>�</span>
-                            License: {application.business_license}
-                          </div>
-                          <div style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '0.5rem',
-                            padding: '0.5rem 1rem',
-                            background: 'rgba(255, 152, 0, 0.1)',
-                            borderRadius: '20px',
-                            fontSize: '0.85rem',
-                            fontWeight: '600',
-                            color: '#FF9800'
-                          }}>
-                            <span>🍽️</span>
-                            Permit: {application.food_permit}
-                          </div>
+                        🏪 {application.business_name}
+                      </h4>
+                      
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '1rem', marginBottom: '1rem' }}>
+                        <div>
+                          <p style={{ fontSize: '1rem', color: '#666', margin: '0 0 0.5rem 0' }}>
+                            <strong>👤 Owner:</strong> {application.owner_name}
+                          </p>
+                          <p style={{ fontSize: '0.9rem', color: '#666', margin: '0 0 0.5rem 0' }}>
+                            📧 {application.email}
+                          </p>
+                          <p style={{ fontSize: '0.9rem', color: '#666', margin: 0 }}>
+                            📞 {application.phone}
+                          </p>
                         </div>
                         
-                        <button
-                          style={{
-                            padding: '1rem 2rem',
-                            background: 'linear-gradient(135deg, #FF5722 0%, #FF7043 100%)',
-                            color: 'white',
-                            border: 'none',
-                            borderRadius: '16px',
-                            fontSize: '1rem',
-                            fontWeight: '700',
-                            cursor: 'pointer',
-                            transition: 'all 0.2s ease',
-                            boxShadow: '0 4px 15px rgba(255, 87, 34, 0.3)',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '0.5rem'
-                          }}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setSelectedApplication(application);
-                          }}
-                        >
-                          <span>👁️</span>
-                          View Details
-                        </button>
+                        <div>
+                          <p style={{ fontSize: '0.9rem', color: '#666', margin: '0 0 0.5rem 0' }}>
+                            <strong>🍽️ Cuisine:</strong> {application.cuisine_type}
+                          </p>
+                          <p style={{ fontSize: '0.9rem', color: '#666', margin: 0 }}>
+                            📅 Applied: {new Date(application.created_at + 'Z').toLocaleDateString()}
+                          </p>
+                        </div>
                       </div>
+                    </div>
+                    
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '1rem' }}>
+                      <span style={{
+                        background: application.status === 'pending' ? '#FFF3E0' : 
+                                   application.status === 'approved' ? '#E8F5E8' : '#FFEBEE',
+                        color: application.status === 'pending' ? '#F57C00' : 
+                               application.status === 'approved' ? '#2E7D32' : '#C62828',
+                        padding: '0.5rem 1rem',
+                        borderRadius: '20px',
+                        fontSize: '0.85rem',
+                        fontWeight: '600',
+                        textTransform: 'uppercase'
+                      }}>
+                        {application.status === 'pending' ? '⏳ Pending' : 
+                         application.status === 'approved' ? '✅ Approved' : '❌ Rejected'}
+                      </span>
+                      
+                      <button
+                        onClick={() => setSelectedApplication(application)}
+                        style={{
+                          background: '#FF5722',
+                          color: 'white',
+                          border: 'none',
+                          padding: '0.75rem 1.5rem',
+                          borderRadius: '8px',
+                          fontSize: '0.95rem',
+                          fontWeight: '600',
+                          cursor: 'pointer',
+                          transition: 'background 0.2s ease'
+                        }}
+                        onMouseOver={(e) => {
+                          e.currentTarget.style.background = '#E64A19';
+                        }}
+                        onMouseOut={(e) => {
+                          e.currentTarget.style.background = '#FF5722';
+                        }}
+                      >
+                        👁️ View Details
+                      </button>
                     </div>
                   </div>
-                ))}
-              </div>
+                </div>
+              ))}
             </div>
           )}
         </div>
+      </div>
 
-        {/* Application Detail Modal */}
-        {selectedApplication && (
+      {/* Application Detail Modal */}
+      {selectedApplication && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0, 0, 0, 0.5)',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          zIndex: 1000,
+          padding: '2rem'
+        }}>
           <div style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: 'rgba(0, 0, 0, 0.5)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 1000,
-            padding: '2rem'
+            background: 'white',
+            borderRadius: '16px',
+            padding: '0',
+            maxWidth: '700px',
+            width: '100%',
+            maxHeight: '85vh',
+            overflowY: 'auto',
+            boxShadow: '0 20px 60px rgba(0, 0, 0, 0.3)'
           }}>
+            {/* Header */}
             <div style={{
-              backgroundColor: 'white',
-              borderRadius: '20px',
+              background: 'linear-gradient(135deg, #FF5722 0%, #FF7043 100%)',
               padding: '2rem',
-              maxWidth: '800px',
-              width: '100%',
-              maxHeight: '90vh',
-              overflow: 'auto',
-              boxShadow: '0 25px 80px rgba(0, 0, 0, 0.3)'
+              borderRadius: '16px 16px 0 0',
+              color: 'white'
             }}>
-              {/* Modal Header */}
-              <div style={{ 
-                display: 'flex', 
-                justifyContent: 'space-between', 
-                alignItems: 'center', 
-                marginBottom: '2rem',
-                paddingBottom: '1rem',
-                borderBottom: '2px solid rgba(255, 87, 34, 0.2)'
-              }}>
-                <h2 style={{ 
-                  fontSize: '2rem', 
-                  fontWeight: '700', 
-                  background: 'linear-gradient(135deg, #FF5722 0%, #FF7043 100%)',
-                  WebkitBackgroundClip: 'text',
-                  WebkitTextFillColor: 'transparent',
-                  margin: 0
-                }}>
-                  {selectedApplication.business_name}
-                </h2>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <h3 style={{ fontSize: '1.8rem', fontWeight: '700', margin: '0 0 0.5rem 0' }}>
+                    🏪 {selectedApplication.business_name}
+                  </h3>
+                  <p style={{ fontSize: '1rem', opacity: 0.9, margin: 0 }}>
+                    Application Details & Review
+                  </p>
+                </div>
                 <button
                   onClick={() => setSelectedApplication(null)}
                   style={{
-                    background: 'none',
+                    background: 'rgba(255, 255, 255, 0.2)',
                     border: 'none',
-                    fontSize: '1.5rem',
+                    borderRadius: '8px',
+                    width: '40px',
+                    height: '40px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '1.2rem',
                     cursor: 'pointer',
-                    color: '#94a3b8',
-                    padding: '0.5rem'
+                    color: 'white',
+                    transition: 'background 0.2s ease'
+                  }}
+                  onMouseOver={(e) => {
+                    e.currentTarget.style.background = 'rgba(255, 255, 255, 0.3)';
+                  }}
+                  onMouseOut={(e) => {
+                    e.currentTarget.style.background = 'rgba(255, 255, 255, 0.2)';
                   }}
                 >
                   ✕
                 </button>
               </div>
-
-              {/* Application Details */}
-              <div style={{ 
-                display: 'grid', 
-                gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', 
-                gap: '1.5rem',
-                marginBottom: '2rem'
-              }}>
-                <div>
-                  <h4 style={{ fontSize: '1rem', fontWeight: '600', color: '#FF5722', margin: '0 0 0.5rem 0' }}>
-                    Owner Information
-                  </h4>
-                  <p style={{ margin: '0 0 0.25rem 0' }}><strong>Name:</strong> {selectedApplication.owner_name}</p>
-                  <p style={{ margin: '0 0 0.25rem 0' }}><strong>Email:</strong> {selectedApplication.email}</p>
-                  <p style={{ margin: 0 }}><strong>Phone:</strong> {selectedApplication.phone}</p>
-                </div>
-
-                <div>
-                  <h4 style={{ fontSize: '1rem', fontWeight: '600', color: '#FF5722', margin: '0 0 0.5rem 0' }}>
-                    Restaurant Details
-                  </h4>
-                  <p style={{ margin: '0 0 0.25rem 0' }}><strong>Cuisine:</strong> {selectedApplication.cuisine_type}</p>
-                  <p style={{ margin: '0 0 0.25rem 0' }}><strong>Status:</strong> 
-                    <span style={{ 
-                      color: getStatusColor(selectedApplication.status),
-                      fontWeight: '600',
-                      marginLeft: '0.5rem'
+            </div>
+            
+            {/* Content */}
+            <div style={{ padding: '2rem' }}>
+              {/* Status Badge */}
+              <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
+                <span style={{
+                  background: selectedApplication.status === 'pending' ? '#FFF3E0' : 
+                             selectedApplication.status === 'approved' ? '#E8F5E8' : '#FFEBEE',
+                  color: selectedApplication.status === 'pending' ? '#F57C00' : 
+                         selectedApplication.status === 'approved' ? '#2E7D32' : '#C62828',
+                  padding: '0.75rem 1.5rem',
+                  borderRadius: '25px',
+                  fontSize: '1rem',
+                  fontWeight: '600',
+                  textTransform: 'uppercase'
+                }}>
+                  {selectedApplication.status === 'pending' ? '⏳ Pending Review' : 
+                   selectedApplication.status === 'approved' ? '✅ Approved' : '❌ Rejected'}
+                </span>
+              </div>
+              
+              {/* Information Grid */}
+              <div style={{ display: 'grid', gap: '1rem', marginBottom: '2rem' }}>
+                {[
+                  { label: 'Owner Name', value: selectedApplication.owner_name, icon: '👤' },
+                  { label: 'Email Address', value: selectedApplication.email, icon: '📧' },
+                  { label: 'Phone Number', value: selectedApplication.phone, icon: '📞' },
+                  { label: 'Restaurant Address', value: selectedApplication.address, icon: '📍' },
+                  { label: 'Cuisine Type', value: selectedApplication.cuisine_type, icon: '🍽️' },
+                  { label: 'Business License', value: selectedApplication.business_license, icon: '📄' },
+                  { label: 'Food Permit', value: selectedApplication.food_permit, icon: '🍽️' },
+                  { label: 'Application Date', value: new Date(selectedApplication.created_at + 'Z').toLocaleString(), icon: '📅' }
+                ].map((item, index) => (
+                  <div key={index} style={{
+                    background: '#f8f9fa',
+                    borderRadius: '8px',
+                    padding: '1rem',
+                    border: '1px solid #e9ecef'
+                  }}>
+                    <div style={{ 
+                      fontSize: '0.8rem', 
+                      color: '#666', 
+                      fontWeight: '600', 
+                      marginBottom: '0.5rem',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.5px'
                     }}>
-                      {getStatusIcon(selectedApplication.status)} {selectedApplication.status.charAt(0).toUpperCase() + selectedApplication.status.slice(1)}
-                    </span>
-                  </p>
-                  <p style={{ margin: 0 }}><strong>Applied:</strong> {formatDate(selectedApplication.created_at)}</p>
+                      {item.icon} {item.label}
+                    </div>
+                    <div style={{
+                      fontSize: '1rem',
+                      fontWeight: '600',
+                      color: '#333'
+                    }}>
+                      {item.value}
+                    </div>
+                  </div>
+                ))}
+                
+                {/* Description */}
+                <div style={{
+                  background: '#f8f9fa',
+                  borderRadius: '8px',
+                  padding: '1rem',
+                  border: '1px solid #e9ecef'
+                }}>
+                  <div style={{ 
+                    fontSize: '0.8rem', 
+                    color: '#666', 
+                    fontWeight: '600', 
+                    marginBottom: '0.5rem',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.5px'
+                  }}>
+                    📝 Restaurant Description
+                  </div>
+                  <div style={{
+                    fontSize: '1rem',
+                    color: '#333',
+                    lineHeight: '1.6',
+                    fontStyle: 'italic'
+                  }}>
+                    "{selectedApplication.description}"
+                  </div>
                 </div>
               </div>
-
-              <div style={{ marginBottom: '1.5rem' }}>
-                <h4 style={{ fontSize: '1rem', fontWeight: '600', color: '#FF5722', margin: '0 0 0.5rem 0' }}>
-                  Address
-                </h4>
-                <p style={{ margin: 0, lineHeight: '1.5' }}>{selectedApplication.address}</p>
-              </div>
-
-              <div style={{ marginBottom: '1.5rem' }}>
-                <h4 style={{ fontSize: '1rem', fontWeight: '600', color: '#FF5722', margin: '0 0 0.5rem 0' }}>
-                  Description
-                </h4>
-                <p style={{ margin: 0, lineHeight: '1.6' }}>{selectedApplication.description}</p>
-              </div>
-
-              <div style={{ 
-                display: 'grid', 
-                gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', 
-                gap: '1.5rem',
-                marginBottom: '2rem'
-              }}>
-                <div>
-                  <h4 style={{ fontSize: '1rem', fontWeight: '600', color: '#FF5722', margin: '0 0 0.5rem 0' }}>
-                    Business License
-                  </h4>
-                  <p style={{ margin: 0 }}>{selectedApplication.business_license}</p>
-                </div>
-
-                <div>
-                  <h4 style={{ fontSize: '1rem', fontWeight: '600', color: '#FF5722', margin: '0 0 0.5rem 0' }}>
-                    Food Service Permit
-                  </h4>
-                  <p style={{ margin: 0 }}>{selectedApplication.food_permit}</p>
-                </div>
-              </div>
-
-              {/* Admin Actions */}
+              
+              {/* Action Buttons */}
               {selectedApplication.status === 'pending' && (
                 <div style={{
-                  backgroundColor: 'rgba(255, 87, 34, 0.05)',
+                  background: '#f8f9fa',
                   borderRadius: '12px',
-                  padding: '1.5rem',
-                  marginBottom: '1.5rem',
-                  border: '2px solid rgba(255, 87, 34, 0.1)'
+                  padding: '2rem',
+                  border: '1px solid #e9ecef'
                 }}>
-                  <h4 style={{ fontSize: '1rem', fontWeight: '600', color: '#FF5722', margin: '0 0 1rem 0' }}>
-                    Admin Notes (Optional)
-                  </h4>
-                  <textarea
-                    value={adminNotes}
-                    onChange={(e) => setAdminNotes(e.target.value)}
-                    placeholder="Add notes about this application..."
-                    style={{
-                      width: '100%',
-                      minHeight: '100px',
-                      padding: '0.75rem',
-                      border: '2px solid rgba(255, 87, 34, 0.2)',
-                      borderRadius: '8px',
-                      fontSize: '0.9rem',
-                      fontFamily: 'Anuphan, system-ui, sans-serif',
-                      resize: 'vertical',
-                      outline: 'none'
-                    }}
-                  />
-                </div>
-              )}
-
-              {/* Action Buttons */}
-              <div style={{ 
-                display: 'flex', 
-                gap: '1rem', 
-                justifyContent: 'flex-end',
-                paddingTop: '1rem',
-                borderTop: '2px solid rgba(255, 87, 34, 0.2)'
-              }}>
-                {selectedApplication.status === 'pending' && (
-                  <>
+                  <div style={{ marginBottom: '1.5rem' }}>
+                    <label style={{ 
+                      display: 'block', 
+                      marginBottom: '0.75rem', 
+                      fontWeight: '600',
+                      color: '#333',
+                      fontSize: '1rem'
+                    }}>
+                      📝 Admin Notes (Optional):
+                    </label>
+                    <textarea
+                      value={adminNotes}
+                      onChange={(e) => setAdminNotes(e.target.value)}
+                      placeholder="Add your review notes here..."
+                      style={{
+                        width: '100%',
+                        padding: '1rem',
+                        border: '2px solid #e9ecef',
+                        borderRadius: '8px',
+                        fontSize: '0.95rem',
+                        resize: 'vertical',
+                        minHeight: '100px',
+                        fontFamily: 'Anuphan, system-ui, sans-serif',
+                        outline: 'none'
+                      }}
+                    />
+                  </div>
+                  
+                  <div style={{ display: 'flex', gap: '1rem' }}>
                     <button
-                      onClick={() => updateApplicationStatus(selectedApplication.id, 'rejected')}
+                      onClick={() => handleStatusUpdate(selectedApplication.id, 'approved')}
                       disabled={isUpdating}
                       style={{
-                        padding: '0.75rem 1.5rem',
-                        background: isUpdating ? '#94a3b8' : 'linear-gradient(135deg, #F44336 0%, #E57373 100%)',
+                        flex: 1,
+                        background: isUpdating ? '#ccc' : '#4CAF50',
                         color: 'white',
                         border: 'none',
-                        borderRadius: '12px',
-                        fontSize: '1rem',
+                        padding: '1rem 2rem',
+                        borderRadius: '8px',
+                        fontSize: '1.1rem',
                         fontWeight: '600',
                         cursor: isUpdating ? 'not-allowed' : 'pointer',
-                        transition: 'all 0.2s ease'
+                        transition: 'background 0.2s ease'
+                      }}
+                      onMouseOver={(e) => {
+                        if (!isUpdating) {
+                          e.currentTarget.style.background = '#45a049';
+                        }
+                      }}
+                      onMouseOut={(e) => {
+                        if (!isUpdating) {
+                          e.currentTarget.style.background = '#4CAF50';
+                        }
                       }}
                     >
-                      {isUpdating ? 'Updating...' : '❌ Reject'}
+                      {isUpdating ? '⏳ Processing...' : '✅ Approve Application'}
                     </button>
-
+                    
                     <button
-                      onClick={() => updateApplicationStatus(selectedApplication.id, 'approved')}
+                      onClick={() => handleStatusUpdate(selectedApplication.id, 'rejected')}
                       disabled={isUpdating}
                       style={{
-                        padding: '0.75rem 1.5rem',
-                        background: isUpdating ? '#94a3b8' : 'linear-gradient(135deg, #4CAF50 0%, #66BB6A 100%)',
+                        flex: 1,
+                        background: isUpdating ? '#ccc' : '#F44336',
                         color: 'white',
                         border: 'none',
-                        borderRadius: '12px',
-                        fontSize: '1rem',
+                        padding: '1rem 2rem',
+                        borderRadius: '8px',
+                        fontSize: '1.1rem',
                         fontWeight: '600',
                         cursor: isUpdating ? 'not-allowed' : 'pointer',
-                        transition: 'all 0.2s ease'
+                        transition: 'background 0.2s ease'
+                      }}
+                      onMouseOver={(e) => {
+                        if (!isUpdating) {
+                          e.currentTarget.style.background = '#da190b';
+                        }
+                      }}
+                      onMouseOut={(e) => {
+                        if (!isUpdating) {
+                          e.currentTarget.style.background = '#F44336';
+                        }
                       }}
                     >
-                      {isUpdating ? 'Updating...' : '✅ Approve'}
+                      {isUpdating ? '⏳ Processing...' : '❌ Reject Application'}
                     </button>
-                  </>
-                )}
-
-                <button
-                  onClick={() => setSelectedApplication(null)}
-                  style={{
-                    padding: '0.75rem 1.5rem',
-                    background: 'white',
-                    color: '#FF5722',
-                    border: '2px solid rgba(255, 87, 34, 0.3)',
-                    borderRadius: '12px',
-                    fontSize: '1rem',
-                    fontWeight: '600',
-                    cursor: 'pointer',
-                    transition: 'all 0.2s ease'
-                  }}
-                >
-                  Close
-                </button>
-              </div>
-
-              {/* Show admin notes if exists */}
-              {selectedApplication.admin_notes && (
-                <div style={{
-                  backgroundColor: 'rgba(255, 87, 34, 0.05)',
-                  border: '2px solid rgba(255, 87, 34, 0.2)',
-                  borderRadius: '12px',
-                  padding: '1rem',
-                  marginTop: '1rem'
-                }}>
-                  <h4 style={{ fontSize: '0.9rem', fontWeight: '600', color: '#FF5722', margin: '0 0 0.5rem 0' }}>
-                    Admin Notes:
-                  </h4>
-                  <p style={{ margin: 0, color: '#475569', fontSize: '0.9rem' }}>
-                    {selectedApplication.admin_notes}
-                  </p>
+                  </div>
                 </div>
               )}
             </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
-      {/* Beautiful Notification System */}
+      {/* Notification */}
       {notification.show && (
         <div style={{
           position: 'fixed',
           top: '2rem',
           right: '2rem',
-          zIndex: 2000,
-          background: 'white',
-          borderRadius: '16px',
-          padding: '1.5rem 2rem',
-          boxShadow: '0 20px 60px rgba(0, 0, 0, 0.15)',
-          border: `3px solid ${
-            notification.type === 'success' ? '#4CAF50' : 
-            notification.type === 'error' ? '#F44336' : '#FF9800'
-          }`,
-          minWidth: '350px',
-          maxWidth: '500px',
-          animation: 'slideInRight 0.3s ease-out'
+          background: notification.type === 'success' ? '#4CAF50' : 
+                     notification.type === 'error' ? '#F44336' : '#FF9800',
+          color: 'white',
+          padding: '1rem 1.5rem',
+          borderRadius: '8px',
+          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)',
+          zIndex: 1001,
+          maxWidth: '400px'
         }}>
-          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '1rem' }}>
-            <div style={{
-              width: '50px',
-              height: '50px',
-              borderRadius: '12px',
-              background: `linear-gradient(135deg, ${
-                notification.type === 'success' ? '#4CAF50, #66BB6A' : 
-                notification.type === 'error' ? '#F44336, #E57373' : '#FF9800, #FFB74D'
-              })`,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: '1.5rem',
-              color: 'white',
-              flexShrink: 0
-            }}>
-              {notification.type === 'success' ? '✅' : 
-               notification.type === 'error' ? '❌' : '⚠️'}
-            </div>
-            
-            <div style={{ flex: 1 }}>
-              <h4 style={{
-                fontSize: '1.2rem',
-                fontWeight: '700',
-                color: '#1e293b',
-                margin: '0 0 0.5rem 0',
-                fontFamily: 'Anuphan, system-ui, sans-serif'
-              }}>
-                {notification.title}
-              </h4>
-              <p style={{
-                fontSize: '1rem',
-                color: '#64748b',
-                margin: 0,
-                lineHeight: '1.5',
-                fontFamily: 'Anuphan, system-ui, sans-serif'
-              }}>
-                {notification.message}
-              </p>
-            </div>
-            
-            <button
-              onClick={() => setNotification(prev => ({ ...prev, show: false }))}
-              style={{
-                background: 'none',
-                border: 'none',
-                fontSize: '1.2rem',
-                color: '#94a3b8',
-                cursor: 'pointer',
-                padding: '0.25rem',
-                borderRadius: '4px',
-                transition: 'color 0.2s ease'
-              }}
-              onMouseOver={(e) => e.currentTarget.style.color = '#64748b'}
-              onMouseOut={(e) => e.currentTarget.style.color = '#94a3b8'}
-            >
-              ✕
-            </button>
+          <div style={{ fontWeight: '600', marginBottom: '0.25rem' }}>
+            {notification.title}
+          </div>
+          <div style={{ fontSize: '0.9rem', opacity: 0.9 }}>
+            {notification.message}
           </div>
         </div>
       )}
 
-      {/* CSS Animation for Notification */}
-      <style jsx>{`
-        @keyframes slideInRight {
-          from {
-            transform: translateX(100%);
-            opacity: 0;
-          }
-          to {
-            transform: translateX(0);
-            opacity: 1;
-          }
-        }
-      `}</style>
+      {/* Logout Confirmation Modal */}
+      {showLogoutConfirm && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0, 0, 0, 0.5)',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          zIndex: 1000
+        }}>
+          <div style={{
+            background: 'white',
+            borderRadius: '16px',
+            padding: '2rem',
+            maxWidth: '400px',
+            width: '90%',
+            textAlign: 'center',
+            boxShadow: '0 20px 60px rgba(0, 0, 0, 0.3)'
+          }}>
+            <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>🚪</div>
+            <h3 style={{ 
+              fontSize: '1.5rem', 
+              fontWeight: '700', 
+              color: '#333', 
+              margin: '0 0 1rem 0' 
+            }}>
+              Confirm Logout
+            </h3>
+            <p style={{ 
+              fontSize: '1rem', 
+              color: '#666', 
+              margin: '0 0 2rem 0',
+              lineHeight: '1.5'
+            }}>
+              Are you sure you want to logout? You will need to login again to access the admin dashboard.
+            </p>
+            
+            <div style={{ display: 'flex', gap: '1rem' }}>
+              <button
+                onClick={() => setShowLogoutConfirm(false)}
+                style={{
+                  flex: 1,
+                  background: '#6c757d',
+                  color: 'white',
+                  border: 'none',
+                  padding: '0.75rem 1.5rem',
+                  borderRadius: '8px',
+                  fontSize: '1rem',
+                  fontWeight: '600',
+                  cursor: 'pointer',
+                  transition: 'background 0.2s ease'
+                }}
+                onMouseOver={(e) => {
+                  e.currentTarget.style.background = '#5a6268';
+                }}
+                onMouseOut={(e) => {
+                  e.currentTarget.style.background = '#6c757d';
+                }}
+              >
+                Cancel
+              </button>
+              
+              <button
+                onClick={confirmLogout}
+                style={{
+                  flex: 1,
+                  background: '#FF5722',
+                  color: 'white',
+                  border: 'none',
+                  padding: '0.75rem 1.5rem',
+                  borderRadius: '8px',
+                  fontSize: '1rem',
+                  fontWeight: '600',
+                  cursor: 'pointer',
+                  transition: 'background 0.2s ease'
+                }}
+                onMouseOver={(e) => {
+                  e.currentTarget.style.background = '#E64A19';
+                }}
+                onMouseOut={(e) => {
+                  e.currentTarget.style.background = '#FF5722';
+                }}
+              >
+                Yes, Logout
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add Admin Modal */}
+      {showAddAdminModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0, 0, 0, 0.5)',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          zIndex: 1000,
+          padding: '2rem'
+        }}>
+          <div style={{
+            background: 'white',
+            borderRadius: '16px',
+            padding: '0',
+            maxWidth: '500px',
+            width: '100%',
+            maxHeight: '85vh',
+            overflowY: 'auto',
+            boxShadow: '0 20px 60px rgba(0, 0, 0, 0.3)'
+          }}>
+            {/* Header */}
+            <div style={{
+              background: 'linear-gradient(135deg, #FF5722 0%, #FF7043 100%)',
+              padding: '2rem',
+              borderRadius: '16px 16px 0 0',
+              color: 'white'
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <h3 style={{ fontSize: '1.8rem', fontWeight: '700', margin: '0 0 0.5rem 0' }}>
+                    👤 Add New Admin
+                  </h3>
+                  <p style={{ fontSize: '1rem', opacity: 0.9, margin: 0 }}>
+                    Create a new admin account
+                  </p>
+                </div>
+                <button
+                  onClick={() => {
+                    setShowAddAdminModal(false);
+                    setNewAdmin({ name: '', email: '', password: '' });
+                  }}
+                  style={{
+                    background: 'rgba(255, 255, 255, 0.2)',
+                    border: 'none',
+                    borderRadius: '8px',
+                    width: '40px',
+                    height: '40px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '1.2rem',
+                    cursor: 'pointer',
+                    color: 'white',
+                    transition: 'background 0.2s ease'
+                  }}
+                  onMouseOver={(e) => {
+                    e.currentTarget.style.background = 'rgba(255, 255, 255, 0.3)';
+                  }}
+                  onMouseOut={(e) => {
+                    e.currentTarget.style.background = 'rgba(255, 255, 255, 0.2)';
+                  }}
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+            
+            {/* Form Content */}
+            <div style={{ padding: '2rem' }}>
+              <div style={{ marginBottom: '1.5rem' }}>
+                <label style={{ 
+                  display: 'block', 
+                  marginBottom: '0.5rem', 
+                  fontWeight: '600',
+                  color: '#333',
+                  fontSize: '1rem'
+                }}>
+                  👤 Full Name:
+                </label>
+                <input
+                  type="text"
+                  value={newAdmin.name}
+                  onChange={(e) => setNewAdmin(prev => ({ ...prev, name: e.target.value }))}
+                  placeholder="Enter admin's full name"
+                  style={{
+                    width: '100%',
+                    padding: '0.75rem',
+                    border: '2px solid #e9ecef',
+                    borderRadius: '8px',
+                    fontSize: '1rem',
+                    fontFamily: 'Anuphan, system-ui, sans-serif',
+                    outline: 'none',
+                    transition: 'border-color 0.2s ease'
+                  }}
+                  onFocus={(e) => {
+                    e.currentTarget.style.borderColor = '#FF5722';
+                  }}
+                  onBlur={(e) => {
+                    e.currentTarget.style.borderColor = '#e9ecef';
+                  }}
+                />
+              </div>
+
+              <div style={{ marginBottom: '1.5rem' }}>
+                <label style={{ 
+                  display: 'block', 
+                  marginBottom: '0.5rem', 
+                  fontWeight: '600',
+                  color: '#333',
+                  fontSize: '1rem'
+                }}>
+                  📧 Email Address:
+                </label>
+                <input
+                  type="email"
+                  value={newAdmin.email}
+                  onChange={(e) => setNewAdmin(prev => ({ ...prev, email: e.target.value }))}
+                  placeholder="Enter admin's email address"
+                  style={{
+                    width: '100%',
+                    padding: '0.75rem',
+                    border: '2px solid #e9ecef',
+                    borderRadius: '8px',
+                    fontSize: '1rem',
+                    fontFamily: 'Anuphan, system-ui, sans-serif',
+                    outline: 'none',
+                    transition: 'border-color 0.2s ease'
+                  }}
+                  onFocus={(e) => {
+                    e.currentTarget.style.borderColor = '#FF5722';
+                  }}
+                  onBlur={(e) => {
+                    e.currentTarget.style.borderColor = '#e9ecef';
+                  }}
+                />
+              </div>
+
+              <div style={{ marginBottom: '2rem' }}>
+                <label style={{ 
+                  display: 'block', 
+                  marginBottom: '0.5rem', 
+                  fontWeight: '600',
+                  color: '#333',
+                  fontSize: '1rem'
+                }}>
+                  🔒 Password:
+                </label>
+                <input
+                  type="password"
+                  value={newAdmin.password}
+                  onChange={(e) => setNewAdmin(prev => ({ ...prev, password: e.target.value }))}
+                  placeholder="Enter secure password (min 8 characters)"
+                  style={{
+                    width: '100%',
+                    padding: '0.75rem',
+                    border: '2px solid #e9ecef',
+                    borderRadius: '8px',
+                    fontSize: '1rem',
+                    fontFamily: 'Anuphan, system-ui, sans-serif',
+                    outline: 'none',
+                    transition: 'border-color 0.2s ease'
+                  }}
+                  onFocus={(e) => {
+                    e.currentTarget.style.borderColor = '#FF5722';
+                  }}
+                  onBlur={(e) => {
+                    e.currentTarget.style.borderColor = '#e9ecef';
+                  }}
+                />
+                <p style={{ 
+                  fontSize: '0.85rem', 
+                  color: '#666', 
+                  margin: '0.5rem 0 0 0',
+                  fontStyle: 'italic'
+                }}>
+                  Password must be at least 8 characters long
+                </p>
+              </div>
+              
+              <div style={{ display: 'flex', gap: '1rem' }}>
+                <button
+                  onClick={() => {
+                    setShowAddAdminModal(false);
+                    setNewAdmin({ name: '', email: '', password: '' });
+                  }}
+                  style={{
+                    flex: 1,
+                    background: '#6c757d',
+                    color: 'white',
+                    border: 'none',
+                    padding: '0.75rem 1.5rem',
+                    borderRadius: '8px',
+                    fontSize: '1rem',
+                    fontWeight: '600',
+                    cursor: 'pointer',
+                    transition: 'background 0.2s ease'
+                  }}
+                  onMouseOver={(e) => {
+                    e.currentTarget.style.background = '#5a6268';
+                  }}
+                  onMouseOut={(e) => {
+                    e.currentTarget.style.background = '#6c757d';
+                  }}
+                >
+                  Cancel
+                </button>
+                
+                <button
+                  onClick={handleAddAdmin}
+                  style={{
+                    flex: 1,
+                    background: '#FF5722',
+                    color: 'white',
+                    border: 'none',
+                    padding: '0.75rem 1.5rem',
+                    borderRadius: '8px',
+                    fontSize: '1rem',
+                    fontWeight: '600',
+                    cursor: 'pointer',
+                    transition: 'background 0.2s ease'
+                  }}
+                  onMouseOver={(e) => {
+                    e.currentTarget.style.background = '#E64A19';
+                  }}
+                  onMouseOut={(e) => {
+                    e.currentTarget.style.background = '#FF5722';
+                  }}
+                >
+                  ✅ Create Admin
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Admin List Modal - Only for Super Admins */}
+      {showAdminListModal && currentAdmin?.is_super_admin && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0, 0, 0, 0.5)',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          zIndex: 1000,
+          padding: '2rem'
+        }}>
+          <div style={{
+            background: 'white',
+            borderRadius: '16px',
+            padding: '0',
+            maxWidth: '800px',
+            width: '100%',
+            maxHeight: '85vh',
+            overflowY: 'auto',
+            boxShadow: '0 20px 60px rgba(0, 0, 0, 0.3)'
+          }}>
+            {/* Header */}
+            <div style={{
+              background: 'linear-gradient(135deg, #FF5722 0%, #FF7043 100%)',
+              padding: '2rem',
+              borderRadius: '16px 16px 0 0',
+              color: 'white'
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <h3 style={{ fontSize: '1.8rem', fontWeight: '700', margin: '0 0 0.5rem 0' }}>
+                    👥 Admin Management
+                  </h3>
+                  <p style={{ fontSize: '1rem', opacity: 0.9, margin: 0 }}>
+                    Manage all admin accounts ({adminList.length} total)
+                  </p>
+                </div>
+                <button
+                  onClick={() => setShowAdminListModal(false)}
+                  style={{
+                    background: 'rgba(255, 255, 255, 0.2)',
+                    border: 'none',
+                    borderRadius: '8px',
+                    width: '40px',
+                    height: '40px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '1.2rem',
+                    cursor: 'pointer',
+                    color: 'white',
+                    transition: 'background 0.2s ease'
+                  }}
+                  onMouseOver={(e) => {
+                    e.currentTarget.style.background = 'rgba(255, 255, 255, 0.3)';
+                  }}
+                  onMouseOut={(e) => {
+                    e.currentTarget.style.background = 'rgba(255, 255, 255, 0.2)';
+                  }}
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+            
+            {/* Admin List Content */}
+            <div style={{ padding: '2rem' }}>
+              {adminList.length === 0 ? (
+                <div style={{ 
+                  textAlign: 'center', 
+                  padding: '3rem 2rem',
+                  color: '#666'
+                }}>
+                  <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>👤</div>
+                  <h4 style={{ fontSize: '1.3rem', fontWeight: '600', margin: '0 0 0.5rem 0' }}>
+                    Loading Admin List...
+                  </h4>
+                </div>
+              ) : (
+                <div style={{ display: 'grid', gap: '1rem' }}>
+                  {adminList.map((admin) => (
+                    <div key={admin.id} style={{
+                      background: admin.is_active ? '#f8f9fa' : '#fff3cd',
+                      border: `2px solid ${admin.is_active ? '#e9ecef' : '#ffeaa7'}`,
+                      borderRadius: '12px',
+                      padding: '1.5rem',
+                      transition: 'all 0.2s ease'
+                    }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                            <h4 style={{ 
+                              fontSize: '1.2rem', 
+                              fontWeight: '700', 
+                              color: '#333', 
+                              margin: 0
+                            }}>
+                              {admin.is_super_admin ? '👑' : '👤'} {admin.name}
+                            </h4>
+                            {admin.id === currentAdmin?.id && (
+                              <span style={{
+                                background: '#007bff',
+                                color: 'white',
+                                padding: '0.25rem 0.5rem',
+                                borderRadius: '12px',
+                                fontSize: '0.7rem',
+                                fontWeight: '600'
+                              }}>
+                                YOU
+                              </span>
+                            )}
+                            {admin.is_super_admin && (
+                              <span style={{
+                                background: '#ffd700',
+                                color: '#333',
+                                padding: '0.25rem 0.5rem',
+                                borderRadius: '12px',
+                                fontSize: '0.7rem',
+                                fontWeight: '600'
+                              }}>
+                                SUPER ADMIN
+                              </span>
+                            )}
+                          </div>
+                          
+                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.5rem', fontSize: '0.9rem', color: '#666' }}>
+                            <div>📧 {admin.email}</div>
+                            <div>📅 Created: {new Date(admin.created_at + 'Z').toLocaleDateString()}</div>
+                            <div>👤 Created by: {admin.created_by_name}</div>
+                            {admin.last_login && (
+                              <div>🕐 Last login: {new Date(admin.last_login + 'Z').toLocaleDateString()}</div>
+                            )}
+                          </div>
+                        </div>
+                        
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.75rem' }}>
+                          <span style={{
+                            background: admin.is_active ? '#d4edda' : '#fff3cd',
+                            color: admin.is_active ? '#155724' : '#856404',
+                            padding: '0.5rem 1rem',
+                            borderRadius: '20px',
+                            fontSize: '0.8rem',
+                            fontWeight: '600',
+                            textTransform: 'uppercase'
+                          }}>
+                            {admin.is_active ? '✅ Active' : '⚠️ Inactive'}
+                          </span>
+                          
+                          {/* Action Buttons - Don't show for current admin */}
+                          {admin.id !== currentAdmin?.id && (
+                            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                              {admin.is_active ? (
+                                <button
+                                  onClick={() => setShowConfirmDeactivate({show: true, admin: admin})}
+                                  style={{
+                                    background: '#dc3545',
+                                    color: 'white',
+                                    border: 'none',
+                                    padding: '0.6rem 1rem',
+                                    borderRadius: '6px',
+                                    fontSize: '0.8rem',
+                                    fontWeight: '600',
+                                    cursor: 'pointer',
+                                    transition: 'background 0.2s ease',
+                                    whiteSpace: 'nowrap'
+                                  }}
+                                  onMouseOver={(e) => {
+                                    e.currentTarget.style.background = '#c82333';
+                                  }}
+                                  onMouseOut={(e) => {
+                                    e.currentTarget.style.background = '#dc3545';
+                                  }}
+                                >
+                                  🚫 Logout & Deactivate
+                                </button>
+                              ) : (
+                                <button
+                                  onClick={() => handleReactivateAdmin(admin.id, admin.name)}
+                                  style={{
+                                    background: '#28a745',
+                                    color: 'white',
+                                    border: 'none',
+                                    padding: '0.6rem 1rem',
+                                    borderRadius: '6px',
+                                    fontSize: '0.8rem',
+                                    fontWeight: '600',
+                                    cursor: 'pointer',
+                                    transition: 'background 0.2s ease',
+                                    whiteSpace: 'nowrap'
+                                  }}
+                                  onMouseOver={(e) => {
+                                    e.currentTarget.style.background = '#218838';
+                                  }}
+                                  onMouseOut={(e) => {
+                                    e.currentTarget.style.background = '#28a745';
+                                  }}
+                                >
+                                  ✅ Reactivate
+                                </button>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Deactivate Admin Confirmation Modal */}
+      {showConfirmDeactivate.show && showConfirmDeactivate.admin && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0, 0, 0, 0.5)',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          zIndex: 1002
+        }}>
+          <div style={{
+            background: 'white',
+            borderRadius: '16px',
+            padding: '2rem',
+            maxWidth: '450px',
+            width: '90%',
+            textAlign: 'center',
+            boxShadow: '0 20px 60px rgba(0, 0, 0, 0.3)'
+          }}>
+            <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>⚠️</div>
+            <h3 style={{ 
+              fontSize: '1.5rem', 
+              fontWeight: '700', 
+              color: '#333', 
+              margin: '0 0 1rem 0' 
+            }}>
+              Deactivate Admin Account
+            </h3>
+            <p style={{ 
+              fontSize: '1rem', 
+              color: '#666', 
+              margin: '0 0 0.5rem 0',
+              lineHeight: '1.5'
+            }}>
+              Are you sure you want to deactivate <strong>{showConfirmDeactivate.admin.name}</strong>?
+            </p>
+            <p style={{ 
+              fontSize: '0.9rem', 
+              color: '#dc3545', 
+              margin: '0 0 2rem 0',
+              lineHeight: '1.4',
+              fontWeight: '600'
+            }}>
+              ⚡ They will be logged out immediately and lose access to the admin dashboard.
+            </p>
+            
+            <div style={{ display: 'flex', gap: '1rem' }}>
+              <button
+                onClick={() => setShowConfirmDeactivate({show: false, admin: null})}
+                style={{
+                  flex: 1,
+                  background: '#6c757d',
+                  color: 'white',
+                  border: 'none',
+                  padding: '0.75rem 1.5rem',
+                  borderRadius: '8px',
+                  fontSize: '1rem',
+                  fontWeight: '600',
+                  cursor: 'pointer',
+                  transition: 'background 0.2s ease'
+                }}
+                onMouseOver={(e) => {
+                  e.currentTarget.style.background = '#5a6268';
+                }}
+                onMouseOut={(e) => {
+                  e.currentTarget.style.background = '#6c757d';
+                }}
+              >
+                Cancel
+              </button>
+              
+              <button
+                onClick={() => handleDeactivateAdmin(showConfirmDeactivate.admin.id, showConfirmDeactivate.admin.name)}
+                style={{
+                  flex: 1,
+                  background: '#dc3545',
+                  color: 'white',
+                  border: 'none',
+                  padding: '0.75rem 1.5rem',
+                  borderRadius: '8px',
+                  fontSize: '1rem',
+                  fontWeight: '600',
+                  cursor: 'pointer',
+                  transition: 'background 0.2s ease'
+                }}
+                onMouseOver={(e) => {
+                  e.currentTarget.style.background = '#c82333';
+                }}
+                onMouseOut={(e) => {
+                  e.currentTarget.style.background = '#dc3545';
+                }}
+              >
+                Yes, Deactivate
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

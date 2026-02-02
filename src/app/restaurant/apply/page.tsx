@@ -22,6 +22,7 @@ export default function RestaurantApplicationPage() {
     businessName: '',
     ownerName: '',
     email: '',
+    password: '',
     phone: '',
     
     // Restaurant Details
@@ -44,6 +45,54 @@ export default function RestaurantApplicationPage() {
     return emailRegex.test(cleanEmail);
   };
 
+  const checkPhoneAvailability = async (phone: string) => {
+    if (!phone || phone.length < 10) return;
+    
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/restaurant/check-phone/${phone}`);
+      if (response.ok) {
+        const data = await response.json();
+        if (!data.available) {
+          setErrors(prev => ({ ...prev, phone: data.message }));
+        }
+      }
+    } catch (error) {
+      // Silently fail - don't show network errors for real-time validation
+    }
+  };
+
+  const checkLicenseAvailability = async (license: string) => {
+    if (!license || license.length < 3) return;
+    
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/restaurant/check-license/${encodeURIComponent(license)}`);
+      if (response.ok) {
+        const data = await response.json();
+        if (!data.available) {
+          setErrors(prev => ({ ...prev, businessLicense: data.message }));
+        }
+      }
+    } catch (error) {
+      // Silently fail - don't show network errors for real-time validation
+    }
+  };
+
+  const checkPermitAvailability = async (permit: string) => {
+    if (!permit || permit.length < 3) return;
+    
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/restaurant/check-permit/${encodeURIComponent(permit)}`);
+      if (response.ok) {
+        const data = await response.json();
+        if (!data.available) {
+          setErrors(prev => ({ ...prev, foodPermit: data.message }));
+        }
+      }
+    } catch (error) {
+      // Silently fail - don't show network errors for real-time validation
+    }
+  };
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     
@@ -51,8 +100,20 @@ export default function RestaurantApplicationPage() {
     if (name === 'phone') {
       const numbersOnly = value.replace(/\D/g, ''); // Remove all non-digits
       setFormData(prev => ({ ...prev, [name]: numbersOnly }));
+      
+      // Real-time phone validation (debounced)
+      if (numbersOnly.length >= 10) {
+        setTimeout(() => checkPhoneAvailability(numbersOnly), 500);
+      }
     } else {
       setFormData(prev => ({ ...prev, [name]: value }));
+      
+      // Real-time validation for business license and food permit
+      if (name === 'businessLicense' && value.trim().length >= 3) {
+        setTimeout(() => checkLicenseAvailability(value.trim()), 500);
+      } else if (name === 'foodPermit' && value.trim().length >= 3) {
+        setTimeout(() => checkPermitAvailability(value.trim()), 500);
+      }
     }
     
     if (errors[name as keyof typeof errors]) {
@@ -71,6 +132,11 @@ export default function RestaurantApplicationPage() {
         newErrors.email = 'Email is required';
       } else if (!validateEmail(formData.email)) {
         newErrors.email = 'Please enter a valid email address';
+      }
+      if (!formData.password.trim()) {
+        newErrors.password = 'Password is required';
+      } else if (formData.password.trim().length < 8) {
+        newErrors.password = 'Password must be at least 8 characters long';
       }
       if (!formData.phone.trim()) {
         newErrors.phone = 'Phone number is required';
@@ -102,11 +168,31 @@ export default function RestaurantApplicationPage() {
     try {
       setIsLoading(true);
       
+      // First check phone number availability
+      const phoneResponse = await fetch(`${API_BASE_URL}/api/restaurant/check-phone/${formData.phone}`);
+      if (phoneResponse.ok) {
+        const phoneData = await phoneResponse.json();
+        if (!phoneData.available) {
+          setErrors(prev => ({ ...prev, phone: phoneData.message }));
+          setIsLoading(false);
+          return;
+        }
+      }
+      
+      // Then check email availability
+      
+      // Create AbortController for timeout
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+      
       // Check if email already has a pending application
       const response = await fetch(`${API_BASE_URL}/api/restaurant/applications`, {
         method: 'GET',
-        headers: { 'Content-Type': 'application/json' }
+        headers: { 'Content-Type': 'application/json' },
+        signal: controller.signal
       });
+      
+      clearTimeout(timeoutId);
       
       if (response.ok) {
         const applications = await response.json();
@@ -126,13 +212,39 @@ export default function RestaurantApplicationPage() {
         // Email is available, proceed to next step
         setCurrentStep(2);
       } else {
-        // If API fails, still allow to proceed (we'll check again on final submit)
-        setCurrentStep(2);
+        // Server error - show error message, don't proceed
+        let errorMessage = 'Unable to verify email. Please try again.';
+        if (response.status === 500) {
+          errorMessage = 'Server error. Please try again later.';
+        } else if (response.status === 404) {
+          errorMessage = 'Service unavailable. Please try again.';
+        }
+        setErrors(prev => ({ ...prev, email: errorMessage }));
       }
     } catch (error) {
-      console.error('Email check error:', error);
-      // If network error, still allow to proceed
-      setCurrentStep(2);
+      // Suppress console error logging for network issues
+      if (error instanceof Error && error.name !== 'AbortError') {
+        // Only log non-network errors
+        if (!error.message.includes('Failed to fetch') && !error.message.includes('NetworkError')) {
+          console.error('Email check error:', error);
+        }
+      }
+      
+      // Handle different network error types
+      let errorMessage = 'Network error. Please check your connection and try again.';
+      
+      if (error instanceof Error) {
+        if (error.message === 'Failed to fetch') {
+          errorMessage = 'Unable to connect to server. Please check your internet connection and try again.';
+        } else if (error.name === 'AbortError') {
+          errorMessage = 'Request timed out. Please check your connection and try again.';
+        } else if (error.message.includes('NetworkError')) {
+          errorMessage = 'Network connection failed. Please check your internet connection.';
+        }
+      }
+      
+      // Show error message, don't proceed to next step
+      setErrors(prev => ({ ...prev, email: errorMessage }));
     } finally {
       setIsLoading(false);
     }
@@ -157,14 +269,42 @@ export default function RestaurantApplicationPage() {
       try {
         setIsLoading(true);
         
+        // First check business license availability
+        const licenseResponse = await fetch(`${API_BASE_URL}/api/restaurant/check-license/${encodeURIComponent(formData.businessLicense)}`);
+        if (licenseResponse.ok) {
+          const licenseData = await licenseResponse.json();
+          if (!licenseData.available) {
+            setErrors(prev => ({ ...prev, businessLicense: licenseData.message }));
+            setIsLoading(false);
+            return;
+          }
+        }
+        
+        // Then check food permit availability
+        const permitResponse = await fetch(`${API_BASE_URL}/api/restaurant/check-permit/${encodeURIComponent(formData.foodPermit)}`);
+        if (permitResponse.ok) {
+          const permitData = await permitResponse.json();
+          if (!permitData.available) {
+            setErrors(prev => ({ ...prev, foodPermit: permitData.message }));
+            setIsLoading(false);
+            return;
+          }
+        }
+        
+        // Create AbortController for timeout
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout for submission
+        
         // Real API call to backend
         const response = await fetch(`${API_BASE_URL}/api/restaurant/apply`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
+          signal: controller.signal,
           body: JSON.stringify({
             businessName: formData.businessName,
             ownerName: formData.ownerName,
             email: formData.email,
+            password: formData.password,
             phone: formData.phone,
             address: formData.address,
             cuisineType: formData.cuisineType,
@@ -174,36 +314,84 @@ export default function RestaurantApplicationPage() {
           })
         });
         
+        clearTimeout(timeoutId);
+        
         if (response.ok) {
           const data = await response.json();
-          console.log('Application submitted successfully:', data);
+          // Don't log success to console in production
           
           // Show success page instead of alert
           setCurrentStep(4); // We'll create a success step
         } else {
-          const error = await response.json();
           let errorMessage = 'Failed to submit application. Please try again.';
           
-          if (response.status === 409) {
-            errorMessage = 'An application with this email is already pending review. Please wait for the current application to be processed.';
-            // Show error in email field instead of business license
-            setErrors(prev => ({ ...prev, email: errorMessage }));
-            setCurrentStep(1); // Go back to step 1 to show email error
-            return;
-          } else if (error.detail) {
-            if (typeof error.detail === 'string') {
-              errorMessage = error.detail;
-            } else if (Array.isArray(error.detail)) {
-              errorMessage = error.detail[0]?.msg || errorMessage;
+          try {
+            const error = await response.json();
+            
+            if (response.status === 409) {
+              const errorText = error.detail || 'Duplicate data found';
+              
+              // Route error to appropriate field based on error message
+              if (errorText.includes('email')) {
+                setErrors(prev => ({ ...prev, email: errorText }));
+                setCurrentStep(1); // Go back to step 1 for email error
+              } else if (errorText.includes('phone')) {
+                setErrors(prev => ({ ...prev, phone: errorText }));
+                setCurrentStep(1); // Go back to step 1 for phone error
+              } else if (errorText.includes('business license')) {
+                setErrors(prev => ({ ...prev, businessLicense: errorText }));
+                // Stay on current step (step 3) for license error
+              } else if (errorText.includes('food permit')) {
+                setErrors(prev => ({ ...prev, foodPermit: errorText }));
+                // Stay on current step (step 3) for permit error
+              } else {
+                // Generic conflict error
+                setErrors(prev => ({ ...prev, businessLicense: errorText }));
+              }
+              return;
+            } else if (error.detail) {
+              if (typeof error.detail === 'string') {
+                errorMessage = error.detail;
+              } else if (Array.isArray(error.detail)) {
+                errorMessage = error.detail[0]?.msg || errorMessage;
+              }
             }
+          } catch (parseError) {
+            // Error parsing response, use default message
+            errorMessage = `Server error (${response.status}). Please try again.`;
           }
           
           // Show error in business license field for other errors
           setErrors(prev => ({ ...prev, businessLicense: errorMessage }));
         }
       } catch (error) {
-        console.error('Application submission error:', error);
-        setErrors(prev => ({ ...prev, businessLicense: 'Network error. Please try again.' }));
+        // Suppress console error logging for network issues
+        if (error instanceof Error && error.name !== 'AbortError') {
+          // Only log non-network errors
+          if (!error.message.includes('Failed to fetch') && !error.message.includes('NetworkError')) {
+            console.error('Application submission error:', error);
+          }
+        }
+        
+        // Handle different types of network errors with user-friendly messages
+        let errorMessage = 'Network error. Please try again.';
+        
+        if (error instanceof Error) {
+          if (error.message === 'Failed to fetch') {
+            errorMessage = 'Unable to connect to server. Please check your internet connection and try again.';
+          } else if (error.name === 'AbortError') {
+            errorMessage = 'Request timed out. Please check your connection and try again.';
+          } else if (error.message.includes('NetworkError')) {
+            errorMessage = 'Network connection failed. Please check your internet connection.';
+          } else if (error.message.includes('timeout')) {
+            errorMessage = 'Request timed out. Please try again.';
+          } else {
+            errorMessage = 'Connection error. Please check your internet connection and try again.';
+          }
+        }
+        
+        // Show error in business license field (current step)
+        setErrors(prev => ({ ...prev, businessLicense: errorMessage }));
       } finally {
         setIsLoading(false);
       }
@@ -548,6 +736,46 @@ export default function RestaurantApplicationPage() {
                   {errors.email && <p style={{ color: '#ef4444', fontSize: '0.875rem', marginTop: '0.5rem', fontFamily: 'Anuphan, system-ui, sans-serif' }}>{errors.email}</p>}
                 </div>
 
+                <div style={{ marginBottom: '1.5rem' }}>
+                  <label style={{ display: 'block', marginBottom: '0.5rem', color: '#374151', fontWeight: '500', fontSize: '0.95rem', fontFamily: 'Anuphan, system-ui, sans-serif' }}>
+                    Password *
+                  </label>
+                  <input 
+                    type="password" 
+                    name="password" 
+                    value={formData.password} 
+                    onChange={handleInputChange} 
+                    placeholder="Create a secure password (min 8 characters)" 
+                    style={{ 
+                      width: '100%', 
+                      padding: '0.875rem', 
+                      border: `2px solid ${errors.password ? '#ef4444' : '#e2e8f0'}`, 
+                      borderRadius: '12px', 
+                      fontSize: '0.95rem', 
+                      outline: 'none',
+                      fontFamily: 'Anuphan, system-ui, sans-serif',
+                      transition: 'all 0.2s ease',
+                      backgroundColor: '#fafafa'
+                    }}
+                    onFocus={(e) => {
+                      if (!errors.password) {
+                        e.target.style.borderColor = '#FF5722';
+                        e.target.style.backgroundColor = '#ffffff';
+                      }
+                    }}
+                    onBlur={(e) => {
+                      if (!errors.password) {
+                        e.target.style.borderColor = '#e2e8f0';
+                        e.target.style.backgroundColor = '#fafafa';
+                      }
+                    }}
+                  />
+                  {errors.password && <p style={{ color: '#ef4444', fontSize: '0.875rem', marginTop: '0.5rem', fontFamily: 'Anuphan, system-ui, sans-serif' }}>{errors.password}</p>}
+                  <p style={{ color: '#6b7280', fontSize: '0.8rem', marginTop: '0.5rem', fontFamily: 'Anuphan, system-ui, sans-serif' }}>
+                    💡 Remember this password - you'll use it to login after approval
+                  </p>
+                </div>
+
                 <div style={{ marginBottom: '2rem' }}>
                   <label style={{ display: 'block', marginBottom: '0.5rem', color: '#374151', fontWeight: '500', fontSize: '0.95rem', fontFamily: 'Anuphan, system-ui, sans-serif' }}>
                     Phone Number *
@@ -557,7 +785,7 @@ export default function RestaurantApplicationPage() {
                     name="phone" 
                     value={formData.phone} 
                     onChange={handleInputChange} 
-                    placeholder="+1 (555) 123-4567" 
+                    placeholder="1234567890 (unique per restaurant)" 
                     style={{ 
                       width: '100%', 
                       padding: '0.875rem', 
@@ -583,6 +811,9 @@ export default function RestaurantApplicationPage() {
                     }}
                   />
                   {errors.phone && <p style={{ color: '#ef4444', fontSize: '0.875rem', marginTop: '0.5rem', fontFamily: 'Anuphan, system-ui, sans-serif' }}>{errors.phone}</p>}
+                  <p style={{ color: '#6b7280', fontSize: '0.8rem', marginTop: '0.5rem', fontFamily: 'Anuphan, system-ui, sans-serif' }}>
+                    📞 Each restaurant must have a unique phone number
+                  </p>
                 </div>
 
                 <button 
@@ -865,7 +1096,7 @@ export default function RestaurantApplicationPage() {
                     name="businessLicense" 
                     value={formData.businessLicense} 
                     onChange={handleInputChange} 
-                    placeholder="e.g., BL-2024-001234" 
+                    placeholder="e.g., BL-2024-001234 (must be unique)" 
                     style={{ 
                       width: '100%', 
                       padding: '0.875rem', 
@@ -891,6 +1122,9 @@ export default function RestaurantApplicationPage() {
                     }}
                   />
                   {errors.businessLicense && <p style={{ color: '#ef4444', fontSize: '0.875rem', marginTop: '0.5rem', fontFamily: 'Anuphan, system-ui, sans-serif' }}>{errors.businessLicense}</p>}
+                  <p style={{ color: '#6b7280', fontSize: '0.8rem', marginTop: '0.5rem', fontFamily: 'Anuphan, system-ui, sans-serif' }}>
+                    📄 Each restaurant must have a unique business license
+                  </p>
                 </div>
 
                 <div style={{ marginBottom: '2rem' }}>
@@ -902,7 +1136,7 @@ export default function RestaurantApplicationPage() {
                     name="foodPermit" 
                     value={formData.foodPermit} 
                     onChange={handleInputChange} 
-                    placeholder="e.g., FSP-2024-567890" 
+                    placeholder="e.g., FSP-2024-567890 (must be unique)" 
                     style={{ 
                       width: '100%', 
                       padding: '0.875rem', 
@@ -928,6 +1162,9 @@ export default function RestaurantApplicationPage() {
                     }}
                   />
                   {errors.foodPermit && <p style={{ color: '#ef4444', fontSize: '0.875rem', marginTop: '0.5rem', fontFamily: 'Anuphan, system-ui, sans-serif' }}>{errors.foodPermit}</p>}
+                  <p style={{ color: '#6b7280', fontSize: '0.8rem', marginTop: '0.5rem', fontFamily: 'Anuphan, system-ui, sans-serif' }}>
+                    🍽️ Each restaurant must have a unique food service permit
+                  </p>
                 </div>
 
                 <div style={{ 
@@ -944,7 +1181,7 @@ export default function RestaurantApplicationPage() {
                     fontFamily: 'Anuphan, system-ui, sans-serif',
                     lineHeight: '1.4'
                   }}>
-                    📋 <strong>Note:</strong> After submission, our team will review your application within 2-3 business days. You'll receive an email with the approval status and next steps.
+                    📋 <strong>Important:</strong> Business license and food permit numbers must be unique for each restaurant. If you have multiple branches, each branch needs separate license and permit numbers. After submission, our team will review your application within 2-3 business days.
                   </p>
                 </div>
 
@@ -1062,7 +1299,7 @@ export default function RestaurantApplicationPage() {
                     opacity: 0.95,
                     fontFamily: 'Anuphan, system-ui, sans-serif'
                   }}>
-                    We will review your application and contact you within <strong>2-3 business days</strong> with the next steps.
+                    We will review your application and contact you within <strong>2-3 business days</strong>. Once approved, use your <strong>email and password</strong> to login to the restaurant portal.
                   </p>
                 </div>
                 
@@ -1100,7 +1337,7 @@ export default function RestaurantApplicationPage() {
                 
                 <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
                   <a 
-                    href="/login"
+                    href="/restaurant"
                     style={{
                       display: 'inline-flex',
                       alignItems: 'center',
@@ -1125,8 +1362,8 @@ export default function RestaurantApplicationPage() {
                       e.currentTarget.style.boxShadow = '0 4px 15px rgba(255, 87, 34, 0.4)';
                     }}
                   >
-                    <span>🏠</span>
-                    Back to Home
+                    <span>🏪</span>
+                    Back to Restaurant Portal
                   </a>
                   
                   <button 
@@ -1136,6 +1373,7 @@ export default function RestaurantApplicationPage() {
                         businessName: '',
                         ownerName: '',
                         email: '',
+                        password: '',
                         phone: '',
                         address: '',
                         cuisineType: '',
@@ -1179,7 +1417,7 @@ export default function RestaurantApplicationPage() {
             {/* Back to Login Link */}
             <div style={{ textAlign: 'center', marginTop: '1.5rem' }}>
               <a 
-                href="/login" 
+                href="/restaurant" 
                 style={{ 
                   color: '#FF5722', 
                   textDecoration: 'none', 
@@ -1202,7 +1440,7 @@ export default function RestaurantApplicationPage() {
                   e.currentTarget.style.transform = 'translateX(0)';
                 }}
               >
-                <span>←</span> Back to Customer Login
+                <span>←</span> Back to Restaurant Portal
               </a>
             </div>
           </div>

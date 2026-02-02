@@ -1,198 +1,253 @@
 # Fuji Sakura Food Delivery - Frontend Project Structure
 
-## 🏗️ Architecture Overview
-Next.js 16 application with TypeScript, Tailwind CSS, and role-based authentication system. Features complete customer authentication and restaurant partnership application flow integrated with FastAPI backend.
+## 🎨 Project Overview
 
-## 📁 Clean Project Structure
+A modern Next.js 14 food delivery platform with Japanese-inspired design, featuring separate portals for customers, restaurant owners, and administrators.
+
+## 📁 Directory Structure
 
 ```
 food-delivery-ui/
+├── src/
+│   ├── app/
+│   │   ├── admin/
+│   │   │   ├── dashboard/
+│   │   │   │   └── page.tsx        # Admin dashboard with application management
+│   │   │   └── page.tsx            # Admin login portal
+│   │   ├── cart/
+│   │   │   └── page.tsx            # Shopping cart page
+│   │   ├── checkout/
+│   │   │   └── page.tsx            # Order checkout process
+│   │   ├── home/
+│   │   │   └── page.tsx            # Customer home page with restaurants
+│   │   ├── login/
+│   │   │   └── page.tsx            # Customer authentication (login/signup)
+│   │   ├── orders/
+│   │   │   ├── [id]/
+│   │   │   │   └── page.tsx        # Individual order details
+│   │   │   └── page.tsx            # Order history
+│   │   ├── order-success/
+│   │   │   └── page.tsx            # Order confirmation page
+│   │   ├── restaurant/
+│   │   │   ├── analytics/
+│   │   │   │   └── page.tsx        # Restaurant analytics dashboard
+│   │   │   ├── apply/
+│   │   │   │   └── page.tsx        # Restaurant partnership application
+│   │   │   ├── dashboard/
+│   │   │   │   └── page.tsx        # Restaurant owner dashboard
+│   │   │   ├── login/
+│   │   │   │   └── page.tsx        # Restaurant login portal
+│   │   │   ├── menu/
+│   │   │   │   └── page.tsx        # Menu management interface
+│   │   │   ├── orders/
+│   │   │   │   └── page.tsx        # Restaurant order management
+│   │   │   ├── profile/
+│   │   │   │   └── page.tsx        # Restaurant profile management
+│   │   │   ├── [id]/
+│   │   │   │   └── page.tsx        # Public restaurant page
+│   │   │   └── page.tsx            # Restaurant portal landing
+│   │   ├── globals.css             # Global styles and Tailwind imports
+│   │   ├── layout.tsx              # Root layout with metadata
+│   │   └── page.tsx                # Landing page
+│   ├── components/
+│   │   └── AuthPopup.tsx           # Authentication modal component
+│   ├── contexts/
+│   │   └── CartContext.tsx         # Shopping cart state management
+│   └── data/
+│       └── restaurants.ts          # Mock restaurant data (to be replaced)
 ├── public/
 │   └── images/
-│       ├── auth/          # Authentication page images
-│       └── logo/          # Brand logo assets
-├── src/
-│   ├── app/               # Next.js App Router pages
-│   │   ├── admin/         # Super Admin Portal
-│   │   │   └── page.tsx   # Admin login (role-based)
-│   │   ├── cart/          # Shopping cart page
-│   │   ├── checkout/      # Checkout flow
-│   │   ├── forgot-password/ # Password reset
-│   │   ├── home/          # Main dashboard
-│   │   ├── login/         # Customer authentication (Sign in/Sign up)
-│   │   ├── order-success/ # Order confirmation
-│   │   ├── orders/        # Order history & tracking
-│   │   ├── restaurant/    # Restaurant system
-│   │   │   ├── [id]/      # Restaurant details & menu
-│   │   │   └── apply/     # Restaurant partnership application
-│   │   │       └── page.tsx # 3-step application form
-│   │   ├── globals.css    # Global styles
-│   │   ├── layout.tsx     # Root layout
-│   │   └── page.tsx       # Landing page
-│   ├── components/
-│   │   ├── ui/            # shadcn/ui components
-│   │   │   ├── button.tsx
-│   │   │   ├── card.tsx
-│   │   │   ├── input.tsx
-│   │   │   └── label.tsx
-│   │   └── AuthPopup.tsx  # Guest user authentication prompt
-│   ├── contexts/
-│   │   └── CartContext.tsx # Shopping cart state management
-│   ├── data/
-│   │   └── restaurants.ts  # Mock restaurant data (55+ restaurants)
-│   └── lib/
-│       ├── api.ts         # API utilities
-│       ├── auth.ts        # Authentication helpers
-│       └── utils.ts       # Utility functions
-├── .env.local             # Environment variables
-├── .gitignore             # Git ignore rules
-├── components.json        # shadcn/ui configuration
-├── next.config.ts         # Next.js configuration
-├── package.json           # Dependencies & scripts
-├── tailwind.config.ts     # Tailwind CSS configuration
-├── tsconfig.json          # TypeScript configuration
-├── PROJECT_STRUCTURE.md   # This documentation
-└── README.md              # Project overview
+│       ├── auth/                   # Authentication page images
+│       └── logo/
+│           └── Logo.png            # Fuji Sakura brand logo
+├── .env.local                      # Environment variables
+├── next.config.ts                  # Next.js configuration
+├── package.json                    # Dependencies and scripts
+├── tailwind.config.ts              # Tailwind CSS configuration
+└── tsconfig.json                   # TypeScript configuration
 ```
 
-## 🔧 Core Features
+## 🔗 Backend Integration Points
 
-### ✅ **Multi-Tier Authentication System**
-- **Customer Authentication**: Email → OTP → Details → Login
-- **Admin Portal**: Role-based admin login with professional UI
-- **Restaurant Partnership**: 3-step application system for restaurant owners
-- **Backend Integration**: Real API calls to FastAPI server with role management
-- **Email Verification**: 4-digit OTP via Mailtrap
-- **Form Validation**: Comprehensive client-side and server-side validation
-- **Error Handling**: Production-ready error messages
-- **Guest Mode**: Continue without account (limited features)
+### **Customer Authentication**
+- **Login/Signup**: Connects to `/api/auth/signup`, `/api/auth/login`
+- **OTP Verification**: Real-time OTP validation with Mailtrap emails
+- **Password Reset**: Complete forgot password flow with email verification
+- **Session Management**: JWT token storage and validation
 
-### ✅ **Restaurant Partnership System**
-- **Application Flow**: Business Info → Restaurant Details → Documents
-- **Form Validation**: Step-by-step validation with error handling
-- **Professional UI**: Consistent orange theme with smooth animations
-- **User Discovery**: Restaurant partner entry point in customer login
-- **Progress Tracking**: Visual progress indicator across 3 steps
+### **Restaurant Management**
+- **Application Process**: 3-step partnership application form
+- **Login System**: Single-session authentication with conflict detection
+- **Profile Management**: Real-time profile editing with backend sync
+- **Dashboard Integration**: Live data from approved restaurant applications
 
-### ✅ **Shopping Experience**
-- **Restaurant Browsing**: Grid layout with search/filter
-- **Menu System**: Categories, items, customization
-- **Cart Management**: Add/remove items, quantity control
-- **Checkout Flow**: Address, payment, order confirmation
-- **Order Tracking**: Status updates and history
+### **Admin Portal**
+- **Application Review**: Real-time restaurant application management
+- **Admin Management**: Super admin can create/deactivate other admins
+- **Session Security**: 10-minute auto-logout with warnings
+- **Real-time Updates**: Live application status changes
 
-### ✅ **UI/UX Design**
-- **Consistent Theming**: Unified orange theme across all portals
-- **Role-Based Branding**: Appropriate styling for each user type
-- **Responsive Design**: Mobile-first approach
-- **Modern Components**: shadcn/ui component library
-- **Smooth Animations**: Tailwind CSS transitions with hover effects
-- **Accessibility**: ARIA labels and keyboard navigation
+## 🎨 Design System
 
-## � Development
+### **Theme & Branding**
+- **Primary Color**: Orange (#FF5722) - Fuji Sakura brand color
+- **Typography**: Anuphan font family for Japanese aesthetic
+- **Design Language**: Clean, modern interface with subtle Japanese influences
+- **Responsive**: Desktop-first approach with mobile optimization
 
-### **Scripts**
-```bash
-npm run dev      # Start development server
-npm run build    # Build for production
-npm run start    # Start production server
-npm run lint     # Run ESLint
+### **UI Components**
+- **Custom Notifications**: Beautiful sliding notifications replace alert() messages
+- **Modal System**: Professional modals with background scroll prevention
+- **Form Validation**: Real-time validation with user-friendly error messages
+- **Loading States**: Consistent loading animations across all pages
+
+### **Color Palette**
+```css
+Primary: #FF5722 (Orange)
+Secondary: #FF7043 (Light Orange)
+Success: #4CAF50 (Green)
+Error: #F44336 (Red)
+Warning: #FF9800 (Amber)
+Background: Linear gradients for visual appeal
 ```
 
-### **Key Dependencies**
-- **Next.js 16**: React framework with App Router
-- **TypeScript**: Type safety and better DX
-- **Tailwind CSS**: Utility-first CSS framework
-- **shadcn/ui**: Modern component library
-- **React Context**: State management for cart
+## 🔐 Security Features
 
-## 🔗 **Backend Integration**
+### **Authentication Flow**
+- **JWT Token Management**: Secure token storage in localStorage
+- **Session Validation**: Real-time session checks with backend
+- **Role-Based Routing**: Automatic redirects based on user type
+- **Session Conflicts**: Handles "already logged in elsewhere" scenarios
 
-### **User Management APIs**
-- `POST /api/auth/signup` - User registration
-- `POST /api/auth/verify-otp` - Email verification
-- `POST /api/auth/login` - User authentication with role-based response
-- `PUT /api/auth/update-user-details` - Complete registration
-- `POST /api/auth/resend-otp` - Resend verification code
-- `POST /api/auth/forgot-password` - Password reset flow
+### **Data Protection**
+- **Input Sanitization**: All form inputs validated and sanitized
+- **XSS Prevention**: Proper data encoding and validation
+- **CSRF Protection**: Token-based request validation
+- **Secure Headers**: Next.js security headers configured
 
-### **Database Schema**
-- **Users Table**: Enhanced with role field (`customer`, `restaurant_owner`, `admin`)
-- **User Tokens**: Separate table for OTP and reset tokens
-- **Role-Based Access**: Proper user role management
+## 📱 User Experience Features
 
-## 📱 **Pages & Routes**
+### **Customer Portal**
+- **Seamless Authentication**: OTP-based signup with email verification
+- **Restaurant Discovery**: Browse approved restaurants with real data
+- **Shopping Cart**: Persistent cart state with context management
+- **Order Tracking**: Real-time order status updates
 
-| Route | Component | Description | User Type |
-|-------|-----------|-------------|-----------|
-| `/` | `page.tsx` | Landing page | All |
-| `/login` | `login/page.tsx` | Customer sign in/sign up | Customer |
-| `/admin` | `admin/page.tsx` | Admin login portal | Admin |
-| `/restaurant/apply` | `restaurant/apply/page.tsx` | Restaurant application | Restaurant Owner |
-| `/home` | `home/page.tsx` | Restaurant dashboard | Customer |
-| `/restaurant/[id]` | `restaurant/[id]/page.tsx` | Menu & ordering | Customer |
-| `/cart` | `cart/page.tsx` | Shopping cart | Customer |
-| `/checkout` | `checkout/page.tsx` | Order placement | Customer |
-| `/orders` | `orders/page.tsx` | Order history | Customer |
-| `/orders/[id]` | `orders/[id]/page.tsx` | Order details | Customer |
-| `/order-success` | `order-success/page.tsx` | Confirmation | Customer |
-| `/forgot-password` | `forgot-password/page.tsx` | Password reset | All |
+### **Restaurant Portal**
+- **Application Process**: Intuitive 3-step partnership application
+- **Dashboard Analytics**: Visual stats and performance metrics
+- **Menu Management**: Full CRUD operations for menu items
+- **Profile Control**: Edit business information and settings
 
-## 🎨 **Styling & Theming**
+### **Admin Portal**
+- **Application Review**: Streamlined approval/rejection workflow
+- **Admin Management**: Create and manage admin accounts
+- **Security Monitoring**: Session tracking and automatic logout
+- **Notification System**: Beautiful notifications for all actions
 
-### **Unified Color Scheme**
-- **Primary**: Orange (#FF5722) - Fuji Sakura brand
-- **Secondary**: Orange variants (#FF7043, #FF8A65)
-- **Background**: Warm cream (#FFF7EE)
-- **Text**: Dark gray (#1a1a1a)
-- **Accent**: Light orange variants for hover states
+## 🚀 Performance Optimizations
 
-### **Typography**
-- **Primary Font**: Anuphan (Google Fonts)
-- **Fallback**: System fonts (system-ui, sans-serif)
-- **Consistent Weights**: 400, 500, 600, 700
+### **Next.js Features**
+- **App Router**: Latest Next.js 14 app directory structure
+- **Image Optimization**: Next.js Image component for optimized loading
+- **Code Splitting**: Automatic code splitting for faster page loads
+- **Static Generation**: Optimized build process for production
 
-### **Component Design**
-- **Cards**: Rounded corners (12px-24px), subtle shadows
-- **Buttons**: Gradient backgrounds, consistent hover effects
-- **Forms**: Clean inputs with orange focus states
-- **Navigation**: Intuitive layout with proper spacing
+### **State Management**
+- **React Context**: Efficient state management for cart and auth
+- **Local Storage**: Persistent user sessions and preferences
+- **Real-time Updates**: Live data synchronization with backend
 
-## 🔄 **Next Development Phase**
+### **Bundle Optimization**
+- **Tree Shaking**: Unused code elimination
+- **Lazy Loading**: Components loaded on demand
+- **Asset Optimization**: Compressed images and optimized fonts
 
-### **Pending Implementation**
-1. **Admin Dashboard** (`/admin/dashboard`)
-   - Restaurant application review interface
-   - Approve/reject workflow with email notifications
-   - User management and system analytics
+## 🔄 Data Flow Architecture
 
-2. **Restaurant Portal** (`/restaurant`)
-   - Restaurant owner login page
-   - Restaurant dashboard for approved owners
-   - Menu management system with image uploads
+### **Authentication Flow**
+```
+User Input → Form Validation → API Call → JWT Token → Local Storage → Route Protection
+```
 
-3. **Backend APIs**
-   - Restaurant application submission endpoints
-   - Admin approval/rejection APIs
-   - Menu management and restaurant data APIs
+### **Restaurant Application Flow**
+```
+Application Form → Validation → Backend API → Admin Review → Email Notification → Login Access
+```
 
-### **Planned Database Extensions**
-- `restaurant_applications` - Application submissions with status tracking
-- `restaurants` - Approved restaurant data with owner relationships
-- `menu_items` - Restaurant menu management with categories
+### **Order Management Flow**
+```
+Menu Selection → Cart Context → Checkout Process → Payment → Order Tracking → Completion
+```
 
-## 🧹 **Clean Structure Benefits**
+## 📈 Development Roadmap
 
-### **Organized Architecture**
-- ✅ **Role-Based Organization**: Clear separation of user types
-- ✅ **Consistent Theming**: Unified orange brand across all portals
-- ✅ **Scalable Structure**: Easy to add new user types and features
-- ✅ **Professional UI**: Enterprise-ready interface design
-- ✅ **Type Safety**: Full TypeScript implementation
-- ✅ **Production Ready**: Proper error handling and validation
+### **Phase 1: Core Authentication** ✅ Complete
+- Customer login/signup with OTP verification
+- Restaurant application and login system
+- Admin portal with application management
+- Session management and security
 
----
+### **Phase 2: Restaurant Integration** ✅ Complete
+- Restaurant profile management
+- Real data integration for dashboards
+- Single-session authentication
+- Admin management system
 
-**Status**: Multi-tier authentication system with restaurant partnership flow  
-**Last Updated**: January 27, 2026  
-**Next Phase**: Admin dashboard and restaurant management portal
+### **Phase 3: Menu Management** 🔄 In Progress
+- Restaurant menu CRUD operations
+- Image upload for food items
+- Menu categories and pricing
+- Customer menu browsing
+
+### **Phase 4: Order System** 📋 Planned
+- Customer order placement
+- Restaurant order processing
+- Real-time order tracking
+- Payment integration
+
+### **Phase 5: Advanced Features** 🔮 Future
+- Rating and review system
+- Delivery tracking
+- Push notifications
+- Analytics dashboard
+
+## 🛠️ Development Guidelines
+
+### **Code Standards**
+- **TypeScript**: Strict type checking enabled
+- **Component Structure**: Functional components with hooks
+- **Styling**: Tailwind CSS with custom design system
+- **Error Handling**: Comprehensive error boundaries and validation
+
+### **Performance Best Practices**
+- **Image Optimization**: Use Next.js Image component
+- **Bundle Analysis**: Regular bundle size monitoring
+- **Lazy Loading**: Implement for non-critical components
+- **Caching**: Proper cache headers and strategies
+
+### **Security Checklist**
+- ✅ Input validation on all forms
+- ✅ XSS prevention measures
+- ✅ Secure token storage
+- ✅ HTTPS enforcement
+- ✅ Content Security Policy headers
+
+## 🌐 Deployment Configuration
+
+### **Environment Variables**
+```env
+NEXT_PUBLIC_API_URL=http://localhost:8000  # Backend API URL
+```
+
+### **Production Optimizations**
+- **Static Export**: Optimized build for deployment
+- **CDN Integration**: Asset delivery optimization
+- **Error Monitoring**: Production error tracking
+- **Performance Monitoring**: Real user metrics
+
+### **Deployment Targets**
+- **Vercel**: Recommended for Next.js applications
+- **Netlify**: Alternative deployment platform
+- **Docker**: Containerized deployment option
+- **Traditional Hosting**: Static file deployment

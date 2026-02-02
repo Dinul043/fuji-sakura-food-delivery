@@ -191,7 +191,6 @@ export default function LoginPage() {
   // TODO: Implement Google OAuth integration later
   const handleGoogleSignIn = () => {
     // Temporary mock implementation - will be replaced with real OAuth
-    console.log('Google Sign-in clicked - OAuth integration pending');
     // localStorage.setItem('userName', 'Google User');
     // localStorage.setItem('isGuest', 'false');
     // router.push('/home');
@@ -347,7 +346,6 @@ export default function LoginPage() {
         
         // Clean and validate email before sending
         const cleanEmail = formData.email.trim().toLowerCase();
-        console.log('Sending email to backend:', cleanEmail);
         
         // Real API call - send OTP to email (create user with signup data)
         const response = await fetch(`${API_BASE_URL}/api/auth/signup`, {
@@ -882,7 +880,7 @@ export default function LoginPage() {
                 </p>
                 
                 <a 
-                  href="/restaurant/apply"
+                  href="/restaurant"
                   style={{
                     display: 'inline-flex',
                     alignItems: 'center',
