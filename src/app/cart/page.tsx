@@ -31,24 +31,6 @@ export default function CartPage() {
     setSelectAll(cart.length > 0);
   }, [cart]);
 
-  // Group cart items by restaurant with complete restaurant data
-  const groupedCart = cart.reduce((acc, item) => {
-    if (!acc[item.restaurantId]) {
-      acc[item.restaurantId] = {
-        restaurant: {
-          id: item.restaurantId,
-          name: item.restaurantName,
-          image: '🏪', // Default restaurant emoji
-          cuisine: item.category || 'Various', // Use category as cuisine type
-          deliveryTime: '25-35 min' // Default delivery time
-        },
-        items: []
-      };
-    }
-    acc[item.restaurantId].items.push(item);
-    return acc;
-  }, {} as Record<number, { restaurant: any; items: any[] }>);
-
   // Calculate totals for selected items only
   const getSelectedItems = () => {
     return cart.filter(item => selectedItems.has(`${item.id}-${item.restaurantId}`));
@@ -60,17 +42,6 @@ export default function CartPage() {
 
   const getSelectedCount = () => {
     return getSelectedItems().reduce((total, item) => total + item.quantity, 0);
-  };
-
-  // Calculate totals for specific restaurant
-  const getRestaurantTotal = (restaurantId: number) => {
-    const restaurantItems = cart.filter(item => item.restaurantId === restaurantId);
-    return restaurantItems.reduce((total, item) => total + (item.price * item.quantity), 0);
-  };
-
-  const getRestaurantCount = (restaurantId: number) => {
-    const restaurantItems = cart.filter(item => item.restaurantId === restaurantId);
-    return restaurantItems.reduce((total, item) => total + item.quantity, 0);
   };
 
   const deliveryFee = 2.99;
@@ -101,23 +72,6 @@ export default function CartPage() {
       setSelectedItems(new Set(allItemIds));
       setSelectAll(true);
     }
-  };
-
-  const handleRestaurantSelect = (restaurantId: number) => {
-    const restaurantItems = cart.filter(item => item.restaurantId === restaurantId);
-    const restaurantItemIds = restaurantItems.map(item => `${item.id}-${item.restaurantId}`);
-    const allSelected = restaurantItemIds.every(id => selectedItems.has(id));
-    
-    const newSelected = new Set(selectedItems);
-    if (allSelected) {
-      // Deselect all restaurant items
-      restaurantItemIds.forEach(id => newSelected.delete(id));
-    } else {
-      // Select all restaurant items
-      restaurantItemIds.forEach(id => newSelected.add(id));
-    }
-    setSelectedItems(newSelected);
-    setSelectAll(newSelected.size === cart.length);
   };
 
   // Check if user is guest
@@ -154,26 +108,6 @@ export default function CartPage() {
       // Navigate to checkout page with selected items
       router.push(`/checkout?type=selected&items=${itemIds}`);
     });
-  };
-
-  const handleRestaurantCheckout = (restaurantId: number) => {
-    const restaurantItems = cart.filter(item => item.restaurantId === restaurantId);
-    if (restaurantItems.length === 0) return;
-    
-    checkGuestAndProceed(() => {
-      // Navigate to checkout page with restaurant items
-      router.push(`/checkout?type=restaurant&restaurant=${restaurantId}`);
-    });
-  };
-
-  // Clear all items from a specific restaurant
-  const handleClearRestaurantCart = (restaurantId: number, restaurantName: string) => {
-    if (confirm(`Remove all items from ${restaurantName}?`)) {
-      const restaurantItems = cart.filter(item => item.restaurantId === restaurantId);
-      restaurantItems.forEach(item => {
-        removeFromCart(item.id, item.restaurantId);
-      });
-    }
   };
 
   const handleBackToHome = () => {
@@ -487,325 +421,223 @@ export default function CartPage() {
             </p>
           </div>
 
-          {/* Restaurant Groups */}
-          {Object.entries(groupedCart).map(([restaurantId, group]) => (
-            <div key={restaurantId} style={{
-              marginBottom: '2rem',
-              border: '1px solid #e2e8f0',
-              borderRadius: '16px',
-              overflow: 'hidden'
-            }}>
-              {/* Restaurant Header */}
-              <div style={{
-                background: 'linear-gradient(135deg, #ff6b6b, #ee5a24)',
-                color: 'white',
-                padding: '1rem 1.5rem',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between'
-              }}>
+          {/* Cart Items - Flat List */}
+          <div style={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '1rem'
+          }}>
+            {cart.map((item, index) => (
+              <div
+                key={`${item.id}-${item.restaurantId}-${index}`}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '1rem',
+                  background: selectedItems.has(`${item.id}-${item.restaurantId}`) ? '#f0f9ff' : 'white',
+                  borderRadius: '12px',
+                  border: '1px solid #e2e8f0',
+                  transition: 'all 0.2s ease',
+                  boxShadow: '0 2px 4px rgba(0, 0, 0, 0.05)'
+                }}
+              >
+                {/* Left Side: Checkbox + Image + Details */}
                 <div style={{
                   display: 'flex',
                   alignItems: 'center',
-                  gap: '1rem'
+                  gap: '1rem',
+                  flex: 1
                 }}>
-                  <span style={{ fontSize: '2rem' }}>{group.restaurant?.image}</span>
-                  <div>
-                    <h3 style={{
-                      fontSize: '1.1rem',
-                      fontWeight: '600',
-                      margin: 0,
-                      marginBottom: '0.25rem'
-                    }}>
-                      {group.restaurant?.name}
-                    </h3>
-                    <p style={{
-                      fontSize: '0.9rem',
-                      opacity: 0.9,
-                      margin: 0
-                    }}>
-                      {group.restaurant?.cuisine} • {group.restaurant?.deliveryTime}
-                    </p>
-                  </div>
-                </div>
-                
-                {/* Restaurant Actions */}
-                <div style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.75rem'
-                }}>
-                  {/* Restaurant Select Checkbox */}
+                  {/* Checkbox */}
+                  <input
+                    type="checkbox"
+                    id={`item-${item.id}-${item.restaurantId}`}
+                    checked={selectedItems.has(`${item.id}-${item.restaurantId}`)}
+                    onChange={() => handleItemSelect(`${item.id}-${item.restaurantId}`)}
+                    style={{
+                      width: '1.2rem',
+                      height: '1.2rem',
+                      cursor: 'pointer'
+                    }}
+                  />
+                  
+                  {/* Food Image */}
                   <div style={{
+                    minWidth: '80px',
+                    width: '80px',
+                    height: '80px',
+                    borderRadius: '12px',
+                    overflow: 'hidden',
+                    background: 'linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%)',
                     display: 'flex',
                     alignItems: 'center',
-                    gap: '0.5rem',
-                    background: 'rgba(255, 255, 255, 0.2)',
-                    padding: '0.5rem',
-                    borderRadius: '6px'
+                    justifyContent: 'center',
+                    border: '2px solid #e2e8f0'
                   }}>
-                    <input
-                      type="checkbox"
-                      id={`restaurant-${restaurantId}`}
-                      checked={group.items.every(item => selectedItems.has(`${item.id}-${item.restaurantId}`))}
-                      onChange={() => handleRestaurantSelect(parseInt(restaurantId))}
-                      style={{
-                        width: '1rem',
-                        height: '1rem',
-                        cursor: 'pointer'
-                      }}
-                    />
-                    <label
-                      htmlFor={`restaurant-${restaurantId}`}
-                      style={{
-                        fontSize: '0.8rem',
-                        cursor: 'pointer',
-                        color: 'white'
-                      }}
-                    >
-                      Select All
-                    </label>
-                  </div>
-                  
-                  {/* Clear Restaurant Button */}
-                  <button
-                    onClick={() => handleClearRestaurantCart(parseInt(restaurantId), group.restaurant?.name)}
-                    style={{
-                      background: 'rgba(239, 68, 68, 0.2)',
-                      border: '1px solid rgba(255, 255, 255, 0.3)',
-                      borderRadius: '8px',
-                      padding: '0.5rem 0.75rem',
-                      color: 'white',
-                      fontSize: '0.8rem',
-                      fontWeight: '500',
-                      cursor: 'pointer',
-                      transition: 'all 0.2s ease',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '0.25rem'
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.background = 'rgba(239, 68, 68, 0.3)';
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.background = 'rgba(239, 68, 68, 0.2)';
-                    }}
-                  >
-                    <span>🗑️</span>
-                    <span>Clear</span>
-                  </button>
-                  
-                  {/* Restaurant Checkout Button */}
-                  <button
-                    onClick={() => handleRestaurantCheckout(parseInt(restaurantId))}
-                    style={{
-                      background: 'rgba(255, 255, 255, 0.9)',
-                      border: '1px solid rgba(255, 255, 255, 0.3)',
-                      borderRadius: '8px',
-                      padding: '0.5rem 1rem',
-                      color: '#ff6b6b',
-                      fontSize: '0.85rem',
-                      fontWeight: '600',
-                      cursor: 'pointer',
-                      transition: 'all 0.2s ease'
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.background = 'white';
-                      e.currentTarget.style.transform = 'translateY(-1px)';
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.background = 'rgba(255, 255, 255, 0.9)';
-                      e.currentTarget.style.transform = 'translateY(0)';
-                    }}
-                  >
-                    Checkout ₹{getRestaurantTotal(parseInt(restaurantId)).toFixed(2)}
-                  </button>
-                </div>
-              </div>
-
-              {/* Restaurant Items */}
-              <div style={{ padding: '1rem' }}>
-                {group.items.map((item, index) => (
-                  <div key={`${item.id}-${index}`} style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    padding: '1rem',
-                    borderBottom: index < group.items.length - 1 ? '1px solid #f1f5f9' : 'none',
-                    background: selectedItems.has(`${item.id}-${item.restaurantId}`) ? '#f0f9ff' : 'transparent',
-                    transition: 'background-color 0.2s ease'
-                  }}>
-                    {/* Item Checkbox and Image */}
-                    <div style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '1rem',
-                      flex: 1
-                    }}>
-                      <input
-                        type="checkbox"
-                        id={`item-${item.id}-${item.restaurantId}`}
-                        checked={selectedItems.has(`${item.id}-${item.restaurantId}`)}
-                        onChange={() => handleItemSelect(`${item.id}-${item.restaurantId}`)}
+                    {item.image && item.image.startsWith('http') ? (
+                      <img 
+                        src={item.image}
+                        alt={item.name}
                         style={{
-                          width: '1.2rem',
-                          height: '1.2rem',
-                          cursor: 'pointer'
+                          width: '100%',
+                          height: '100%',
+                          objectFit: 'cover'
+                        }}
+                        onError={(e) => {
+                          const target = e.target as HTMLImageElement;
+                          target.style.display = 'none';
+                          const parent = target.parentElement;
+                          if (parent) {
+                            parent.innerHTML = '<div style="font-size: 2.5rem;">🍽️</div>';
+                          }
                         }}
                       />
-                      
-                      {/* Food Image */}
-                      <div style={{
-                        minWidth: '80px',
-                        width: '80px',
-                        height: '80px',
-                        borderRadius: '12px',
-                        overflow: 'hidden',
-                        background: 'linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        border: '2px solid #e2e8f0'
-                      }}>
-                        {item.image && item.image.startsWith('http') ? (
-                          <img 
-                            src={item.image}
-                            alt={item.name}
-                            style={{
-                              width: '100%',
-                              height: '100%',
-                              objectFit: 'cover'
-                            }}
-                            onError={(e) => {
-                              const target = e.target as HTMLImageElement;
-                              target.style.display = 'none';
-                              const parent = target.parentElement;
-                              if (parent) {
-                                parent.innerHTML = '<div style="font-size: 2.5rem;">🍽️</div>';
-                              }
-                            }}
-                          />
-                        ) : (
-                          <div style={{ fontSize: '2.5rem' }}>🍽️</div>
-                        )}
-                      </div>
-                      
-                      <div style={{ flex: 1 }}>
-                        <h4 style={{
-                          fontSize: '1rem',
-                          fontWeight: '600',
-                          color: '#333',
-                          margin: 0,
-                          marginBottom: '0.25rem'
-                        }}>
-                          {item.name}
-                        </h4>
-                        <p style={{
-                          fontSize: '0.85rem',
-                          color: '#666',
-                          margin: 0,
-                          marginBottom: '0.5rem'
-                        }}>
-                          {item.description}
-                        </p>
-                        <div style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '0.5rem'
-                        }}>
-                          <span style={{
-                            fontSize: '1rem',
-                            fontWeight: '600',
-                            color: '#ff6b6b'
-                          }}>
-                            ₹{item.price} × {item.quantity} = ₹{(item.price * item.quantity).toFixed(2)}
-                          </span>
-                          <span style={{
-                            fontSize: '0.8rem',
-                            color: item.isVeg ? '#10b981' : '#ef4444',
-                            background: item.isVeg ? '#dcfce7' : '#fee2e2',
-                            padding: '0.2rem 0.5rem',
-                            borderRadius: '6px'
-                          }}>
-                            {item.isVeg ? '🟢 Veg' : '🔴 Non-Veg'}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Quantity Controls */}
+                    ) : (
+                      <div style={{ fontSize: '2.5rem' }}>🍽️</div>
+                    )}
+                  </div>
+                  
+                  {/* Item Details */}
+                  <div style={{ flex: 1 }}>
                     <div style={{
                       display: 'flex',
                       alignItems: 'center',
                       gap: '0.75rem',
-                      marginLeft: '1rem'
+                      marginBottom: '0.25rem'
                     }}>
-                      <div style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        background: '#f8fafc',
-                        borderRadius: '8px',
-                        border: '1px solid #e2e8f0'
+                      <h4 style={{
+                        fontSize: '1.1rem',
+                        fontWeight: '700',
+                        color: '#333',
+                        margin: 0
                       }}>
-                        <button
-                          onClick={() => updateQuantity(item.id, item.restaurantId, Math.max(0, item.quantity - 1))}
-                          style={{
-                            background: 'none',
-                            border: 'none',
-                            padding: '0.5rem',
-                            cursor: 'pointer',
-                            color: '#ff6b6b',
-                            fontWeight: 'bold',
-                            fontSize: '1.2rem'
-                          }}
-                        >
-                          −
-                        </button>
-                        <span style={{
-                          padding: '0.5rem 0.75rem',
-                          fontWeight: '600',
-                          color: '#333',
-                          minWidth: '2rem',
-                          textAlign: 'center'
-                        }}>
-                          {item.quantity}
-                        </span>
-                        <button
-                          onClick={() => updateQuantity(item.id, item.restaurantId, item.quantity + 1)}
-                          style={{
-                            background: 'none',
-                            border: 'none',
-                            padding: '0.5rem',
-                            cursor: 'pointer',
-                            color: '#ff6b6b',
-                            fontWeight: 'bold',
-                            fontSize: '1.2rem'
-                          }}
-                        >
-                          +
-                        </button>
-                      </div>
-
-                      <button
-                        onClick={() => removeFromCart(item.id, item.restaurantId)}
-                        style={{
-                          background: '#fee2e2',
-                          border: '1px solid #fecaca',
-                          borderRadius: '8px',
-                          padding: '0.5rem',
-                          cursor: 'pointer',
-                          color: '#dc2626',
-                          fontSize: '1rem'
-                        }}
-                      >
-                        🗑️
-                      </button>
+                        {item.name}
+                      </h4>
+                      <span style={{
+                        fontSize: '0.8rem',
+                        color: item.isVeg ? '#10b981' : '#ef4444',
+                        background: item.isVeg ? '#dcfce7' : '#fee2e2',
+                        padding: '0.2rem 0.5rem',
+                        borderRadius: '6px',
+                        fontWeight: '600'
+                      }}>
+                        {item.isVeg ? '🟢 Veg' : '🔴 Non-Veg'}
+                      </span>
+                    </div>
+                    
+                    <p style={{
+                      fontSize: '0.85rem',
+                      color: '#666',
+                      margin: '0 0 0.5rem 0',
+                      lineHeight: '1.4'
+                    }}>
+                      {item.description}
+                    </p>
+                    
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.5rem'
+                    }}>
+                      <span style={{
+                        fontSize: '1rem',
+                        fontWeight: '600',
+                        color: '#ff6b6b'
+                      }}>
+                        ₹{item.price} × {item.quantity} = ₹{(item.price * item.quantity).toFixed(2)}
+                      </span>
                     </div>
                   </div>
-                ))}
+                  
+                  {/* Restaurant Name Badge */}
+                  <div style={{
+                    background: 'linear-gradient(135deg, #ff6b6b, #ee5a24)',
+                    color: 'white',
+                    padding: '0.5rem 1rem',
+                    borderRadius: '8px',
+                    fontSize: '0.85rem',
+                    fontWeight: '600',
+                    boxShadow: '0 2px 8px rgba(255, 107, 107, 0.3)',
+                    whiteSpace: 'nowrap'
+                  }}>
+                    🏪 {item.restaurantName}
+                  </div>
+                </div>
+
+                {/* Right Side: Quantity Controls + Delete */}
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.75rem',
+                  marginLeft: '1rem'
+                }}>
+                  {/* Quantity Controls */}
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    background: '#f8fafc',
+                    borderRadius: '8px',
+                    border: '1px solid #e2e8f0'
+                  }}>
+                    <button
+                      onClick={() => updateQuantity(item.id, item.restaurantId, Math.max(0, item.quantity - 1))}
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        padding: '0.5rem',
+                        cursor: 'pointer',
+                        color: '#ff6b6b',
+                        fontWeight: 'bold',
+                        fontSize: '1.2rem'
+                      }}
+                    >
+                      −
+                    </button>
+                    <span style={{
+                      padding: '0.5rem 0.75rem',
+                      fontWeight: '600',
+                      color: '#333',
+                      minWidth: '2rem',
+                      textAlign: 'center'
+                    }}>
+                      {item.quantity}
+                    </span>
+                    <button
+                      onClick={() => updateQuantity(item.id, item.restaurantId, item.quantity + 1)}
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        padding: '0.5rem',
+                        cursor: 'pointer',
+                        color: '#ff6b6b',
+                        fontWeight: 'bold',
+                        fontSize: '1.2rem'
+                      }}
+                    >
+                      +
+                    </button>
+                  </div>
+
+                  {/* Delete Button */}
+                  <button
+                    onClick={() => removeFromCart(item.id, item.restaurantId)}
+                    style={{
+                      background: '#fee2e2',
+                      border: '1px solid #fecaca',
+                      borderRadius: '8px',
+                      padding: '0.5rem',
+                      cursor: 'pointer',
+                      color: '#dc2626',
+                      fontSize: '1rem'
+                    }}
+                  >
+                    🗑️
+                  </button>
+                </div>
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
 
         {/* Right Panel - Order Summary */}
