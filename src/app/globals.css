@@ -109,6 +109,9 @@ body {
   -moz-osx-font-smoothing: grayscale;
   background-color: #fafafa;
   color: #333;
+  font-size: 1rem; /* Explicit font size */
+  line-height: 1.5; /* Consistent line height */
+  zoom: 1; /* Prevent zoom issues */
 }
 
 /* JAPANESE SAKURA THEME ANIMATIONS */
@@ -155,9 +158,11 @@ body {
   }
 }
 
-/* SMOOTH SCROLL ANIMATION */
 html {
   scroll-behavior: smooth;
+  font-size: 16px; /* Explicit base font size */
+  -webkit-text-size-adjust: 100%; /* Prevent iOS font scaling */
+  -ms-text-size-adjust: 100%; /* Prevent Windows Phone font scaling */
 }
 
 /* CUSTOM SCROLL ANIMATION WITH CUBIC BEZIER */

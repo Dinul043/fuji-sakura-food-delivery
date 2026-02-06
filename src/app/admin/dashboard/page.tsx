@@ -135,7 +135,7 @@ export default function AdminDashboard() {
         }
         
       } catch (error) {
-        console.error('❌ Admin authentication error:', error);
+        // Silent fallback - no console errors
         
         // On network error, allow access with cached credentials
         if (error instanceof TypeError && error.message.includes('fetch')) {
@@ -234,7 +234,7 @@ export default function AdminDashboard() {
         showNotification('error', 'Error', 'Failed to fetch applications');
       }
     } catch (error) {
-      console.error('Error fetching applications:', error);
+      // Silent fallback - no console errors
       showNotification('error', 'Error', 'Failed to fetch applications');
     } finally {
       setIsLoading(false);
@@ -268,7 +268,7 @@ export default function AdminDashboard() {
         showNotification('error', 'Error', `Failed to ${newStatus} application`);
       }
     } catch (error) {
-      console.error('Error updating application:', error);
+      // Silent fallback - no console errors
       showNotification('error', 'Error', `Failed to ${newStatus} application`);
     } finally {
       setIsUpdating(false);

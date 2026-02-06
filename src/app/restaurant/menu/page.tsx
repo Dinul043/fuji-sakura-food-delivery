@@ -3,18 +3,19 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+import { API_BASE_URL } from '../../../config/constants';
 
 interface MenuItem {
   id: number;
-  name: string;
+  item_name: string;
   description: string;
   price: number;
   category: string;
-  isVeg: boolean;
-  isAvailable: boolean;
-  image?: string;
+  image_url?: string;
+  is_available: boolean;
+  restaurant_id: number;
+  created_at: string;
+  updated_at: string;
 }
 
 interface MenuCategory {
@@ -22,9 +23,18 @@ interface MenuCategory {
   items: MenuItem[];
 }
 
+interface ApiMenuItem {
+  item_name: string;
+  description?: string;
+  price: number;
+  category: string;
+  image_url?: string;
+}
+
 export default function MenuManagement() {
   const router = useRouter();
   const [menuCategories, setMenuCategories] = useState<MenuCategory[]>([]);
+  const [availableCategories, setAvailableCategories] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
@@ -33,16 +43,12 @@ export default function MenuManagement() {
   const [imagePreview, setImagePreview] = useState<string>('');
 
   const [newItem, setNewItem] = useState({
-    name: '',
+    item_name: '',
     description: '',
     price: '',
-    category: 'Starters',
-    isVeg: true,
-    isAvailable: true,
-    image: ''
+    category: 'Appetizers',
+    image_url: ''
   });
-
-  const categories = ['Starters', 'Main Course', 'Desserts', 'Beverages', 'Specials'];
 
   useEffect(() => {
     checkAuthAndLoadMenu();
@@ -61,115 +67,227 @@ export default function MenuManagement() {
       const restaurant = JSON.parse(restaurantInfo);
       setRestaurantData(restaurant);
       
-      // Load menu items (mock data for now)
-      loadMenuItems();
+      // Load available categories and menu items
+      await Promise.all([
+        loadAvailableCategories(),
+        loadMenuItems(token)
+      ]);
       
     } catch (error) {
-      console.error('Auth check failed:', error);
+      // Silent fallback - no console errors
       router.push('/restaurant/login');
     } finally {
       setIsLoading(false);
     }
   };
 
-  const loadMenuItems = () => {
-    // Mock menu data - will be replaced with real API calls
-    const mockMenu: MenuCategory[] = [
-      {
-        name: 'Starters',
-        items: [
-          { id: 1, name: 'Chicken 65', description: 'Spicy fried chicken pieces', price: 180, category: 'Starters', isVeg: false, isAvailable: true },
-          { id: 2, name: 'Paneer Tikka', description: 'Grilled cottage cheese cubes', price: 160, category: 'Starters', isVeg: true, isAvailable: true },
-          { id: 3, name: 'Veg Spring Rolls', description: 'Crispy vegetable rolls', price: 120, category: 'Starters', isVeg: true, isAvailable: false }
-        ]
-      },
-      {
-        name: 'Main Course',
-        items: [
-          { id: 4, name: 'Chicken Biryani', description: 'Aromatic basmati rice with chicken', price: 280, category: 'Main Course', isVeg: false, isAvailable: true },
-          { id: 5, name: 'Veg Biryani', description: 'Aromatic basmati rice with vegetables', price: 220, category: 'Main Course', isVeg: true, isAvailable: true },
-          { id: 6, name: 'Butter Chicken', description: 'Creamy tomato-based chicken curry', price: 320, category: 'Main Course', isVeg: false, isAvailable: true }
-        ]
-      },
-      {
-        name: 'Desserts',
-        items: [
-          { id: 7, name: 'Gulab Jamun', description: 'Sweet milk dumplings in syrup', price: 80, category: 'Desserts', isVeg: true, isAvailable: true },
-          { id: 8, name: 'Ice Cream', description: 'Vanilla ice cream scoop', price: 60, category: 'Desserts', isVeg: true, isAvailable: true }
-        ]
+  const loadAvailableCategories = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/menu/categories`);
+      if (response.ok) {
+        const data = await response.json();
+        setAvailableCategories(data.categories);
+        // Set default category for new items
+        if (data.categories.length > 0) {
+          setNewItem(prev => ({ ...prev, category: data.categories[0] }));
+        }
       }
-    ];
-    
-    setMenuCategories(mockMenu);
+    } catch (error) {
+      // Silent fallback - no console errors
+    }
   };
 
-  const handleAddItem = () => {
-    if (!newItem.name || !newItem.price) return;
-    
-    const item: MenuItem = {
-      id: Date.now(),
-      name: newItem.name,
-      description: newItem.description,
-      price: parseFloat(newItem.price),
-      category: newItem.category,
-      isVeg: newItem.isVeg,
-      isAvailable: newItem.isAvailable,
-      image: imagePreview || undefined
-    };
+  const loadMenuItems = async (token: string) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/menu/`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
 
-    setMenuCategories(prev => {
-      const updated = [...prev];
-      const categoryIndex = updated.findIndex(cat => cat.name === item.category);
-      
-      if (categoryIndex >= 0) {
-        updated[categoryIndex].items.push(item);
+      if (response.ok) {
+        const menuItems: MenuItem[] = await response.json();
+        
+        // Group items by category
+        const groupedItems: { [key: string]: MenuItem[] } = {};
+        menuItems.forEach(item => {
+          if (!groupedItems[item.category]) {
+            groupedItems[item.category] = [];
+          }
+          groupedItems[item.category].push(item);
+        });
+
+        // Convert to MenuCategory format
+        const categories: MenuCategory[] = Object.entries(groupedItems).map(([name, items]) => ({
+          name,
+          items
+        }));
+
+        setMenuCategories(categories);
       } else {
-        updated.push({ name: item.category, items: [item] });
+        // Silent fallback - no console errors
       }
-      
-      return updated;
-    });
-
-    // Reset form
-    resetForm();
-    setShowAddModal(false);
+    } catch (error) {
+      // Silent fallback - no console errors
+    }
   };
 
-  const handleEditItem = () => {
-    if (!editingItem || !newItem.name || !newItem.price) return;
+  const handleAddItem = async () => {
+    if (!newItem.item_name || !newItem.price) return;
     
-    setMenuCategories(prev => 
-      prev.map(category => ({
-        ...category,
-        items: category.items.map(item => 
-          item.id === editingItem.id ? {
-            ...item,
-            name: newItem.name,
-            description: newItem.description,
-            price: parseFloat(newItem.price),
-            category: newItem.category,
-            isVeg: newItem.isVeg,
-            isAvailable: newItem.isAvailable,
-            image: imagePreview || item.image
-          } : item
-        )
-      }))
-    );
+    try {
+      console.log('🍽️ Adding menu item:', newItem.item_name);
+      
+      const token = localStorage.getItem('restaurantToken');
+      if (!token) {
+        router.push('/restaurant/login');
+        return;
+      }
 
-    // Reset form
-    resetForm();
-    setEditingItem(null);
+      let imageUrl = newItem.image_url;
+
+      // If user selected a new image, upload it first
+      if (selectedImage) {
+        console.log('📸 Uploading selected image:', selectedImage.name);
+        imageUrl = await uploadImage(selectedImage);
+        console.log('🖼️ Image upload result:', imageUrl);
+      }
+
+      const menuItemData: ApiMenuItem = {
+        item_name: newItem.item_name,
+        description: newItem.description || undefined,
+        price: parseFloat(newItem.price),
+        category: newItem.category,
+        image_url: imageUrl || undefined
+      };
+
+      console.log('📤 Sending menu item data:', menuItemData);
+
+      const response = await fetch(`${API_BASE_URL}/api/menu/`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(menuItemData)
+      });
+
+      console.log('📡 Menu item creation response:', response.status);
+
+      if (response.ok) {
+        console.log('✅ Menu item created successfully');
+        // Reload menu items to get the updated list
+        await loadMenuItems(token);
+        resetForm();
+        setShowAddModal(false);
+      } else {
+        const error = await response.json();
+        // Silent fallback - no console errors
+        alert(`Failed to add menu item: ${error.detail || 'Unknown error'}`);
+      }
+    } catch (error) {
+      // Silent fallback - no console errors
+      alert('Failed to add menu item. Please try again.');
+    }
+  };
+
+  const handleEditItem = async () => {
+    if (!editingItem || !newItem.item_name || !newItem.price) return;
+    
+    try {
+      const token = localStorage.getItem('restaurantToken');
+      if (!token) {
+        router.push('/restaurant/login');
+        return;
+      }
+
+      let imageUrl = newItem.image_url;
+
+      // If user selected a new image, upload it first
+      if (selectedImage) {
+        imageUrl = await uploadImage(selectedImage);
+      }
+
+      const menuItemData: ApiMenuItem = {
+        item_name: newItem.item_name,
+        description: newItem.description || undefined,
+        price: parseFloat(newItem.price),
+        category: newItem.category,
+        image_url: imageUrl || undefined
+      };
+
+      const response = await fetch(`${API_BASE_URL}/api/menu/${editingItem.id}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(menuItemData)
+      });
+
+      if (response.ok) {
+        // Reload menu items to get the updated list
+        await loadMenuItems(token);
+        resetForm();
+        setEditingItem(null);
+        setShowAddModal(false);
+      } else {
+        const error = await response.json();
+        alert(`Failed to update menu item: ${error.detail || 'Unknown error'}`);
+      }
+    } catch (error) {
+      // Silent fallback - no console errors
+      alert('Failed to update menu item. Please try again.');
+    }
+  };
+
+  // Image upload function
+  const uploadImage = async (file: File): Promise<string> => {
+    try {
+      console.log('🔄 Starting image upload...', file.name);
+      
+      const formData = new FormData();
+      formData.append('file', file);  // Changed from 'image' to 'file'
+
+      const token = localStorage.getItem('restaurantToken');
+      console.log('🔑 Using token:', token ? 'Token exists' : 'No token');
+      
+      const response = await fetch(`${API_BASE_URL}/api/menu/upload-image`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+        body: formData
+      });
+
+      console.log('📡 Upload response status:', response.status);
+      
+      if (response.ok) {
+        const result = await response.json();
+        console.log('✅ Upload successful:', result);
+        return result.image_url;
+      } else {
+        const errorText = await response.text();
+        // Silent fallback - no console errors
+        // If upload fails, return empty string so we use smart defaults
+        // Silent fallback - image upload failed, will use smart default image
+        return '';
+      }
+    } catch (error) {
+      // Silent fallback - no console errors
+      // If upload fails, return empty string so we use smart defaults
+      return '';
+    }
   };
 
   const resetForm = () => {
     setNewItem({
-      name: '',
+      item_name: '',
       description: '',
       price: '',
-      category: 'Starters',
-      isVeg: true,
-      isAvailable: true,
-      image: ''
+      category: availableCategories[0] || 'Appetizers',
+      image_url: ''
     });
     setSelectedImage(null);
     setImagePreview('');
@@ -178,7 +296,7 @@ export default function MenuManagement() {
   const removeImage = () => {
     setSelectedImage(null);
     setImagePreview('');
-    setNewItem(prev => ({ ...prev, image: '' }));
+    setNewItem(prev => ({ ...prev, image_url: '' }));
   };
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -198,37 +316,73 @@ export default function MenuManagement() {
   const startEditItem = (item: MenuItem) => {
     setEditingItem(item);
     setNewItem({
-      name: item.name,
-      description: item.description,
+      item_name: item.item_name,
+      description: item.description || '',
       price: item.price.toString(),
       category: item.category,
-      isVeg: item.isVeg,
-      isAvailable: item.isAvailable,
-      image: item.image || ''
+      image_url: item.image_url || ''
     });
-    setImagePreview(item.image || '');
+    setImagePreview(item.image_url || '');
     setShowAddModal(true);
   };
 
-  const toggleAvailability = (itemId: number) => {
-    setMenuCategories(prev => 
-      prev.map(category => ({
-        ...category,
-        items: category.items.map(item => 
-          item.id === itemId ? { ...item, isAvailable: !item.isAvailable } : item
-        )
-      }))
-    );
+  const toggleAvailability = async (itemId: number) => {
+    try {
+      const token = localStorage.getItem('restaurantToken');
+      if (!token) {
+        router.push('/restaurant/login');
+        return;
+      }
+
+      const response = await fetch(`${API_BASE_URL}/api/menu/${itemId}/toggle`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        // Reload menu items to get the updated availability
+        await loadMenuItems(token);
+      } else {
+        const error = await response.json();
+        alert(`Failed to toggle availability: ${error.detail || 'Unknown error'}`);
+      }
+    } catch (error) {
+      // Silent fallback - no console errors
+      alert('Failed to toggle availability. Please try again.');
+    }
   };
 
-  const deleteItem = (itemId: number) => {
-    if (confirm('Are you sure you want to delete this item?')) {
-      setMenuCategories(prev => 
-        prev.map(category => ({
-          ...category,
-          items: category.items.filter(item => item.id !== itemId)
-        })).filter(category => category.items.length > 0)
-      );
+  const deleteItem = async (itemId: number) => {
+    if (!confirm('Are you sure you want to delete this item?')) return;
+    
+    try {
+      const token = localStorage.getItem('restaurantToken');
+      if (!token) {
+        router.push('/restaurant/login');
+        return;
+      }
+
+      const response = await fetch(`${API_BASE_URL}/api/menu/${itemId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        // Reload menu items to get the updated list
+        await loadMenuItems(token);
+      } else {
+        const error = await response.json();
+        alert(`Failed to delete menu item: ${error.detail || 'Unknown error'}`);
+      }
+    } catch (error) {
+      // Silent fallback - no console errors
+      alert('Failed to delete menu item. Please try again.');
     }
   };
 
@@ -365,8 +519,8 @@ export default function MenuManagement() {
                   padding: '1.5rem',
                   borderRadius: '10px',
                   border: '1px solid #e0e0e0',
-                  background: item.isAvailable ? 'white' : '#f8f9fa',
-                  opacity: item.isAvailable ? 1 : 0.7,
+                  background: item.is_available ? 'white' : '#f8f9fa',
+                  opacity: item.is_available ? 1 : 0.7,
                   transition: 'all 0.2s ease'
                 }}>
                   {/* Item Image */}
@@ -374,7 +528,7 @@ export default function MenuManagement() {
                     width: '80px', 
                     height: '80px', 
                     borderRadius: '8px', 
-                    background: item.image ? 'transparent' : 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
+                    background: item.image_url ? 'transparent' : 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
@@ -382,10 +536,10 @@ export default function MenuManagement() {
                     overflow: 'hidden',
                     position: 'relative'
                   }}>
-                    {item.image ? (
+                    {item.image_url ? (
                       <img 
-                        src={item.image} 
-                        alt={item.name}
+                        src={item.image_url} 
+                        alt={item.item_name}
                         style={{
                           width: '100%',
                           height: '100%',
@@ -393,7 +547,7 @@ export default function MenuManagement() {
                         }}
                       />
                     ) : (
-                      <span>{item.isVeg ? '🥗' : '🍖'}</span>
+                      <span>🍽️</span>
                     )}
                   </div>
                   
@@ -401,21 +555,21 @@ export default function MenuManagement() {
                   <div style={{ flex: 1 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
                       <h3 style={{ margin: 0, color: '#333', fontSize: '1.2rem', fontWeight: '600' }}>
-                        {item.name}
+                        {item.item_name}
                       </h3>
                       <span style={{ 
                         padding: '0.2rem 0.5rem',
                         borderRadius: '12px',
                         fontSize: '0.7rem',
                         fontWeight: '500',
-                        background: item.isVeg ? '#4CAF50' : '#f44336',
+                        background: item.is_available ? '#4CAF50' : '#f44336',
                         color: 'white'
                       }}>
-                        {item.isVeg ? 'VEG' : 'NON-VEG'}
+                        {item.is_available ? 'AVAILABLE' : 'UNAVAILABLE'}
                       </span>
                     </div>
                     <p style={{ margin: '0 0 0.5rem 0', color: '#666', fontSize: '0.9rem' }}>
-                      {item.description}
+                      {item.description || 'No description'}
                     </p>
                     <p style={{ margin: 0, color: '#FF5722', fontSize: '1.1rem', fontWeight: '600' }}>
                       ₹{item.price}
@@ -431,7 +585,7 @@ export default function MenuManagement() {
                         padding: '0.5rem 1rem',
                         borderRadius: '20px',
                         border: 'none',
-                        background: item.isAvailable ? '#4CAF50' : '#f44336',
+                        background: item.is_available ? '#4CAF50' : '#f44336',
                         color: 'white',
                         fontSize: '0.8rem',
                         fontWeight: '500',
@@ -439,7 +593,7 @@ export default function MenuManagement() {
                         transition: 'all 0.2s ease'
                       }}
                     >
-                      {item.isAvailable ? 'Available' : 'Unavailable'}
+                      {item.is_available ? 'Available' : 'Unavailable'}
                     </button>
                     
                     {/* Edit Button */}
@@ -677,8 +831,8 @@ export default function MenuManagement() {
                 </label>
                 <input
                   type="text"
-                  value={newItem.name}
-                  onChange={(e) => setNewItem(prev => ({ ...prev, name: e.target.value }))}
+                  value={newItem.item_name}
+                  onChange={(e) => setNewItem(prev => ({ ...prev, item_name: e.target.value }))}
                   style={{
                     width: '100%',
                     padding: '0.75rem',
@@ -727,6 +881,8 @@ export default function MenuManagement() {
                       fontSize: '1rem'
                     }}
                     placeholder="0"
+                    min="0"
+                    step="0.01"
                   />
                 </div>
                 
@@ -745,31 +901,11 @@ export default function MenuManagement() {
                       fontSize: '1rem'
                     }}
                   >
-                    {categories.map(cat => (
+                    {availableCategories.map(cat => (
                       <option key={cat} value={cat}>{cat}</option>
                     ))}
                   </select>
                 </div>
-              </div>
-              
-              <div style={{ display: 'flex', gap: '2rem' }}>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
-                  <input
-                    type="checkbox"
-                    checked={newItem.isVeg}
-                    onChange={(e) => setNewItem(prev => ({ ...prev, isVeg: e.target.checked }))}
-                  />
-                  <span style={{ color: '#333' }}>Vegetarian</span>
-                </label>
-                
-                <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
-                  <input
-                    type="checkbox"
-                    checked={newItem.isAvailable}
-                    onChange={(e) => setNewItem(prev => ({ ...prev, isAvailable: e.target.checked }))}
-                  />
-                  <span style={{ color: '#333' }}>Available</span>
-                </label>
               </div>
             </div>
             
@@ -795,17 +931,17 @@ export default function MenuManagement() {
               </button>
               <button
                 onClick={editingItem ? handleEditItem : handleAddItem}
-                disabled={!newItem.name || !newItem.price}
+                disabled={!newItem.item_name || !newItem.price}
                 style={{
                   flex: 1,
                   padding: '0.75rem',
                   borderRadius: '8px',
                   border: 'none',
-                  background: newItem.name && newItem.price ? 
+                  background: newItem.item_name && newItem.price ? 
                     'linear-gradient(135deg, #FF5722 0%, #FF7043 100%)' : '#ccc',
                   color: 'white',
                   fontSize: '1rem',
-                  cursor: newItem.name && newItem.price ? 'pointer' : 'not-allowed'
+                  cursor: newItem.item_name && newItem.price ? 'pointer' : 'not-allowed'
                 }}
               >
                 {editingItem ? 'Update Item' : 'Add Item'}

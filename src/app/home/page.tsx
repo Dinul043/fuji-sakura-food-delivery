@@ -2,22 +2,57 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { restaurants, categories, Restaurant } from '../../data/restaurants';
+import Image from 'next/image';
 import { useCart } from '../../contexts/CartContext';
+import { API_BASE_URL } from '../../config/constants';
+
+// Define interfaces for real restaurant data
+interface RealRestaurant {
+  id: number;
+  name: string;
+  owner_name: string;
+  cuisine: string;
+  description: string;
+  address: string;
+  phone: string;
+  email: string;
+  restaurant_image: string;  // Added restaurant image field
+  is_online: boolean;  // Restaurant online/offline status
+  menu_items_count: number;
+  average_price: number;
+  created_at: string;
+  rating: number;
+  delivery_time: string;
+  delivery_fee: number;
+  reviews: number;
+  image: string;
+  tags: string[];
+  category: string;
+}
+
+interface RealCategory {
+  id: string;
+  name: string;
+  emoji: string;
+}
+
+
 
 export default function HomePage() {
   const [userName, setUserName] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
-  // Show only first 20 restaurants for better performance
-  const [filteredRestaurants, setFilteredRestaurants] = useState<Restaurant[]>(restaurants.slice(0, 20));
+  const [restaurants, setRestaurants] = useState<RealRestaurant[]>([]);
+  const [categories, setCategories] = useState<RealCategory[]>([]);
+  const [filteredRestaurants, setFilteredRestaurants] = useState<RealRestaurant[]>([]);
   const [sortBy, setSortBy] = useState('');
-  const [sortOrder, setSortOrder] = useState<'high' | 'low'>('high'); // Track sort order
+  const [sortOrder, setSortOrder] = useState<'high' | 'low'>('high');
   const [searchTimeout, setSearchTimeout] = useState<NodeJS.Timeout | null>(null);
   const [hoveredCard, setHoveredCard] = useState<number | null>(null);
-  const [clickedCard, setClickedCard] = useState<number | null>(null);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [searchSuggestions, setSearchSuggestions] = useState<string[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const router = useRouter();
   const restaurantsRef = useRef<HTMLDivElement>(null);
   const { getTotalItems } = useCart();
@@ -28,14 +63,69 @@ export default function HomePage() {
     'Thai Food', 'Indian Curry', 'Fried Chicken', 'Seafood', 'Desserts', 'Coffee'
   ];
 
+  // Fetch restaurants from backend with silent error handling
+  const fetchRestaurants = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const response = await fetch(`${API_BASE_URL}/api/restaurant/public/restaurants`, {
+        signal: AbortSignal.timeout(5000) // 5 second timeout
+      });
+      
+      if (!response.ok) {
+        throw new Error('Backend not available');
+      }
+      
+      const data = await response.json();
+      setRestaurants(data.restaurants || []);
+      setFilteredRestaurants(data.restaurants || []);
+    } catch (err) {
+      // Silent fallback - no console errors, just empty arrays
+      setRestaurants([]);
+      setFilteredRestaurants([]);
+      setError('Oops! There is a network issue. Please check your connection.'); // Show network error message
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Fetch categories from backend with silent error handling
+  const fetchCategories = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/restaurant/public/categories`, {
+        signal: AbortSignal.timeout(5000) // 5 second timeout
+      });
+      
+      if (!response.ok) {
+        throw new Error('Backend not available');
+      }
+      
+      const data = await response.json();
+      setCategories(data.categories || []);
+    } catch (err) {
+      // Silent fallback - no console errors, just default categories for UI
+      setCategories([
+        { id: 'italian', name: 'Italian', emoji: '🍝' },
+        { id: 'japanese', name: 'Japanese', emoji: '🍣' },
+        { id: 'indian', name: 'Indian', emoji: '🍛' }
+      ]);
+    }
+  };
+
   useEffect(() => {
     const storedName = localStorage.getItem('userName') || 'Guest';
     setUserName(storedName);
+    
+    // Fetch data from backend
+    fetchRestaurants();
+    fetchCategories();
   }, []);
 
   useEffect(() => {
-    // Use only first 20 restaurants for better performance
-    let filtered = restaurants.slice(0, 20);
+    if (restaurants.length === 0) return;
+
+    let filtered = [...restaurants];
 
     // Apply both filters independently
     // Filter by search query first
@@ -49,7 +139,10 @@ export default function HomePage() {
 
     // Then filter by category (only if no search query)
     if (selectedCategory && !searchQuery.trim()) {
-      filtered = filtered.filter(restaurant => restaurant.category === selectedCategory);
+      filtered = filtered.filter(restaurant => 
+        restaurant.cuisine.toLowerCase().replace(' ', '_') === selectedCategory ||
+        restaurant.category === selectedCategory
+      );
     }
 
     // Sort restaurants
@@ -61,13 +154,13 @@ export default function HomePage() {
             result = b.rating - a.rating; // High to low by default
             break;
           case 'distance':
-            result = a.deliveryFee - b.deliveryFee; // Low to high by default (closer = cheaper delivery)
+            result = a.delivery_fee - b.delivery_fee; // Low to high by default (closer = cheaper delivery)
             break;
           case 'time':
-            result = parseInt(a.deliveryTime) - parseInt(b.deliveryTime); // Low to high by default (faster first)
+            result = parseInt(a.delivery_time) - parseInt(b.delivery_time); // Low to high by default (faster first)
             break;
           case 'price':
-            result = a.deliveryFee - b.deliveryFee; // Low to high by default (cheaper first)
+            result = a.average_price - b.average_price; // Low to high by default (cheaper first)
             break;
           default:
             return 0;
@@ -78,10 +171,17 @@ export default function HomePage() {
     }
 
     setFilteredRestaurants(filtered);
-  }, [searchQuery, selectedCategory, sortBy, sortOrder]);
+  }, [searchQuery, selectedCategory, sortBy, sortOrder, restaurants]);
 
   const handleLogout = () => {
+    // Clear all user session data from localStorage
     localStorage.removeItem('userName');
+    localStorage.removeItem('userEmail');
+    localStorage.removeItem('token');
+    localStorage.removeItem('isGuest');
+    localStorage.removeItem('rememberMe');
+    
+    // Redirect to login
     router.push('/login');
   };
 
@@ -229,29 +329,31 @@ export default function HomePage() {
   };
 
   const handleCardClick = (restaurantId: number) => {
-    setClickedCard(restaurantId);
-    setTimeout(() => {
-      setClickedCard(null);
-      router.push(`/restaurant/${restaurantId}`);
-    }, 200);
+    router.push(`/restaurant/${restaurantId}`);
   };
 
-  // Function to get different hover gradients for each card
-  const getHoverGradient = (index: number) => {
-    const gradients = [
-      'linear-gradient(135deg, #ff6b6b, #ee5a24)', // Red-Orange
-      'linear-gradient(135deg, #667eea, #764ba2)', // Blue-Purple
-      'linear-gradient(135deg, #f093fb, #f5576c)', // Pink-Red
-      'linear-gradient(135deg, #4facfe, #00f2fe)', // Blue-Cyan
-      'linear-gradient(135deg, #43e97b, #38f9d7)', // Green-Cyan
-      'linear-gradient(135deg, #fa709a, #fee140)', // Pink-Yellow
-      'linear-gradient(135deg, #a8edea, #fed6e3)', // Cyan-Pink
-      'linear-gradient(135deg, #ffecd2, #fcb69f)', // Yellow-Orange
-      'linear-gradient(135deg, #ff9a9e, #fecfef)', // Pink-Light Pink
-      'linear-gradient(135deg, #a18cd1, #fbc2eb)'  // Purple-Pink
-    ];
-    return gradients[index % gradients.length];
+  // Function to get category images from public folder (using available auth images as food placeholders)
+  const getCategoryImage = (categoryId: string): string => {
+    const imageMap: { [key: string]: string } = {
+      'italian': '/images/auth/category-italian.png',
+      'japanese': '/images/auth/category-japanese.png', 
+      'indian': '/images/auth/category-indian.png',
+      'chinese': '/images/auth/Rectangle 1684 .png',
+      'american': '/images/auth/Rectangle 1681 .png',
+      'thai': '/images/auth/Rectangle 1682 (1).png',
+      'mexican': '/images/auth/Rectangle 1683 .png',
+      'pizza': '/images/auth/Rectangle 1684 .png',
+      'burgers': '/images/auth/Rectangle 1681 .png',
+      'desserts': '/images/auth/Rectangle 1682 (1).png',
+      'beverages': '/images/auth/Rectangle 1683 .png',
+      'vegetarian': '/images/auth/Rectangle 1684 .png'
+    };
+    
+    return imageMap[categoryId] || '/images/auth/category-all.png';
   };
+
+  // Simple hover gradient
+  const getHoverGradient = () => 'linear-gradient(135deg, #ff6b6b, #ee5a24)';
 
   return (
     <div style={{
@@ -622,21 +724,23 @@ export default function HomePage() {
                   : 'rgba(255, 255, 255, 0.9)',
                 backdropFilter: 'blur(10px)',
                 border: '1px solid rgba(255, 255, 255, 0.3)',
-                borderRadius: '16px',
-                padding: '1.5rem 1rem',
+                borderRadius: '20px',
+                padding: '2rem 1rem',
                 cursor: 'pointer',
                 transition: 'all 0.3s ease',
                 transform: selectedCategory === '' ? 'scale(1.05)' : 'scale(1)',
                 boxShadow: selectedCategory === '' 
-                  ? '0 8px 25px rgba(255, 107, 107, 0.3)' 
-                  : '0 4px 15px rgba(0, 0, 0, 0.1)'
+                  ? '0 12px 35px rgba(255, 107, 107, 0.4)' 
+                  : '0 8px 25px rgba(0, 0, 0, 0.1)',
+                position: 'relative',
+                overflow: 'hidden'
               }}
               onMouseEnter={(e) => {
                 // Only apply hover effect if NOT selected
                 if (selectedCategory !== '') {
                   e.currentTarget.style.background = 'linear-gradient(135deg, #ff6b6b, #ee5a24)';
                   e.currentTarget.style.transform = 'scale(1.05)';
-                  e.currentTarget.style.boxShadow = '0 8px 25px rgba(255, 107, 107, 0.3)';
+                  e.currentTarget.style.boxShadow = '0 12px 35px rgba(255, 107, 107, 0.4)';
                   // Change text color to white on hover
                   const textElements = e.currentTarget.querySelectorAll('div');
                   textElements.forEach(el => {
@@ -649,7 +753,7 @@ export default function HomePage() {
                 if (selectedCategory !== '') {
                   e.currentTarget.style.background = 'rgba(255, 255, 255, 0.9)';
                   e.currentTarget.style.transform = 'scale(1)';
-                  e.currentTarget.style.boxShadow = '0 4px 15px rgba(0, 0, 0, 0.1)';
+                  e.currentTarget.style.boxShadow = '0 8px 25px rgba(0, 0, 0, 0.1)';
                   // Change text color back to dark
                   const textElements = e.currentTarget.querySelectorAll('div');
                   textElements.forEach(el => {
@@ -658,18 +762,65 @@ export default function HomePage() {
                 }
               }}
             >
+              {/* Background Pattern */}
               <div style={{
-                textAlign: 'center'
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                background: selectedCategory === '' 
+                  ? 'radial-gradient(circle at 30% 20%, rgba(255, 255, 255, 0.2) 0%, transparent 50%)' 
+                  : 'radial-gradient(circle at 30% 20%, rgba(255, 107, 107, 0.1) 0%, transparent 50%)',
+                pointerEvents: 'none'
+              }}></div>
+              
+              <div style={{
+                textAlign: 'center',
+                position: 'relative',
+                zIndex: 1
               }}>
                 <div style={{
-                  fontSize: '2.5rem',
-                  marginBottom: '0.5rem'
-                }}>🍽️</div>
+                  width: '80px',
+                  height: '80px',
+                  marginBottom: '1rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  margin: '0 auto 1rem auto',
+                  background: selectedCategory === '' 
+                    ? 'rgba(255, 255, 255, 0.2)' 
+                    : 'linear-gradient(135deg, #ff6b6b, #ee5a24)',
+                  borderRadius: '20px',
+                  boxShadow: '0 8px 20px rgba(0, 0, 0, 0.1)',
+                  border: '3px solid rgba(255, 255, 255, 0.3)',
+                  position: 'relative',
+                  overflow: 'hidden'
+                }}>
+                  <Image 
+                    src="/images/auth/category-all.png"
+                    alt="All Categories"
+                    width={60}
+                    height={60}
+                    style={{
+                      objectFit: 'cover',
+                      borderRadius: '15px',
+                      filter: selectedCategory === '' ? 'brightness(1.2) contrast(1.1)' : 'none'
+                    }}
+                  />
+                </div>
                 <div style={{
-                  fontWeight: '600',
-                  fontSize: '0.9rem',
-                  color: selectedCategory === '' ? 'white' : '#333'
+                  fontWeight: '700',
+                  fontSize: '1.1rem',
+                  color: selectedCategory === '' ? 'white' : '#333',
+                  textShadow: selectedCategory === '' ? '0 2px 4px rgba(0, 0, 0, 0.2)' : 'none'
                 }}>All</div>
+                <div style={{
+                  fontSize: '0.8rem',
+                  color: selectedCategory === '' ? 'rgba(255, 255, 255, 0.9)' : '#666',
+                  marginTop: '0.25rem',
+                  fontWeight: '500'
+                }}>View All</div>
               </div>
             </button>
 
@@ -684,21 +835,23 @@ export default function HomePage() {
                     : 'rgba(255, 255, 255, 0.9)',
                   backdropFilter: 'blur(10px)',
                   border: '1px solid rgba(255, 255, 255, 0.3)',
-                  borderRadius: '16px',
-                  padding: '1.5rem 1rem',
+                  borderRadius: '20px',
+                  padding: '2rem 1rem',
                   cursor: 'pointer',
                   transition: 'all 0.3s ease',
                   transform: selectedCategory === category.id ? 'scale(1.05)' : 'scale(1)',
                   boxShadow: selectedCategory === category.id 
-                    ? '0 8px 25px rgba(255, 107, 107, 0.3)' 
-                    : '0 4px 15px rgba(0, 0, 0, 0.1)'
+                    ? '0 12px 35px rgba(255, 107, 107, 0.4)' 
+                    : '0 8px 25px rgba(0, 0, 0, 0.1)',
+                  position: 'relative',
+                  overflow: 'hidden'
                 }}
                 onMouseEnter={(e) => {
                   // Only apply hover effect if NOT selected
                   if (selectedCategory !== category.id) {
                     e.currentTarget.style.background = 'linear-gradient(135deg, #ff6b6b, #ee5a24)';
                     e.currentTarget.style.transform = 'scale(1.05)';
-                    e.currentTarget.style.boxShadow = '0 8px 25px rgba(255, 107, 107, 0.3)';
+                    e.currentTarget.style.boxShadow = '0 12px 35px rgba(255, 107, 107, 0.4)';
                     // Change text color to white on hover
                     const textElements = e.currentTarget.querySelectorAll('div');
                     textElements.forEach(el => {
@@ -711,7 +864,7 @@ export default function HomePage() {
                   if (selectedCategory !== category.id) {
                     e.currentTarget.style.background = 'rgba(255, 255, 255, 0.9)';
                     e.currentTarget.style.transform = 'scale(1)';
-                    e.currentTarget.style.boxShadow = '0 4px 15px rgba(0, 0, 0, 0.1)';
+                    e.currentTarget.style.boxShadow = '0 8px 25px rgba(0, 0, 0, 0.1)';
                     // Change text color back to dark
                     const textElements = e.currentTarget.querySelectorAll('div');
                     textElements.forEach(el => {
@@ -720,18 +873,65 @@ export default function HomePage() {
                   }
                 }}
               >
+                {/* Background Pattern */}
                 <div style={{
-                  textAlign: 'center'
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  background: selectedCategory === category.id 
+                    ? 'radial-gradient(circle at 30% 20%, rgba(255, 255, 255, 0.2) 0%, transparent 50%)' 
+                    : 'radial-gradient(circle at 30% 20%, rgba(255, 107, 107, 0.1) 0%, transparent 50%)',
+                  pointerEvents: 'none'
+                }}></div>
+                
+                <div style={{
+                  textAlign: 'center',
+                  position: 'relative',
+                  zIndex: 1
                 }}>
                   <div style={{
-                    fontSize: '2.5rem',
-                    marginBottom: '0.5rem'
-                  }}>{category.emoji}</div>
+                    width: '80px',
+                    height: '80px',
+                    marginBottom: '1rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    margin: '0 auto 1rem auto',
+                    background: selectedCategory === category.id 
+                      ? 'rgba(255, 255, 255, 0.2)' 
+                      : 'linear-gradient(135deg, #ff6b6b, #ee5a24)',
+                    borderRadius: '20px',
+                    boxShadow: '0 8px 20px rgba(0, 0, 0, 0.1)',
+                    border: '3px solid rgba(255, 255, 255, 0.3)',
+                    position: 'relative',
+                    overflow: 'hidden'
+                  }}>
+                    <Image 
+                      src={getCategoryImage(category.id)}
+                      alt={category.name}
+                      width={60}
+                      height={60}
+                      style={{
+                        objectFit: 'cover',
+                        borderRadius: '15px',
+                        filter: selectedCategory === category.id ? 'brightness(1.2) contrast(1.1)' : 'none'
+                      }}
+                    />
+                  </div>
                   <div style={{
-                    fontWeight: '600',
-                    fontSize: '0.9rem',
-                    color: selectedCategory === category.id ? 'white' : '#333'
+                    fontWeight: '700',
+                    fontSize: '1.1rem',
+                    color: selectedCategory === category.id ? 'white' : '#333',
+                    textShadow: selectedCategory === category.id ? '0 2px 4px rgba(0, 0, 0, 0.2)' : 'none'
                   }}>{category.name}</div>
+                  <div style={{
+                    fontSize: '0.8rem',
+                    color: selectedCategory === category.id ? 'rgba(255, 255, 255, 0.9)' : '#666',
+                    marginTop: '0.25rem',
+                    fontWeight: '500'
+                  }}>Explore</div>
                 </div>
               </button>
             ))}
@@ -960,609 +1160,517 @@ export default function HomePage() {
           margin: '0 auto',
           padding: '0 2rem'
         }}>
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(3, 1fr)',
-            gap: '1.5rem'
-          }}>
-            {filteredRestaurants.map((restaurant, index) => (
-              <div
-                key={restaurant.id}
-                onClick={() => handleCardClick(restaurant.id)}
-                onMouseEnter={() => setHoveredCard(restaurant.id)}
-                onMouseLeave={() => setHoveredCard(null)}
-                style={{
-                  background: 'rgba(255, 255, 255, 0.95)',
-                  backdropFilter: 'blur(10px)',
-                  borderRadius: '16px',
-                  overflow: 'hidden',
-                  cursor: 'pointer',
-                  transition: 'all 0.3s ease',
-                  transform: hoveredCard === restaurant.id ? 'translateY(-8px) scale(1.02)' : 'translateY(0) scale(1)',
-                  boxShadow: hoveredCard === restaurant.id 
-                    ? '0 20px 40px rgba(0, 0, 0, 0.15)' 
-                    : '0 8px 25px rgba(0, 0, 0, 0.1)',
-                  border: '1px solid rgba(255, 255, 255, 0.3)'
-                }}
-              >
-                {/* Restaurant Image with Different Hover Colors */}
-                <div style={{
-                  height: '160px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: '4rem',
-                  transition: 'all 0.3s ease',
-                  background: hoveredCard === restaurant.id 
-                    ? getHoverGradient(index)
-                    : 'linear-gradient(135deg, #f8fafc, #e2e8f0)'
-                }}>
-                  {restaurant.image}
-                </div>
+          {/* Loading State */}
+          {loading && (
+            <div style={{
+              display: 'flex',
+              justifyContent: 'center',
+              alignItems: 'center',
+              minHeight: '400px',
+              flexDirection: 'column',
+              gap: '1rem'
+            }}>
+              <div style={{
+                width: '60px',
+                height: '60px',
+                border: '4px solid rgba(255, 107, 107, 0.3)',
+                borderTop: '4px solid #ff6b6b',
+                borderRadius: '50%',
+                animation: 'spin 1s linear infinite'
+              }}></div>
+              <p style={{
+                color: 'white',
+                fontSize: '1.1rem',
+                textAlign: 'center'
+              }}>
+                Loading delicious restaurants...
+              </p>
+            </div>
+          )}
 
-                {/* Restaurant Info */}
-                <div style={{ padding: '1.25rem' }}>
-                  {/* Header with Rating */}
+          {/* Error State */}
+          {error && !loading && (
+            <div style={{
+              display: 'flex',
+              justifyContent: 'center',
+              alignItems: 'center',
+              minHeight: '400px',
+              flexDirection: 'column',
+              gap: '1rem'
+            }}>
+              <div style={{
+                background: 'rgba(239, 68, 68, 0.1)',
+                border: '1px solid rgba(239, 68, 68, 0.3)',
+                borderRadius: '16px',
+                padding: '2rem',
+                textAlign: 'center',
+                maxWidth: '500px'
+              }}>
+                <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>😔</div>
+                <h3 style={{
+                  color: 'white',
+                  fontSize: '1.2rem',
+                  marginBottom: '0.5rem',
+                  margin: '0 0 0.5rem 0'
+                }}>
+                  Oops! Something went wrong
+                </h3>
+                <p style={{
+                  color: 'rgba(255, 255, 255, 0.8)',
+                  fontSize: '1rem',
+                  marginBottom: '1.5rem',
+                  margin: '0 0 1.5rem 0'
+                }}>
+                  {error}
+                </p>
+                <button
+                  onClick={() => {
+                    fetchRestaurants();
+                    fetchCategories();
+                  }}
+                  style={{
+                    padding: '0.75rem 1.5rem',
+                    background: 'linear-gradient(135deg, #ff6b6b, #ee5a24)',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '12px',
+                    fontSize: '0.9rem',
+                    fontWeight: '600',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = 'linear-gradient(135deg, #ee5a24, #dc2626)';
+                    e.currentTarget.style.transform = 'translateY(-1px)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = 'linear-gradient(135deg, #ff6b6b, #ee5a24)';
+                    e.currentTarget.style.transform = 'translateY(0)';
+                  }}
+                >
+                  Try Again
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Empty State - when no restaurants loaded due to network issues */}
+          {!loading && !error && filteredRestaurants.length === 0 && restaurants.length === 0 && (
+            <div style={{
+              display: 'flex',
+              justifyContent: 'center',
+              alignItems: 'center',
+              minHeight: '400px',
+              flexDirection: 'column',
+              gap: '1rem'
+            }}>
+              <div style={{
+                background: 'rgba(255, 193, 7, 0.1)',
+                border: '1px solid rgba(255, 193, 7, 0.3)',
+                borderRadius: '16px',
+                padding: '2rem',
+                textAlign: 'center',
+                maxWidth: '500px'
+              }}>
+                <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>📡</div>
+                <h3 style={{
+                  color: 'white',
+                  fontSize: '1.2rem',
+                  marginBottom: '0.5rem',
+                  margin: '0 0 0.5rem 0'
+                }}>
+                  No restaurants available
+                </h3>
+                <p style={{
+                  color: 'rgba(255, 255, 255, 0.8)',
+                  fontSize: '1rem',
+                  marginBottom: '1.5rem',
+                  margin: '0 0 1.5rem 0'
+                }}>
+                  Please check your network connection or try again later
+                </p>
+                <button
+                  onClick={() => {
+                    fetchRestaurants();
+                    fetchCategories();
+                  }}
+                  style={{
+                    padding: '0.75rem 1.5rem',
+                    background: 'linear-gradient(135deg, #ff6b6b, #ee5a24)',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '12px',
+                    fontSize: '0.9rem',
+                    fontWeight: '600',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = 'linear-gradient(135deg, #ee5a24, #dc2626)';
+                    e.currentTarget.style.transform = 'translateY(-1px)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = 'linear-gradient(135deg, #ff6b6b, #ee5a24)';
+                    e.currentTarget.style.transform = 'translateY(0)';
+                  }}
+                >
+                  Retry
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* No Results State - when no restaurants match filters */}
+          {!loading && !error && filteredRestaurants.length === 0 && restaurants.length > 0 && (
+            <div style={{
+              display: 'flex',
+              justifyContent: 'center',
+              alignItems: 'center',
+              minHeight: '400px',
+              flexDirection: 'column',
+              gap: '1rem'
+            }}>
+              <div style={{
+                background: 'rgba(255, 255, 255, 0.1)',
+                borderRadius: '16px',
+                padding: '2rem',
+                textAlign: 'center',
+                maxWidth: '500px'
+              }}>
+                <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>🔍</div>
+                <h3 style={{
+                  color: 'white',
+                  fontSize: '1.2rem',
+                  marginBottom: '0.5rem',
+                  margin: '0 0 0.5rem 0'
+                }}>
+                  No restaurants found
+                </h3>
+                <p style={{
+                  color: 'rgba(255, 255, 255, 0.8)',
+                  fontSize: '1rem',
+                  margin: 0
+                }}>
+                  Try adjusting your search or category filters
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Restaurant Cards */}
+          {!loading && !error && filteredRestaurants.length > 0 && (
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(3, 1fr)',
+              gap: '1.5rem'
+            }}>
+              {filteredRestaurants.map((restaurant, index) => (
+                <div
+                  key={restaurant.id}
+                  onClick={() => restaurant.is_online ? handleCardClick(restaurant.id) : null}
+                  onMouseEnter={() => restaurant.is_online ? setHoveredCard(restaurant.id) : null}
+                  onMouseLeave={() => setHoveredCard(null)}
+                  style={{
+                    background: restaurant.is_online ? 'rgba(255, 255, 255, 0.95)' : 'rgba(200, 200, 200, 0.7)',
+                    backdropFilter: 'blur(10px)',
+                    borderRadius: '16px',
+                    overflow: 'hidden',
+                    cursor: restaurant.is_online ? 'pointer' : 'not-allowed',
+                    transition: 'all 0.3s ease',
+                    transform: (hoveredCard === restaurant.id && restaurant.is_online) ? 'translateY(-8px) scale(1.02)' : 'translateY(0) scale(1)',
+                    boxShadow: (hoveredCard === restaurant.id && restaurant.is_online)
+                      ? '0 20px 40px rgba(0, 0, 0, 0.15)' 
+                      : '0 8px 25px rgba(0, 0, 0, 0.1)',
+                    border: '1px solid rgba(255, 255, 255, 0.3)',
+                    opacity: restaurant.is_online ? 1 : 0.7,
+                    position: 'relative'
+                  }}
+                >
+                  {/* Restaurant Image with Overlay Rating */}
                   <div style={{
+                    height: '180px',
                     display: 'flex',
-                    alignItems: 'flex-start',
-                    justifyContent: 'space-between',
-                    marginBottom: '0.75rem'
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    transition: 'all 0.3s ease',
+                    background: hoveredCard === restaurant.id 
+                      ? getHoverGradient()
+                      : 'linear-gradient(135deg, #f8fafc, #e2e8f0)',
+                    overflow: 'hidden',
+                    position: 'relative'
                   }}>
-                    <div style={{ flex: 1 }}>
-                      <h4 style={{
-                        fontWeight: 'bold',
-                        fontSize: '1.1rem',
-                        color: '#1f2937',
-                        marginBottom: '0.25rem',
-                        margin: 0,
-                        lineHeight: '1.3'
-                      }}>
-                        {restaurant.name}
-                      </h4>
-                      <p style={{
-                        fontSize: '0.875rem',
-                        color: '#6b7280',
-                        margin: 0
-                      }}>
-                        {restaurant.cuisine}
-                      </p>
-                    </div>
+                    {restaurant.restaurant_image ? (
+                      <img 
+                        src={restaurant.restaurant_image}
+                        alt={restaurant.name}
+                        style={{
+                          width: '100%',
+                          height: '100%',
+                          objectFit: 'cover',
+                          display: 'block'
+                        }}
+                        onError={(e) => {
+                          const target = e.target as HTMLImageElement;
+                          target.style.display = 'none';
+                          const parent = target.parentElement;
+                          if (parent) {
+                            parent.innerHTML = `
+                              <div style="
+                                display: flex; 
+                                align-items: center; 
+                                justify-content: center; 
+                                height: 100%; 
+                                font-size: 4rem;
+                              ">
+                                🍽️
+                              </div>
+                            `;
+                          }
+                        }}
+                      />
+                    ) : (
+                      <div style={{ fontSize: '4rem' }}>🍽️</div>
+                    )}
+                    
+                    {/* Rating Overlay */}
                     <div style={{
+                      position: 'absolute',
+                      top: '12px',
+                      right: '12px',
                       display: 'flex',
                       alignItems: 'center',
                       gap: '0.25rem',
-                      background: '#dcfce7',
-                      padding: '0.25rem 0.5rem',
-                      borderRadius: '12px',
-                      marginLeft: '0.75rem'
+                      background: 'rgba(255, 255, 255, 0.95)',
+                      backdropFilter: 'blur(10px)',
+                      padding: '0.375rem 0.75rem',
+                      borderRadius: '20px',
+                      boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+                      border: '1px solid rgba(255, 255, 255, 0.2)'
                     }}>
-                      <span style={{ fontSize: '0.75rem' }}>⭐</span>
+                      <span style={{ fontSize: '0.8rem' }}>⭐</span>
                       <span style={{
-                        fontSize: '0.75rem',
-                        fontWeight: '600',
+                        fontSize: '0.8rem',
+                        fontWeight: '700',
                         color: '#166534'
                       }}>
                         {restaurant.rating}
                       </span>
                     </div>
+                    
+                    {/* Offline Badge */}
+                    {!restaurant.is_online && (
+                      <div style={{
+                        position: 'absolute',
+                        top: '50%',
+                        left: '50%',
+                        transform: 'translate(-50%, -50%)',
+                        background: 'rgba(220, 38, 38, 0.95)',
+                        backdropFilter: 'blur(10px)',
+                        padding: '0.75rem 1.5rem',
+                        borderRadius: '12px',
+                        boxShadow: '0 8px 24px rgba(0, 0, 0, 0.3)',
+                        border: '2px solid rgba(255, 255, 255, 0.3)',
+                        zIndex: 10
+                      }}>
+                        <div style={{
+                          fontSize: '1rem',
+                          fontWeight: '700',
+                          color: 'white',
+                          textAlign: 'center',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '0.5rem'
+                        }}>
+                          <span>🔴</span>
+                          <span>OFFLINE</span>
+                        </div>
+                        <div style={{
+                          fontSize: '0.7rem',
+                          color: 'rgba(255, 255, 255, 0.9)',
+                          textAlign: 'center',
+                          marginTop: '0.25rem'
+                        }}>
+                          Not accepting orders
+                        </div>
+                      </div>
+                    )}
                   </div>
 
-                  {/* Stats Row */}
-                  <div style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    fontSize: '0.75rem',
-                    color: '#6b7280',
-                    marginBottom: '0.75rem'
-                  }}>
-                    <span>🕒 {restaurant.deliveryTime}</span>
-                    <span>🚚 ${restaurant.deliveryFee}</span>
-                    <span>💬 {restaurant.reviews}</span>
-                  </div>
+                  {/* Restaurant Info */}
+                  <div style={{ padding: '1.25rem' }}>
+                    {/* Restaurant Name & Cuisine */}
+                    <div style={{ marginBottom: '0.75rem' }}>
+                      <h4 style={{
+                        fontWeight: 'bold',
+                        fontSize: '1.1rem',
+                        color: '#1f2937',
+                        marginBottom: '0.25rem',
+                        margin: '0 0 0.25rem 0',
+                        lineHeight: '1.3'
+                      }}>
+                        {restaurant.name}
+                      </h4>
+                      <p style={{
+                        fontSize: '0.85rem',
+                        color: '#6b7280',
+                        margin: 0,
+                        fontWeight: '500'
+                      }}>
+                        {restaurant.cuisine} Cuisine
+                      </p>
+                    </div>
 
-                  {/* Tags */}
-                  <div style={{
-                    display: 'flex',
-                    flexWrap: 'wrap',
-                    gap: '0.375rem',
-                    marginBottom: '1rem'
-                  }}>
-                    {restaurant.tags.slice(0, 3).map((tag, tagIndex) => (
-                      <span
-                        key={tagIndex}
-                        style={{
-                          padding: '0.25rem 0.5rem',
-                          background: '#fef3f2',
-                          color: '#dc2626',
-                          fontSize: '0.75rem',
-                          borderRadius: '8px',
-                          fontWeight: '500'
-                        }}
-                      >
-                        {tag}
-                      </span>
-                    ))}
-                  </div>
+                    {/* Key Stats Row */}
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      fontSize: '0.75rem',
+                      color: '#6b7280',
+                      marginBottom: '0.75rem'
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                        <span>🕒</span>
+                        <span>{restaurant.delivery_time}</span>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                        <span>🚚</span>
+                        <span>${restaurant.delivery_fee}</span>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                        <span>💬</span>
+                        <span>{restaurant.reviews}</span>
+                      </div>
+                    </div>
 
-                  {/* CTA Button */}
-                  <button
-                    style={{
-                      width: '100%',
-                      padding: '0.75rem',
-                      background: 'linear-gradient(135deg, #ff6b6b, #ee5a24)',
-                      color: 'white',
-                      border: 'none',
-                      borderRadius: '12px',
-                      fontSize: '0.875rem',
-                      fontWeight: '600',
-                      cursor: 'pointer',
-                      transition: 'all 0.2s ease'
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.background = 'linear-gradient(135deg, #ee5a24, #dc2626)';
-                      e.currentTarget.style.transform = 'translateY(-1px)';
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.background = 'linear-gradient(135deg, #ff6b6b, #ee5a24)';
-                      e.currentTarget.style.transform = 'translateY(0)';
-                    }}
-                  >
-                    View Menu →
-                  </button>
+                    {/* Menu & Price Info */}
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      fontSize: '0.75rem',
+                      color: '#6b7280',
+                      marginBottom: '0.75rem'
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                        <span>🍽️</span>
+                        <span>{restaurant.menu_items_count} items</span>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                        <span>💵</span>
+                        <span>Avg ${restaurant.average_price}</span>
+                      </div>
+                    </div>
+
+                    {/* Tags - Compact */}
+                    <div style={{
+                      display: 'flex',
+                      gap: '0.5rem',
+                      marginBottom: '1rem'
+                    }}>
+                      {restaurant.tags.slice(0, 2).map((tag, tagIndex) => (
+                        <span
+                          key={tagIndex}
+                          style={{
+                            padding: '0.25rem 0.5rem',
+                            background: '#fef3f2',
+                            color: '#dc2626',
+                            fontSize: '0.7rem',
+                            borderRadius: '8px',
+                            fontWeight: '600'
+                          }}
+                        >
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
+
+                    {/* CTA Button */}
+                    <button
+                      disabled={!restaurant.is_online}
+                      style={{
+                        width: '100%',
+                        padding: '0.75rem',
+                        background: restaurant.is_online 
+                          ? 'linear-gradient(135deg, #ff6b6b, #ee5a24)' 
+                          : 'linear-gradient(135deg, #9ca3af, #6b7280)',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '12px',
+                        fontSize: '0.875rem',
+                        fontWeight: '600',
+                        cursor: restaurant.is_online ? 'pointer' : 'not-allowed',
+                        transition: 'all 0.2s ease',
+                        opacity: restaurant.is_online ? 1 : 0.7
+                      }}
+                      onMouseEnter={(e) => {
+                        if (restaurant.is_online) {
+                          e.currentTarget.style.background = 'linear-gradient(135deg, #ee5a24, #dc2626)';
+                          e.currentTarget.style.transform = 'translateY(-1px)';
+                        }
+                      }}
+                      onMouseLeave={(e) => {
+                        if (restaurant.is_online) {
+                          e.currentTarget.style.background = 'linear-gradient(135deg, #ff6b6b, #ee5a24)';
+                          e.currentTarget.style.transform = 'translateY(0)';
+                        }
+                      }}
+                    >
+                      {restaurant.is_online ? 'View Menu →' : '🔴 Offline - Not Accepting Orders'}
+                    </button>
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
       </section>
 
-      {/* COMMENTED OUT - WILL BUILD AGAIN STEP BY STEP */}
-
-      {/* FOOTER - BETTER CONTRAST AND VISIBILITY */}
+      {/* SIMPLE FOOTER */}
       <footer style={{
         marginTop: '4rem',
-        background: 'rgba(0, 0, 0, 0.4)', // Darker background for better contrast
+        background: 'rgba(0, 0, 0, 0.4)',
         backdropFilter: 'blur(15px)',
         borderTop: '1px solid rgba(255, 255, 255, 0.3)',
-        borderRadius: '24px 24px 0 0',
-        margin: '4rem 1rem 0 1rem',
-        boxShadow: '0 -8px 32px rgba(0, 0, 0, 0.2)',
-        position: 'relative',
-        zIndex: 10
+        padding: '2rem',
+        textAlign: 'center'
       }}>
         <div style={{
           maxWidth: '1200px',
-          margin: '0 auto',
-          padding: '3rem 2rem 2rem'
+          margin: '0 auto'
         }}>
-          {/* Footer Content Grid */}
           <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
-            gap: '2rem',
-            marginBottom: '2rem'
-          }}>
-            {/* Brand Section */}
-            <div>
-              <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.75rem',
-                marginBottom: '1rem'
-              }}>
-                <span style={{ fontSize: '2rem' }}>🌸</span>
-                <h3 style={{
-                  fontSize: '1.5rem',
-                  fontWeight: 'bold',
-                  color: '#ffffff', // Pure white for better visibility
-                  margin: 0,
-                  textShadow: '0 2px 4px rgba(0, 0, 0, 0.3)'
-                }}>
-                  Fuji Sakura
-                </h3>
-              </div>
-              <p style={{
-                color: '#e5e5e5', // Lighter gray for better readability
-                fontSize: '0.9rem',
-                lineHeight: '1.6',
-                margin: '0 0 1.5rem 0'
-              }}>
-                Premium Japanese food delivery experience. Discover authentic flavors from the finest restaurants with fast, reliable delivery.
-              </p>
-              {/* Social Links */}
-              <div style={{
-                display: 'flex',
-                gap: '1rem'
-              }}>
-                {['📱', '📧', '🐦', '📘'].map((icon, index) => (
-                  <button
-                    key={index}
-                    style={{
-                      width: '40px',
-                      height: '40px',
-                      background: 'rgba(255, 255, 255, 0.2)',
-                      border: '1px solid rgba(255, 255, 255, 0.3)',
-                      borderRadius: '50%',
-                      color: 'white',
-                      fontSize: '1.2rem',
-                      cursor: 'pointer',
-                      transition: 'all 0.2s ease',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center'
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.background = 'rgba(255, 107, 107, 0.8)'; // Pink hover
-                      e.currentTarget.style.transform = 'scale(1.1)';
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.background = 'rgba(255, 255, 255, 0.2)';
-                      e.currentTarget.style.transform = 'scale(1)';
-                    }}
-                  >
-                    {icon}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Quick Links */}
-            <div>
-              <h4 style={{
-                color: '#ffffff', // Pure white
-                fontSize: '1.1rem',
-                fontWeight: '600',
-                marginBottom: '1rem',
-                margin: '0 0 1rem 0',
-                textShadow: '0 2px 4px rgba(0, 0, 0, 0.3)'
-              }}>
-                Quick Links
-              </h4>
-              <div style={{
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '0.75rem'
-              }}>
-                {['About Us', 'How It Works', 'Restaurants', 'Become a Partner', 'Careers'].map((link, index) => (
-                  <button
-                    key={index}
-                    style={{
-                      background: 'none',
-                      border: 'none',
-                      color: '#d1d5db', // Light gray for better visibility
-                      fontSize: '0.9rem',
-                      cursor: 'pointer',
-                      textAlign: 'left',
-                      padding: 0,
-                      transition: 'color 0.2s ease'
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.color = '#ff6b6b'; // Pink hover
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.color = '#d1d5db';
-                    }}
-                  >
-                    {link}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Support */}
-            <div>
-              <h4 style={{
-                color: '#ffffff', // Pure white
-                fontSize: '1.1rem',
-                fontWeight: '600',
-                marginBottom: '1rem',
-                margin: '0 0 1rem 0',
-                textShadow: '0 2px 4px rgba(0, 0, 0, 0.3)'
-              }}>
-                Support
-              </h4>
-              <div style={{
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '0.75rem'
-              }}>
-                {['Help Center', 'Contact Us', 'Track Order', 'Report Issue', 'FAQs'].map((link, index) => (
-                  <button
-                    key={index}
-                    style={{
-                      background: 'none',
-                      border: 'none',
-                      color: '#d1d5db', // Light gray for better visibility
-                      fontSize: '0.9rem',
-                      cursor: 'pointer',
-                      textAlign: 'left',
-                      padding: 0,
-                      transition: 'color 0.2s ease'
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.color = '#ff6b6b'; // Pink hover
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.color = '#d1d5db';
-                    }}
-                  >
-                    {link}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Contact Info */}
-            <div>
-              <h4 style={{
-                color: '#ffffff', // Pure white
-                fontSize: '1.1rem',
-                fontWeight: '600',
-                marginBottom: '1rem',
-                margin: '0 0 1rem 0',
-                textShadow: '0 2px 4px rgba(0, 0, 0, 0.3)'
-              }}>
-                Contact
-              </h4>
-              <div style={{
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '0.75rem'
-              }}>
-                <div style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.5rem',
-                  color: '#d1d5db', // Light gray for better visibility
-                  fontSize: '0.9rem'
-                }}>
-                  <span>📍</span>
-                  <span>Tokyo, Shibuya, Japan</span>
-                </div>
-                <div style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.5rem',
-                  color: '#d1d5db',
-                  fontSize: '0.9rem'
-                }}>
-                  <span>📞</span>
-                  <span>+81 3-1234-5678</span>
-                </div>
-                <div style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.5rem',
-                  color: '#d1d5db',
-                  fontSize: '0.9rem'
-                }}>
-                  <span>📧</span>
-                  <span>hello@fujisakura.com</span>
-                </div>
-                <div style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.5rem',
-                  color: '#d1d5db',
-                  fontSize: '0.9rem'
-                }}>
-                  <span>🕒</span>
-                  <span>24/7 Delivery</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Footer Bottom */}
-          <div style={{
-            borderTop: '1px solid rgba(255, 255, 255, 0.3)',
-            paddingTop: '1.5rem',
             display: 'flex',
-            justifyContent: 'space-between',
             alignItems: 'center',
-            flexWrap: 'wrap',
-            gap: '1rem'
+            justifyContent: 'center',
+            gap: '0.75rem',
+            marginBottom: '1rem'
           }}>
-            <div style={{
-              color: '#d1d5db', // Light gray for better visibility
-              fontSize: '0.85rem'
+            <span style={{ fontSize: '2rem' }}>🌸</span>
+            <h3 style={{
+              fontSize: '1.5rem',
+              fontWeight: 'bold',
+              color: '#ffffff',
+              margin: 0
             }}>
-              © 2026 Fuji Sakura. All rights reserved.
-            </div>
-            <div style={{
-              display: 'flex',
-              gap: '2rem',
-              fontSize: '0.85rem'
-            }}>
-              {['Privacy Policy', 'Terms of Service', 'Cookie Policy'].map((link, index) => (
-                <button
-                  key={index}
-                  style={{
-                    background: 'none',
-                    border: 'none',
-                    color: '#d1d5db', // Light gray for better visibility
-                    cursor: 'pointer',
-                    fontSize: '0.85rem',
-                    transition: 'color 0.2s ease'
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.color = '#ff6b6b'; // Pink hover
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.color = '#d1d5db';
-                  }}
-                >
-                  {link}
-                </button>
-              ))}
-            </div>
+              Fuji Sakura
+            </h3>
+          </div>
+          <p style={{
+            color: '#d1d5db',
+            fontSize: '0.9rem',
+            margin: '0 0 1rem 0'
+          }}>
+            Premium food delivery experience
+          </p>
+          <div style={{
+            color: '#d1d5db',
+            fontSize: '0.85rem'
+          }}>
+            © 2026 Fuji Sakura. All rights reserved.
           </div>
         </div>
       </footer>
-      {/*
-      {/* SECTION 2: CATEGORY GRID - UNIVERSAL CARDS */}
-      {/*
-      <section className="py-8">
-        <div className="max-w-4xl mx-auto px-8">
-          <div className="grid grid-cols-4 gap-4">
-            {categories.map((category) => (
-              <button
-                key={category.id}
-                onClick={() => handleCategoryClick(category.id)}
-                className={`group theme-card card-hover p-6 transition-all duration-300 ${
-                  selectedCategory === category.id 
-                    ? 'ring-4 ring-white/50 scale-105' 
-                    : ''
-                }`}
-              >
-                <div className="text-center">
-                  <div className="text-4xl mb-3">{category.emoji}</div>
-                  <div className="font-semibold text-gray-800 text-sm">{category.name}</div>
-                </div>
-              </button>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* SECTION 3: POPULAR RESTAURANTS TITLE */}
-      {/*
-      <section className="py-16">
-        <div className="max-w-4xl mx-auto px-8">
-          <div className="flex items-center justify-between mb-8">
-            <div>
-              <h3 className="text-3xl font-bold text-white mb-2">Popular Restaurants</h3>
-              <p className="text-white/70">{filteredRestaurants.length} restaurants found</p>
-            </div>
-          </div>
-
-          {/* SORT CAPSULE - UNIVERSAL THEME */}
-          {/*
-          <div className="mb-12">
-            <div className="inline-flex items-center theme-card px-6 py-3 gap-4">
-              <span className="text-gray-700 font-medium">Sort by:</span>
-              <div className="flex gap-2">
-                {[
-                  { id: 'rating', label: 'Rating', icon: '⭐' },
-                  { id: 'distance', label: 'Distance', icon: '📍' },
-                  { id: 'time', label: 'Time', icon: '⏱️' },
-                  { id: 'price', label: 'Price', icon: '💰' }
-                ].map((sort) => (
-                  <button
-                    key={sort.id}
-                    onClick={() => setSortBy(sort.id === sortBy ? '' : sort.id)}
-                    className={`flex items-center gap-1.5 px-3 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
-                      sortBy === sort.id
-                        ? 'bg-primary text-white shadow-md'
-                        : 'text-gray-600 hover:bg-primary-light hover:text-primary'
-                    }`}
-                  >
-                    <span>{sort.icon}</span>
-                    <span>{sort.label}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* SECTION 4: RESTAURANT CARDS GRID */}
-      {/*
-      <section ref={restaurantsRef} className="py-16">
-        <div className="max-w-4xl mx-auto px-8">
-          <div className="grid grid-cols-3 gap-6">
-            {filteredRestaurants.map((restaurant) => (
-              <div
-                key={restaurant.id}
-                onClick={() => handleCardClick(restaurant.id)}
-                onMouseEnter={() => setHoveredCard(restaurant.id)}
-                onMouseLeave={() => setHoveredCard(null)}
-                className={`group theme-card card-hover cursor-pointer transition-all duration-300 ${
-                  hoveredCard === restaurant.id || clickedCard === restaurant.id
-                    ? 'scale-105'
-                    : ''
-                }`}
-              >
-                {/* Restaurant Image */}
-                {/*
-                <div className={`h-40 flex items-center justify-center text-5xl transition-all duration-300 rounded-t-2xl ${
-                  hoveredCard === restaurant.id
-                    ? 'theme-bg'
-                    : 'bg-gradient-to-br from-gray-100 to-gray-200'
-                }`}>
-                  {restaurant.image}
-                </div>
-
-                {/* Restaurant Info */}
-                {/*
-                <div className="p-5">
-                  {/* Header */}
-                  {/*
-                  <div className="flex items-start justify-between mb-3">
-                    <div>
-                      <h4 className="font-bold text-lg text-gray-800 mb-1">{restaurant.name}</h4>
-                      <p className="text-sm text-gray-500">{restaurant.cuisine}</p>
-                    </div>
-                    <div className="flex items-center gap-1 bg-green-100 px-2 py-1 rounded-full">
-                      <span className="text-xs">⭐</span>
-                      <span className="text-xs font-semibold text-green-700">{restaurant.rating}</span>
-                    </div>
-                  </div>
-
-                  {/* Stats Row */}
-                  {/*
-                  <div className="flex items-center justify-between text-xs text-gray-500 mb-4">
-                    <span>🕒 {restaurant.deliveryTime}</span>
-                    <span>🚚 ${restaurant.deliveryFee}</span>
-                    <span>💬 {restaurant.reviews} reviews</span>
-                  </div>
-
-                  {/* Tags */}
-                  {/*
-                  <div className="flex flex-wrap gap-1 mb-4">
-                    {restaurant.tags.slice(0, 3).map((tag, index) => (
-                      <span key={index} className="px-2 py-1 bg-primary-light text-primary text-xs rounded-full">
-                        {tag}
-                      </span>
-                    ))}
-                  </div>
-
-                  {/* CTA Button */}
-                  {/*
-                  <button className="w-full theme-button text-sm">
-                    View Menu
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* FOOTER */}
-      {/*
-      <footer className="py-16 glass-effect border-t border-white/20">
-        <div className="max-w-4xl mx-auto px-8 text-center">
-          <div className="flex items-center justify-center gap-3 mb-4">
-            <span className="text-3xl">🌸</span>
-            <h3 className="text-2xl font-bold text-white">Fuji Sakura</h3>
-          </div>
-          <p className="text-white/70 mb-6">Premium food delivery experience</p>
-          <div className="flex items-center justify-center gap-8 text-sm text-white/60">
-            <span>© 2026 Fuji Sakura</span>
-            <span>•</span>
-            <span>Privacy Policy</span>
-            <span>•</span>
-            <span>Terms of Service</span>
-            <span>•</span>
-            <span>Contact Us</span>
-          </div>
-        </div>
-      </footer>
-      */}
 
       <style jsx>{`
         @keyframes gradientShift {
@@ -1574,11 +1682,6 @@ export default function HomePage() {
         @keyframes float {
           0%, 100% { transform: translateY(0px); }
           50% { transform: translateY(-20px); }
-        }
-
-        @keyframes pulse {
-          0%, 100% { transform: scale(1); }
-          50% { transform: scale(1.05); }
         }
 
         @keyframes slideDown {

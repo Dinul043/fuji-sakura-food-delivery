@@ -226,7 +226,7 @@ export default function LoginPage() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             email: cleanEmail.toLowerCase(),
-            password: formData.password,
+            password: formData.password.trim(), // Trim password for consistency
             rememberMe: rememberMe
           })
         });
@@ -234,19 +234,22 @@ export default function LoginPage() {
         if (response.ok) {
           const data = await response.json();
           
-          // Store user info based on "Remember Me" preference
-          const storage = rememberMe ? localStorage : sessionStorage;
+          console.log('✅ Login successful, storing auth data:', data);
           
-          storage.setItem('userName', data.user.name);
-          storage.setItem('userEmail', data.user.email);
-          storage.setItem('isGuest', 'false');
-          storage.setItem('accessToken', data.access_token);
-          
-          // Also store remember preference
+          // ALWAYS store auth data in localStorage for CartContext compatibility
+          localStorage.setItem('userName', data.user.name);
+          localStorage.setItem('userEmail', data.user.email);
+          localStorage.setItem('isGuest', 'false');
+          localStorage.setItem('token', data.access_token);
           localStorage.setItem('rememberMe', rememberMe.toString());
           
-          // Redirect to home
-          router.push('/home');
+          console.log('✅ Auth data stored in localStorage - CartContext will detect token');
+          
+          // Dispatch custom event to notify CartContext of token change
+          window.dispatchEvent(new Event('tokenChanged'));
+          
+          // Force a page reload to ensure CartContext picks up the new token
+          window.location.href = '/home';
         } else {
           const error = await response.json();
           let errorMessage = 'Login failed. Please check your credentials.';
@@ -272,7 +275,7 @@ export default function LoginPage() {
           setErrors(prev => ({ ...prev, password: errorMessage }));
         }
       } catch (error) {
-        console.error('Login error:', error);
+        // Silent fallback - no console errors
         setErrors(prev => ({ ...prev, password: 'Network error. Please try again.' }));
       } finally {
         setIsLoading(false);
@@ -306,9 +309,12 @@ export default function LoginPage() {
         localStorage.setItem('userName', data.user.name);
         localStorage.setItem('userEmail', data.user.email);
         localStorage.setItem('isGuest', 'false');
-        localStorage.setItem('accessToken', data.access_token);
+        localStorage.setItem('token', data.access_token);
         
-        // Redirect to home
+        // Dispatch custom event to notify CartContext of token change
+        window.dispatchEvent(new Event('tokenChanged'));
+        
+        // Redirect to home - CartContext will automatically fetch cart on mount
         router.push('/home');
       } else {
         const error = await response.json();
@@ -323,7 +329,7 @@ export default function LoginPage() {
         setErrors(prev => ({ ...prev, otp: errorMessage }));
       }
     } catch (error) {
-      console.error('OTP verification error:', error);
+      // Silent fallback - no console errors
       setErrors(prev => ({ ...prev, otp: 'Network error. Please try again.' }));
     } finally {
       setIsLoading(false);
@@ -381,7 +387,7 @@ export default function LoginPage() {
           setErrors(prev => ({ ...prev, email: errorMessage }));
         }
       } catch (error) {
-        console.error('Signup error:', error);
+        // Silent fallback - no console errors
         setErrors(prev => ({ ...prev, email: 'Network error. Please try again.' }));
       } finally {
         setIsLoading(false);
@@ -457,15 +463,19 @@ export default function LoginPage() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             email: formData.email.trim().toLowerCase(),
-            firstName: formData.firstName,
-            lastName: formData.lastName,
-            password: formData.password
+            firstName: formData.firstName.trim(),
+            lastName: formData.lastName.trim(),
+            password: formData.password.trim() // Trim password for consistency
           })
         });
         
         if (response.ok) {
           localStorage.setItem('userName', formData.firstName + ' ' + formData.lastName);
           localStorage.setItem('isGuest', 'false');
+          
+          // Dispatch custom event to notify CartContext of token change
+          window.dispatchEvent(new Event('tokenChanged'));
+          
           router.push('/home');
         } else {
           const error = await response.json();
@@ -527,7 +537,7 @@ export default function LoginPage() {
           setErrors(prev => ({ ...prev, email: errorMessage }));
         }
       } catch (error) {
-        console.error('Forgot password error:', error);
+        // Silent fallback - no console errors
         setErrors(prev => ({ ...prev, email: 'Network error. Please try again.' }));
       } finally {
         setIsLoading(false);
@@ -570,7 +580,7 @@ export default function LoginPage() {
         setErrors(prev => ({ ...prev, otp: errorMessage }));
       }
     } catch (error) {
-      console.error('Reset code verification error:', error);
+      // Silent fallback - no console errors
       setErrors(prev => ({ ...prev, otp: 'Network error. Please try again.' }));
     } finally {
       setIsLoading(false);
@@ -602,7 +612,7 @@ export default function LoginPage() {
           body: JSON.stringify({
             email: formData.email.trim().toLowerCase(),
             token: resetCode,
-            newPassword: formData.password
+            newPassword: formData.password.trim() // Trim password for consistency
           })
         });
         
@@ -635,7 +645,7 @@ export default function LoginPage() {
           setErrors(prev => ({ ...prev, password: errorMessage }));
         }
       } catch (error) {
-        console.error('Reset password error:', error);
+        // Silent fallback - no console errors
         setErrors(prev => ({ ...prev, password: 'Network error. Please try again.' }));
       } finally {
         setIsLoading(false);

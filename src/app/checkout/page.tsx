@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useCart } from '../../contexts/CartContext';
-import { restaurants } from '../../data/restaurants';
 import AuthPopup from '../../components/AuthPopup';
 
 export default function CheckoutPage() {
@@ -63,7 +62,11 @@ export default function CheckoutPage() {
   const groupedItems = checkoutItems.reduce((acc, item) => {
     if (!acc[item.restaurantId]) {
       acc[item.restaurantId] = {
-        restaurant: restaurants.find(r => r.id === item.restaurantId),
+        restaurant: {
+          id: item.restaurantId,
+          name: item.restaurantName,
+          image: '🏪' // Default restaurant emoji
+        },
         items: []
       };
     }

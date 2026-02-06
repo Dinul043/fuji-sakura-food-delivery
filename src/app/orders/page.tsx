@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { restaurants } from '../../data/restaurants';
 
 interface OrderItem {
   id: number;
@@ -66,9 +65,13 @@ export default function OrdersPage() {
     ? orders 
     : orders.filter(order => order.status === selectedStatus);
 
-  // Get restaurant info for an order
+  // Get restaurant info for an order (fallback since we removed hardcoded data)
   const getRestaurantInfo = (restaurantId: number) => {
-    return restaurants.find(r => r.id === restaurantId);
+    return {
+      id: restaurantId,
+      name: `Restaurant ${restaurantId}`,
+      image: '🏪'
+    };
   };
 
   // Group items by restaurant

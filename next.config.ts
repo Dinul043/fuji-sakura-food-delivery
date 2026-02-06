@@ -11,7 +11,22 @@ const nextConfig: NextConfig = {
   // Disable source maps in development for cleaner experience
   productionBrowserSourceMaps: false,
   images: {
-    // Allow query strings for cache busting
+    // Allow external domains for uploaded images
+    remotePatterns: [
+      {
+        protocol: 'http',
+        hostname: 'localhost',
+        port: '8000',
+        pathname: '/uploads/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'localhost',
+        port: '8000',
+        pathname: '/uploads/**',
+      },
+    ],
+    // Allow local images
     localPatterns: [
       {
         pathname: '/images/**',

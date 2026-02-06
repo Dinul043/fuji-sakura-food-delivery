@@ -40,9 +40,126 @@ export default function RestaurantDashboard() {
   });
   const [isLoading, setIsLoading] = useState(true);
   const [isOnline, setIsOnline] = useState(true);
+  const [showExitConfirm, setShowExitConfirm] = useState(false);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const [pendingNavigation, setPendingNavigation] = useState<string | null>(null);
+  const [sessionValid, setSessionValid] = useState(true);
+  const [statusNotification, setStatusNotification] = useState<{show: boolean; message: string; type: 'success' | 'error'}>({
+    show: false,
+    message: '',
+    type: 'success'
+  });
 
   useEffect(() => {
     checkAuthAndLoadData();
+    
+    // Set up session validation heartbeat every 30 seconds
+    const heartbeatInterval = setInterval(validateSession, 30000);
+    
+    return () => {
+      clearInterval(heartbeatInterval);
+    };
+  }, []);
+
+  // Handle browser close/navigation away - ask user if they want to logout
+  useEffect(() => {
+    let isNavigatingAway = false;
+
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      // Show browser's default confirmation dialog
+      e.preventDefault();
+      e.returnValue = 'Are you sure you want to leave? You will remain logged in unless you logout properly.';
+      isNavigatingAway = true;
+      return e.returnValue;
+    };
+
+    const handleUnload = async () => {
+      // Try to logout when user actually leaves (best effort)
+      if (isNavigatingAway) {
+        const token = localStorage.getItem('restaurantToken');
+        if (token) {
+          // Use sendBeacon for reliable logout on page unload
+          try {
+            const logoutData = JSON.stringify({});
+            const blob = new Blob([logoutData], { type: 'application/json' });
+            
+            // Try sendBeacon first
+            if (navigator.sendBeacon) {
+              navigator.sendBeacon(`${API_BASE_URL}/api/restaurant/logout`, blob);
+            } else {
+              // Fallback for browsers that don't support sendBeacon
+              fetch(`${API_BASE_URL}/api/restaurant/logout`, {
+                method: 'POST',
+                headers: {
+                  'Authorization': `Bearer ${token}`,
+                  'Content-Type': 'application/json'
+                },
+                body: logoutData,
+                keepalive: true
+              }).catch(() => {
+                // Ignore errors during unload
+              });
+            }
+          } catch (error) {
+            // Ignore errors during unload
+            console.log('Logout during unload failed:', error);
+          }
+        }
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      // When page becomes hidden (user switches tabs, minimizes, etc.)
+      if (document.hidden) {
+        // Page is now hidden - user might be leaving
+        console.log('Page hidden - user might be leaving');
+      } else {
+        // Page is now visible - validate session
+        validateSession();
+      }
+    };
+
+    // Custom navigation handler for internal links
+    const handleNavigation = (e: PopStateEvent) => {
+      // This handles browser back/forward buttons
+      const currentPath = window.location.pathname;
+      if (currentPath !== '/restaurant/dashboard') {
+        // User is navigating away from dashboard
+        setShowExitConfirm(true);
+        setPendingNavigation(currentPath);
+        // Prevent navigation temporarily
+        window.history.pushState(null, '', '/restaurant/dashboard');
+      }
+    };
+
+    // Override link clicks to show confirmation
+    const handleLinkClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      const link = target.closest('a');
+      
+      if (link && link.href && !link.href.includes('/restaurant/dashboard')) {
+        // User clicked a link that goes away from dashboard
+        e.preventDefault();
+        setShowExitConfirm(true);
+        setPendingNavigation(link.href);
+      }
+    };
+
+    // Add event listeners
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    window.addEventListener('unload', handleUnload);
+    window.addEventListener('popstate', handleNavigation);
+    window.addEventListener('visibilitychange', handleVisibilityChange);
+    document.addEventListener('click', handleLinkClick);
+
+    // Cleanup
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      window.removeEventListener('unload', handleUnload);
+      window.removeEventListener('popstate', handleNavigation);
+      window.removeEventListener('visibilitychange', handleVisibilityChange);
+      document.removeEventListener('click', handleLinkClick);
+    };
   }, []);
 
   const checkAuthAndLoadData = async () => {
@@ -67,12 +184,18 @@ export default function RestaurantDashboard() {
       if (response.ok) {
         const profileData = await response.json();
         setRestaurantData(profileData);
+        setSessionValid(true);
+        
+        // Set initial online status from profile data
+        if (profileData.is_online !== undefined) {
+          setIsOnline(profileData.is_online);
+        }
         
         // Update localStorage with fresh data
         localStorage.setItem('restaurantInfo', JSON.stringify(profileData));
       } else {
         // If profile fetch fails, redirect to login
-        console.error('Failed to fetch restaurant profile');
+        // Silent fallback - no console errors
         localStorage.removeItem('restaurantToken');
         localStorage.removeItem('restaurantInfo');
         router.push('/restaurant/login');
@@ -83,12 +206,46 @@ export default function RestaurantDashboard() {
       loadDashboardStats();
       
     } catch (error) {
-      console.error('Auth check failed:', error);
+      // Silent fallback - no console errors
       localStorage.removeItem('restaurantToken');
       localStorage.removeItem('restaurantInfo');
       router.push('/restaurant/login');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const validateSession = async () => {
+    try {
+      const token = localStorage.getItem('restaurantToken');
+      
+      if (!token) {
+        setSessionValid(false);
+        router.push('/restaurant/login');
+        return;
+      }
+
+      // Call a lightweight endpoint to validate session
+      const response = await fetch(`${API_BASE_URL}/api/restaurant/profile`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        console.log('Session invalid, redirecting to login');
+        setSessionValid(false);
+        localStorage.removeItem('restaurantToken');
+        localStorage.removeItem('restaurantInfo');
+        router.push('/restaurant/login');
+      } else {
+        setSessionValid(true);
+      }
+    } catch (error) {
+      // Silent fallback - no console errors
+      // Don't redirect on network errors, just log
     }
   };
 
@@ -104,15 +261,116 @@ export default function RestaurantDashboard() {
     });
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem('restaurantToken');
-    localStorage.removeItem('restaurantInfo');
-    router.push('/restaurant/login');
+  const handleLogout = async () => {
+    setShowLogoutConfirm(true);
   };
 
-  const toggleOnlineStatus = () => {
-    setIsOnline(!isOnline);
-    // TODO: API call to update restaurant online status
+  const confirmLogout = async () => {
+    try {
+      const token = localStorage.getItem('restaurantToken');
+      
+      if (token) {
+        // Call backend logout API to clear session
+        await fetch(`${API_BASE_URL}/api/restaurant/logout`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+      }
+    } catch (error) {
+      // Silent fallback - no console errors
+      // Continue with logout even if API call fails
+    } finally {
+      // Always clear local storage and redirect
+      localStorage.removeItem('restaurantToken');
+      localStorage.removeItem('restaurantInfo');
+      setShowLogoutConfirm(false);
+      router.push('/restaurant/login');
+    }
+  };
+
+  const cancelLogout = () => {
+    setShowLogoutConfirm(false);
+  };
+
+  const handleExitConfirm = (shouldLogout: boolean) => {
+    if (shouldLogout) {
+      // Logout and then navigate
+      confirmLogout();
+    } else {
+      // Just navigate without logout
+      if (pendingNavigation) {
+        window.location.href = pendingNavigation;
+      }
+    }
+    setShowExitConfirm(false);
+    setPendingNavigation(null);
+  };
+
+  const cancelExit = () => {
+    setShowExitConfirm(false);
+    setPendingNavigation(null);
+  };
+
+  const toggleOnlineStatus = async () => {
+    try {
+      const token = localStorage.getItem('restaurantToken');
+      if (!token) {
+        router.push('/restaurant/login');
+        return;
+      }
+
+      const response = await fetch(`${API_BASE_URL}/api/restaurant/toggle-online-status`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        setIsOnline(result.is_online);
+        
+        // Show success notification
+        setStatusNotification({
+          show: true,
+          message: `Restaurant is now ${result.is_online ? '🟢 ONLINE' : '🔴 OFFLINE'}`,
+          type: 'success'
+        });
+        
+        // Hide notification after 3 seconds
+        setTimeout(() => {
+          setStatusNotification(prev => ({ ...prev, show: false }));
+        }, 3000);
+      } else {
+        const errorData = await response.json().catch(() => ({ detail: 'Unknown error' }));
+        
+        // Show error notification
+        setStatusNotification({
+          show: true,
+          message: `Failed: ${errorData.detail}`,
+          type: 'error'
+        });
+        
+        setTimeout(() => {
+          setStatusNotification(prev => ({ ...prev, show: false }));
+        }, 4000);
+      }
+    } catch (error) {
+      // Show error notification
+      setStatusNotification({
+        show: true,
+        message: 'Network error. Please check your connection.',
+        type: 'error'
+      });
+      
+      setTimeout(() => {
+        setStatusNotification(prev => ({ ...prev, show: false }));
+      }, 4000);
+    }
   };
 
   if (isLoading) {
@@ -151,6 +409,34 @@ export default function RestaurantDashboard() {
       minHeight: '100vh', 
       background: 'linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)'
     }}>
+      {/* Status Change Notification */}
+      {statusNotification.show && (
+        <div style={{
+          position: 'fixed',
+          top: '20px',
+          right: '20px',
+          background: statusNotification.type === 'success' 
+            ? 'linear-gradient(135deg, #4CAF50, #45a049)' 
+            : 'linear-gradient(135deg, #f44336, #e53935)',
+          color: 'white',
+          padding: '1rem 1.5rem',
+          borderRadius: '12px',
+          boxShadow: '0 8px 25px rgba(0, 0, 0, 0.2)',
+          zIndex: 9999,
+          display: 'flex',
+          alignItems: 'center',
+          gap: '0.75rem',
+          fontSize: '1rem',
+          fontWeight: '600',
+          animation: 'slideInRight 0.3s ease-out'
+        }}>
+          <span style={{ fontSize: '1.5rem' }}>
+            {statusNotification.type === 'success' ? '✅' : '❌'}
+          </span>
+          <span>{statusNotification.message}</span>
+        </div>
+      )}
+
       {/* Header */}
       <header style={{ 
         background: 'white', 
@@ -591,10 +877,272 @@ export default function RestaurantDashboard() {
         </div>
       </main>
 
+      {/* Logout Confirmation Modal */}
+      {showLogoutConfirm && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0, 0, 0, 0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000
+        }}>
+          <div style={{
+            background: 'white',
+            borderRadius: '16px',
+            padding: '2rem',
+            maxWidth: '400px',
+            width: '90%',
+            boxShadow: '0 25px 50px rgba(0, 0, 0, 0.25)',
+            textAlign: 'center'
+          }}>
+            <div style={{
+              width: '60px',
+              height: '60px',
+              background: 'linear-gradient(135deg, #FF5722, #FF7043)',
+              borderRadius: '50%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              margin: '0 auto 1.5rem auto',
+              fontSize: '1.5rem'
+            }}>
+              🚪
+            </div>
+            
+            <h3 style={{
+              margin: '0 0 1rem 0',
+              fontSize: '1.5rem',
+              fontWeight: '600',
+              color: '#333'
+            }}>
+              Confirm Logout
+            </h3>
+            
+            <p style={{
+              margin: '0 0 2rem 0',
+              color: '#666',
+              fontSize: '1rem',
+              lineHeight: '1.5'
+            }}>
+              Are you sure you want to logout? This will end your current session and you'll need to login again.
+            </p>
+            
+            <div style={{
+              display: 'flex',
+              gap: '1rem',
+              justifyContent: 'center'
+            }}>
+              <button
+                onClick={cancelLogout}
+                style={{
+                  padding: '0.75rem 1.5rem',
+                  borderRadius: '12px',
+                  border: '2px solid #e0e0e0',
+                  background: 'white',
+                  color: '#666',
+                  fontSize: '1rem',
+                  fontWeight: '500',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease'
+                }}
+                onMouseOver={(e) => {
+                  e.currentTarget.style.borderColor = '#ccc';
+                  e.currentTarget.style.background = '#f5f5f5';
+                }}
+                onMouseOut={(e) => {
+                  e.currentTarget.style.borderColor = '#e0e0e0';
+                  e.currentTarget.style.background = 'white';
+                }}
+              >
+                Cancel
+              </button>
+              
+              <button
+                onClick={confirmLogout}
+                style={{
+                  padding: '0.75rem 1.5rem',
+                  borderRadius: '12px',
+                  border: 'none',
+                  background: 'linear-gradient(135deg, #FF5722, #FF7043)',
+                  color: 'white',
+                  fontSize: '1rem',
+                  fontWeight: '500',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease',
+                  boxShadow: '0 4px 15px rgba(255, 87, 34, 0.3)'
+                }}
+                onMouseOver={(e) => {
+                  e.currentTarget.style.transform = 'translateY(-2px)';
+                  e.currentTarget.style.boxShadow = '0 8px 25px rgba(255, 87, 34, 0.4)';
+                }}
+                onMouseOut={(e) => {
+                  e.currentTarget.style.transform = 'translateY(0)';
+                  e.currentTarget.style.boxShadow = '0 4px 15px rgba(255, 87, 34, 0.3)';
+                }}
+              >
+                Yes, Logout
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Exit Confirmation Modal */}
+      {showExitConfirm && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0, 0, 0, 0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000
+        }}>
+          <div style={{
+            background: 'white',
+            borderRadius: '16px',
+            padding: '2rem',
+            maxWidth: '450px',
+            width: '90%',
+            boxShadow: '0 25px 50px rgba(0, 0, 0, 0.25)',
+            textAlign: 'center'
+          }}>
+            <div style={{
+              width: '60px',
+              height: '60px',
+              background: 'linear-gradient(135deg, #f093fb, #f5576c)',
+              borderRadius: '50%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              margin: '0 auto 1.5rem auto',
+              fontSize: '1.5rem'
+            }}>
+              ⚠️
+            </div>
+            
+            <h3 style={{
+              margin: '0 0 1rem 0',
+              fontSize: '1.5rem',
+              fontWeight: '600',
+              color: '#333'
+            }}>
+              You're Leaving the Dashboard
+            </h3>
+            
+            <p style={{
+              margin: '0 0 2rem 0',
+              color: '#666',
+              fontSize: '1rem',
+              lineHeight: '1.5'
+            }}>
+              You're about to leave the restaurant dashboard. Would you like to logout to secure your account, or stay logged in?
+            </p>
+            
+            <div style={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '1rem'
+            }}>
+              <button
+                onClick={() => handleExitConfirm(true)}
+                style={{
+                  padding: '0.75rem 1.5rem',
+                  borderRadius: '12px',
+                  border: 'none',
+                  background: 'linear-gradient(135deg, #FF5722, #FF7043)',
+                  color: 'white',
+                  fontSize: '1rem',
+                  fontWeight: '500',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease',
+                  boxShadow: '0 4px 15px rgba(255, 87, 34, 0.3)'
+                }}
+                onMouseOver={(e) => {
+                  e.currentTarget.style.transform = 'translateY(-2px)';
+                  e.currentTarget.style.boxShadow = '0 8px 25px rgba(255, 87, 34, 0.4)';
+                }}
+                onMouseOut={(e) => {
+                  e.currentTarget.style.transform = 'translateY(0)';
+                  e.currentTarget.style.boxShadow = '0 4px 15px rgba(255, 87, 34, 0.3)';
+                }}
+              >
+                🔒 Logout & Leave (Recommended)
+              </button>
+              
+              <button
+                onClick={() => handleExitConfirm(false)}
+                style={{
+                  padding: '0.75rem 1.5rem',
+                  borderRadius: '12px',
+                  border: '2px solid #e0e0e0',
+                  background: 'white',
+                  color: '#666',
+                  fontSize: '1rem',
+                  fontWeight: '500',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease'
+                }}
+                onMouseOver={(e) => {
+                  e.currentTarget.style.borderColor = '#ccc';
+                  e.currentTarget.style.background = '#f5f5f5';
+                }}
+                onMouseOut={(e) => {
+                  e.currentTarget.style.borderColor = '#e0e0e0';
+                  e.currentTarget.style.background = 'white';
+                }}
+              >
+                Stay Logged In & Leave
+              </button>
+              
+              <button
+                onClick={cancelExit}
+                style={{
+                  padding: '0.5rem 1rem',
+                  borderRadius: '8px',
+                  border: 'none',
+                  background: 'transparent',
+                  color: '#999',
+                  fontSize: '0.9rem',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease'
+                }}
+                onMouseOver={(e) => {
+                  e.currentTarget.style.color = '#666';
+                }}
+                onMouseOut={(e) => {
+                  e.currentTarget.style.color = '#999';
+                }}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <style jsx>{`
         @keyframes spin {
           0% { transform: rotate(0deg); }
           100% { transform: rotate(360deg); }
+        }
+        @keyframes slideInRight {
+          0% { 
+            transform: translateX(100%);
+            opacity: 0;
+          }
+          100% { 
+            transform: translateX(0);
+            opacity: 1;
+          }
         }
       `}</style>
     </div>

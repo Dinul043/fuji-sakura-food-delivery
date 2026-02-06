@@ -17,6 +17,7 @@ export const metadata: Metadata = {
   title: "Fuji Sakura Food App - 富士桜フードアプリ",
   description: "Premium Japanese Food Delivery Experience",
   keywords: "food delivery, japanese cuisine, sushi, ramen, bento",
+  viewport: "width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no",
   icons: {
     icon: "/images/logo/Logo.png",
     shortcut: "/images/logo/Logo.png",

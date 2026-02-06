@@ -21,6 +21,33 @@ export default function RestaurantLogin() {
     link.href = 'https://fonts.googleapis.com/css2?family=Anuphan:wght@400;500;600;700&display=swap';
     link.rel = 'stylesheet';
     document.head.appendChild(link);
+
+    // Clear any stale restaurant tokens when landing on login page
+    // This prevents session conflicts when users navigate away without proper logout
+    const existingToken = localStorage.getItem('restaurantToken');
+    if (existingToken) {
+      console.log('🧹 Clearing stale restaurant session tokens on login page');
+      
+      // Try to logout from backend (best effort)
+      fetch(`${API_BASE_URL}/api/restaurant/logout`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${existingToken}`,
+          'Content-Type': 'application/json'
+        }
+      }).catch(() => {
+        // Ignore errors - we're cleaning up anyway
+        console.log('Backend logout failed (expected if session was already invalid)');
+      });
+      
+      // Clear local storage
+      localStorage.removeItem('restaurantToken');
+      localStorage.removeItem('restaurantInfo');
+      localStorage.removeItem('restaurantName');
+      localStorage.removeItem('restaurantEmail');
+      localStorage.removeItem('restaurantOwner');
+      localStorage.removeItem('isRestaurant');
+    }
   }, []);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -99,7 +126,7 @@ export default function RestaurantLogin() {
         setErrors(prev => ({ ...prev, password: errorMessage }));
       }
     } catch (error) {
-      console.error('Restaurant login error:', error);
+      // Silent fallback - no console errors
       
       let errorMessage = 'Network error. Please try again.';
       if (error instanceof Error) {

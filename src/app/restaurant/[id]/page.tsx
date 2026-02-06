@@ -2,115 +2,57 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { restaurants, Restaurant } from '../../../data/restaurants';
 import { useCart } from '../../../contexts/CartContext';
 import AuthPopup from '../../../components/AuthPopup';
+import { API_BASE_URL } from '../../../config/constants';
 
 interface MenuItem {
   id: number;
   name: string;
   description: string;
   price: number;
-  image: string;
+  image_url?: string;
   category: string;
-  isVeg: boolean;
+  is_available: boolean;  // Add availability status
+  isVeg?: boolean;
+  rating?: number;
+}
+
+interface Restaurant {
+  id: number;
+  name: string;
+  owner_name: string;
+  cuisine: string;
+  description: string;
+  address: string;
+  phone: string;
+  menu_by_category: { [key: string]: MenuItem[] };
+  total_menu_items: number;
+  average_price: number;
   rating: number;
+  delivery_time: string;
+  delivery_fee: number;
+  reviews: number;
+  image: string;
+  tags: string[];
+  hours: string;
+  is_open: boolean;
 }
 
 export default function RestaurantPage() {
   const router = useRouter();
   const params = useParams();
   const [restaurant, setRestaurant] = useState<Restaurant | null>(null);
-  const [selectedCategory, setSelectedCategory] = useState('recommended');
+  const [selectedCategory, setSelectedCategory] = useState('all');
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [showAuthPopup, setShowAuthPopup] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const { cart, addToCart, removeFromCart, updateQuantity, getTotalPrice, getTotalItems, getCartItemsByRestaurant } = useCart();
 
-  // Sample menu data - in real app this would come from API
-  const menuItems: MenuItem[] = [
-    {
-      id: 1,
-      name: "Chef's Special Biryani",
-      description: "Aromatic basmati rice with tender chicken and exotic spices",
-      price: 299,
-      image: "🍛",
-      category: "recommended",
-      isVeg: false,
-      rating: 4.8
-    },
-    {
-      id: 2,
-      name: "Mutton Dum Biryani",
-      description: "Slow-cooked mutton with fragrant basmati rice",
-      price: 349,
-      image: "🍛",
-      category: "recommended",
-      isVeg: false,
-      rating: 4.9
-    },
-    {
-      id: 3,
-      name: "Hyderabadi Haleem",
-      description: "Traditional slow-cooked lentil and meat stew",
-      price: 199,
-      image: "🍲",
-      category: "recommended",
-      isVeg: false,
-      rating: 4.7
-    },
-    {
-      id: 4,
-      name: "Chicken Biryani",
-      description: "Classic chicken biryani with aromatic spices",
-      price: 249,
-      image: "🍛",
-      category: "main",
-      isVeg: false,
-      rating: 4.6
-    },
-    {
-      id: 5,
-      name: "Veg Biryani",
-      description: "Mixed vegetable biryani with basmati rice",
-      price: 199,
-      image: "🍛",
-      category: "main",
-      isVeg: true,
-      rating: 4.4
-    },
-    {
-      id: 6,
-      name: "Butter Chicken",
-      description: "Creamy tomato-based chicken curry",
-      price: 229,
-      image: "🍗",
-      category: "main",
-      isVeg: false,
-      rating: 4.5
-    },
-    {
-      id: 7,
-      name: "Raita",
-      description: "Cool yogurt with cucumber and spices",
-      price: 49,
-      image: "🥛",
-      category: "sides",
-      isVeg: true,
-      rating: 4.2
-    },
-    {
-      id: 8,
-      name: "Papad",
-      description: "Crispy lentil wafers",
-      price: 29,
-      image: "🫓",
-      category: "sides",
-      isVeg: true,
-      rating: 4.0
-    }
-  ];
-
+  // Keep original menu categories structure with "All" as first option
   const menuCategories = [
+    { id: 'all', name: 'All Items', icon: '🍽️' },
     { id: 'recommended', name: 'Recommended', icon: '⭐' },
     { id: 'main', name: 'Main Course', icon: '🍽️' },
     { id: 'sides', name: 'Sides', icon: '🥗' },
@@ -118,27 +60,122 @@ export default function RestaurantPage() {
     { id: 'desserts', name: 'Desserts', icon: '🧁' }
   ];
 
+  // Get menu items from restaurant data
+  const menuItems: MenuItem[] = restaurant ? 
+    Object.values(restaurant.menu_by_category).flat() : [];
+
+  // Fetch restaurant data from backend with silent error handling
+  const fetchRestaurant = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const response = await fetch(`${API_BASE_URL}/api/restaurant/public/restaurants/${params.id}`, {
+        signal: AbortSignal.timeout(5000) // 5 second timeout
+      });
+      
+      if (!response.ok) {
+        if (response.status === 404) {
+          setError('Restaurant not found');
+        } else {
+          throw new Error('Backend not available');
+        }
+        return;
+      }
+      
+      const data = await response.json();
+      setRestaurant(data);
+      
+      // Set default category to show all items
+      if (data.menu_by_category && Object.keys(data.menu_by_category).length > 0) {
+        setSelectedCategory('all');
+      }
+    } catch (err) {
+      // Silent fallback - no console errors
+      setError('Unable to load restaurant data. Please check your connection.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const restaurantId = parseInt(params.id as string);
-    const foundRestaurant = restaurants.find(r => r.id === restaurantId);
-    setRestaurant(foundRestaurant || null);
+    if (params.id) {
+      fetchRestaurant();
+    }
   }, [params.id]);
+
+  // Function to normalize image URLs - fix the image display issue
+  const normalizeImageUrl = (imageUrl?: string): string => {
+    if (!imageUrl) return '🍽️';
+    
+    // If it's already a full URL, return as is
+    if (imageUrl.startsWith('http')) {
+      return imageUrl;
+    }
+    
+    // If it's a relative path to uploads, make it absolute
+    if (imageUrl.startsWith('/uploads/') || imageUrl.startsWith('uploads/')) {
+      const cleanPath = imageUrl.startsWith('/') ? imageUrl : `/${imageUrl}`;
+      return `${API_BASE_URL}${cleanPath}`;
+    }
+    
+    // If it's a static image path, make it absolute
+    if (imageUrl.startsWith('/images/') || imageUrl.startsWith('images/')) {
+      const cleanPath = imageUrl.startsWith('/') ? imageUrl : `/${imageUrl}`;
+      return `http://localhost:3000${cleanPath}`;
+    }
+    
+    // Default fallback
+    return '🍽️';
+  };
+
+  // Function to map backend categories to frontend categories
+  const mapBackendCategoryToFrontend = (backendCategory: string): string => {
+    const categoryMap: { [key: string]: string } = {
+      'biryani': 'main',
+      'curry': 'main',
+      'curries': 'main',
+      'main course': 'main',
+      'mains': 'main',
+      'appetizers': 'sides',
+      'starters': 'sides',
+      'sides': 'sides',
+      'beverages': 'beverages',
+      'drinks': 'beverages',
+      'desserts': 'desserts',
+      'sweets': 'desserts'
+    };
+    
+    const lowerCategory = backendCategory.toLowerCase();
+    return categoryMap[lowerCategory] || 'main';
+  };
 
   const handleAddToCart = (item: MenuItem) => {
     if (!restaurant) return;
     
-    addToCart({
+    console.log('🔍 handleAddToCart called with item:', item);
+    console.log('   Restaurant ID:', restaurant.id);
+    console.log('   Restaurant Name:', restaurant.name);
+    
+    // Normalize image URL before adding to cart
+    const normalizedImage = normalizeImageUrl(item.image_url);
+    
+    const cartItem = {
       id: item.id,
       name: item.name,
       description: item.description,
       price: item.price,
-      image: item.image,
+      image: normalizedImage,
       category: item.category,
-      isVeg: item.isVeg,
-      rating: item.rating,
+      isVeg: item.isVeg ?? true,
+      rating: item.rating ?? 4.0,
       restaurantId: restaurant.id,
       restaurantName: restaurant.name
-    });
+    };
+    
+    console.log('🛒 Adding to cart:', cartItem);
+    
+    addToCart(cartItem);
     setIsCartOpen(true);
   };
 
@@ -155,9 +192,16 @@ export default function RestaurantPage() {
     router.push(`/checkout?type=restaurant&restaurant=${params.id}`);
   };
 
-  const filteredMenuItems = menuItems.filter(item => item.category === selectedCategory);
+  // Get filtered menu items based on selected category
+  const filteredMenuItems = selectedCategory === 'all' || selectedCategory === 'recommended'
+    ? menuItems  // Show ALL items for "All" and "Recommended"
+    : menuItems.filter(item => {
+        // Map backend categories to frontend categories for filtering
+        const itemFrontendCategory = mapBackendCategoryToFrontend(item.category);
+        return itemFrontendCategory === selectedCategory;
+      });
 
-  if (!restaurant) {
+  if (loading) {
     return (
       <div style={{
         minHeight: '100vh',
@@ -168,7 +212,58 @@ export default function RestaurantPage() {
         color: 'white',
         fontSize: '1.5rem'
       }}>
-        Restaurant not found
+        <div style={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          gap: '1rem'
+        }}>
+          <div style={{
+            width: '60px',
+            height: '60px',
+            border: '4px solid rgba(255, 255, 255, 0.3)',
+            borderTop: '4px solid white',
+            borderRadius: '50%',
+            animation: 'spin 1s linear infinite'
+          }}></div>
+          <div>Loading restaurant...</div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !restaurant) {
+    return (
+      <div style={{
+        minHeight: '100vh',
+        background: 'linear-gradient(135deg, #ff6b6b 0%, #ee5a24 25%, #ff9ff3 50%, #54a0ff 75%, #5f27cd 100%)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        color: 'white',
+        fontSize: '1.5rem',
+        textAlign: 'center',
+        padding: '2rem'
+      }}>
+        <div>
+          <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>😔</div>
+          <div>{error || 'Restaurant not found'}</div>
+          <button
+            onClick={() => router.back()}
+            style={{
+              marginTop: '1rem',
+              padding: '0.75rem 1.5rem',
+              background: 'rgba(255, 255, 255, 0.2)',
+              border: '1px solid rgba(255, 255, 255, 0.3)',
+              borderRadius: '25px',
+              color: 'white',
+              cursor: 'pointer',
+              fontSize: '1rem'
+            }}
+          >
+            Go Back
+          </button>
+        </div>
       </div>
     );
   }
@@ -178,7 +273,7 @@ export default function RestaurantPage() {
       minHeight: '100vh',
       background: 'linear-gradient(135deg, #ff6b6b 0%, #ee5a24 25%, #ff9ff3 50%, #54a0ff 75%, #5f27cd 100%)',
       backgroundSize: '400% 400%',
-      animation: 'gradientShift 6s ease infinite',
+      animation: 'gradientShift 20s ease infinite',
       position: 'relative'
     }}>
       {/* Header */}
@@ -243,8 +338,8 @@ export default function RestaurantPage() {
                 color: 'rgba(255, 255, 255, 0.9)'
               }}>
                 <span>⭐ {restaurant.rating}</span>
-                <span>🕒 {restaurant.deliveryTime}</span>
-                <span>🚚 ${restaurant.deliveryFee}</span>
+                <span>🕒 {restaurant.delivery_time}</span>
+                <span>🚚 ${restaurant.delivery_fee}</span>
               </div>
             </div>
           </div>
@@ -404,27 +499,76 @@ export default function RestaurantPage() {
                     alignItems: 'center',
                     gap: '1rem',
                     padding: '1rem',
-                    background: 'rgba(255, 255, 255, 0.7)',
+                    background: item.is_available ? 'rgba(255, 255, 255, 0.7)' : 'rgba(200, 200, 200, 0.5)',
                     borderRadius: '12px',
                     border: '1px solid rgba(0, 0, 0, 0.1)',
-                    transition: 'all 0.2s ease'
+                    transition: 'all 0.2s ease',
+                    opacity: item.is_available ? 1 : 0.7,
+                    position: 'relative'
                   }}
                   onMouseEnter={(e) => {
-                    e.currentTarget.style.transform = 'translateY(-2px)';
-                    e.currentTarget.style.boxShadow = '0 8px 25px rgba(0, 0, 0, 0.1)';
+                    if (item.is_available) {
+                      e.currentTarget.style.transform = 'translateY(-2px)';
+                      e.currentTarget.style.boxShadow = '0 8px 25px rgba(0, 0, 0, 0.1)';
+                    }
                   }}
                   onMouseLeave={(e) => {
                     e.currentTarget.style.transform = 'translateY(0)';
                     e.currentTarget.style.boxShadow = 'none';
                   }}
                 >
+                  {/* Unavailable Badge */}
+                  {!item.is_available && (
+                    <div style={{
+                      position: 'absolute',
+                      top: '0.5rem',
+                      right: '0.5rem',
+                      background: 'linear-gradient(135deg, #ef4444, #dc2626)',
+                      color: 'white',
+                      padding: '0.25rem 0.75rem',
+                      borderRadius: '12px',
+                      fontSize: '0.75rem',
+                      fontWeight: '600',
+                      boxShadow: '0 2px 8px rgba(239, 68, 68, 0.3)',
+                      zIndex: 10
+                    }}>
+                      🚫 Unavailable Currently
+                    </div>
+                  )}
+
                   {/* Item Image */}
                   <div style={{
-                    fontSize: '3rem',
                     minWidth: '80px',
-                    textAlign: 'center'
+                    textAlign: 'center',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    filter: item.is_available ? 'none' : 'grayscale(100%)'
                   }}>
-                    {item.image}
+                    {normalizeImageUrl(item.image_url).startsWith('http') ? (
+                      <img 
+                        src={normalizeImageUrl(item.image_url)}
+                        alt={item.name}
+                        style={{
+                          width: '80px',
+                          height: '80px',
+                          objectFit: 'cover',
+                          borderRadius: '8px'
+                        }}
+                        onError={(e) => {
+                          const target = e.target as HTMLImageElement;
+                          target.style.display = 'none';
+                          const parent = target.parentElement;
+                          if (parent) {
+                            parent.innerHTML = '<div style="font-size: 3rem;">🍽️</div>';
+                          }
+                        }}
+                      />
+                    ) : (
+                      <div style={{ fontSize: '3rem' }}>
+                        {normalizeImageUrl(item.image_url)}
+                      </div>
+                    )}
                   </div>
 
                   {/* Item Details */}
@@ -438,7 +582,7 @@ export default function RestaurantPage() {
                       <h4 style={{
                         fontSize: '1.1rem',
                         fontWeight: 'bold',
-                        color: '#333',
+                        color: item.is_available ? '#333' : '#666',
                         margin: 0
                       }}>
                         {item.name}
@@ -462,7 +606,7 @@ export default function RestaurantPage() {
                       )}
                     </div>
                     <p style={{
-                      color: '#666',
+                      color: item.is_available ? '#666' : '#999',
                       fontSize: '0.9rem',
                       margin: '0 0 0.5rem 0',
                       lineHeight: '1.4'
@@ -477,7 +621,7 @@ export default function RestaurantPage() {
                       <span style={{
                         fontSize: '1.1rem',
                         fontWeight: 'bold',
-                        color: '#ff6b6b'
+                        color: item.is_available ? '#ff6b6b' : '#999'
                       }}>
                         ₹{item.price}
                       </span>
@@ -496,29 +640,37 @@ export default function RestaurantPage() {
 
                   {/* Add to Cart Button */}
                   <button
-                    onClick={() => handleAddToCart(item)}
+                    onClick={() => item.is_available && handleAddToCart(item)}
+                    disabled={!item.is_available}
                     style={{
-                      background: 'linear-gradient(135deg, #ff6b6b, #ee5a24)',
+                      background: item.is_available 
+                        ? 'linear-gradient(135deg, #ff6b6b, #ee5a24)' 
+                        : 'linear-gradient(135deg, #9ca3af, #6b7280)',
                       color: 'white',
                       border: 'none',
                       borderRadius: '8px',
                       padding: '0.75rem 1.5rem',
                       fontSize: '0.9rem',
                       fontWeight: '600',
-                      cursor: 'pointer',
+                      cursor: item.is_available ? 'pointer' : 'not-allowed',
                       transition: 'all 0.2s ease',
-                      minWidth: '120px'
+                      minWidth: '120px',
+                      opacity: item.is_available ? 1 : 0.6
                     }}
                     onMouseEnter={(e) => {
-                      e.currentTarget.style.background = 'linear-gradient(135deg, #ee5a24, #dc2626)';
-                      e.currentTarget.style.transform = 'translateY(-1px)';
+                      if (item.is_available) {
+                        e.currentTarget.style.background = 'linear-gradient(135deg, #ee5a24, #dc2626)';
+                        e.currentTarget.style.transform = 'translateY(-1px)';
+                      }
                     }}
                     onMouseLeave={(e) => {
-                      e.currentTarget.style.background = 'linear-gradient(135deg, #ff6b6b, #ee5a24)';
-                      e.currentTarget.style.transform = 'translateY(0)';
+                      if (item.is_available) {
+                        e.currentTarget.style.background = 'linear-gradient(135deg, #ff6b6b, #ee5a24)';
+                        e.currentTarget.style.transform = 'translateY(0)';
+                      }
                     }}
                   >
-                    Add to Cart
+                    {item.is_available ? 'Add to Cart' : 'Not Available'}
                   </button>
                 </div>
               ))}
@@ -597,7 +749,34 @@ export default function RestaurantPage() {
                         border: '1px solid rgba(0, 0, 0, 0.1)'
                       }}
                     >
-                      <div style={{ fontSize: '1.5rem' }}>{item.image}</div>
+                      <div style={{ 
+                        fontSize: '1.5rem',
+                        minWidth: '40px',
+                        textAlign: 'center'
+                      }}>
+                        {item.image.startsWith('http') ? (
+                          <img 
+                            src={item.image}
+                            alt={item.name}
+                            style={{
+                              width: '40px',
+                              height: '40px',
+                              objectFit: 'cover',
+                              borderRadius: '6px'
+                            }}
+                            onError={(e) => {
+                              const target = e.target as HTMLImageElement;
+                              target.style.display = 'none';
+                              const parent = target.parentElement;
+                              if (parent) {
+                                parent.innerHTML = '🍽️';
+                              }
+                            }}
+                          />
+                        ) : (
+                          <span>{item.image}</span>
+                        )}
+                      </div>
                       <div style={{ flex: 1 }}>
                         <h5 style={{
                           fontSize: '0.9rem',
@@ -729,6 +908,10 @@ export default function RestaurantPage() {
           0% { background-position: 0% 50%; }
           50% { background-position: 100% 50%; }
           100% { background-position: 0% 50%; }
+        }
+        @keyframes spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
         }
       `}</style>
     </div>

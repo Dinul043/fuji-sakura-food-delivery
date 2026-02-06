@@ -3,12 +3,11 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useCart } from '../../contexts/CartContext';
-import { restaurants } from '../../data/restaurants';
 import AuthPopup from '../../components/AuthPopup';
 
 export default function CartPage() {
   const router = useRouter();
-  const { cart, updateQuantity, removeFromCart, clearCart, getTotalItems, getTotalPrice } = useCart();
+  const { cart, updateQuantity, removeFromCart, clearCart, getTotalItems, getTotalPrice, forceRefreshCart } = useCart();
   const [userName, setUserName] = useState('');
   const [deliveryAddress, setDeliveryAddress] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -22,18 +21,27 @@ export default function CartPage() {
     
     // Mock delivery address
     setDeliveryAddress('123 Sakura Street, Tokyo District, City 12345');
-    
-    // Select all items by default
+  }, []);
+
+  // Separate effect for cart-dependent operations
+  useEffect(() => {
+    // Select all items by default when cart changes
     const allItemIds = cart.map(item => `${item.id}-${item.restaurantId}`);
     setSelectedItems(new Set(allItemIds));
     setSelectAll(cart.length > 0);
   }, [cart]);
 
-  // Group cart items by restaurant
+  // Group cart items by restaurant with complete restaurant data
   const groupedCart = cart.reduce((acc, item) => {
     if (!acc[item.restaurantId]) {
       acc[item.restaurantId] = {
-        restaurant: restaurants.find(r => r.id === item.restaurantId),
+        restaurant: {
+          id: item.restaurantId,
+          name: item.restaurantName,
+          image: '🏪', // Default restaurant emoji
+          cuisine: item.category || 'Various', // Use category as cuisine type
+          deliveryTime: '25-35 min' // Default delivery time
+        },
         items: []
       };
     }
@@ -156,6 +164,16 @@ export default function CartPage() {
       // Navigate to checkout page with restaurant items
       router.push(`/checkout?type=restaurant&restaurant=${restaurantId}`);
     });
+  };
+
+  // Clear all items from a specific restaurant
+  const handleClearRestaurantCart = (restaurantId: number, restaurantName: string) => {
+    if (confirm(`Remove all items from ${restaurantName}?`)) {
+      const restaurantItems = cart.filter(item => item.restaurantId === restaurantId);
+      restaurantItems.forEach(item => {
+        removeFromCart(item.id, item.restaurantId);
+      });
+    }
   };
 
   const handleBackToHome = () => {
@@ -343,21 +361,32 @@ export default function CartPage() {
         </h1>
         
         <button
-          onClick={() => clearCart()}
+          onClick={() => {
+            if (confirm(`Are you sure you want to clear all ${getTotalItems()} items from your cart?`)) {
+              clearCart();
+            }
+          }}
           style={{
-            background: 'rgba(255, 107, 107, 0.2)',
-            border: '1px solid rgba(255, 107, 107, 0.3)',
+            background: 'linear-gradient(135deg, #ef4444, #dc2626)',
+            border: 'none',
             borderRadius: '12px',
-            padding: '0.75rem 1rem',
+            padding: '0.75rem 1.5rem',
             color: 'white',
             cursor: 'pointer',
-            transition: 'all 0.2s ease'
+            transition: 'all 0.2s ease',
+            fontWeight: '600',
+            fontSize: '0.95rem',
+            boxShadow: '0 4px 12px rgba(239, 68, 68, 0.3)'
           }}
           onMouseEnter={(e) => {
-            e.currentTarget.style.background = 'rgba(255, 107, 107, 0.3)';
+            e.currentTarget.style.background = 'linear-gradient(135deg, #dc2626, #b91c1c)';
+            e.currentTarget.style.transform = 'translateY(-2px)';
+            e.currentTarget.style.boxShadow = '0 6px 16px rgba(239, 68, 68, 0.4)';
           }}
           onMouseLeave={(e) => {
-            e.currentTarget.style.background = 'rgba(255, 107, 107, 0.2)';
+            e.currentTarget.style.background = 'linear-gradient(135deg, #ef4444, #dc2626)';
+            e.currentTarget.style.transform = 'translateY(0)';
+            e.currentTarget.style.boxShadow = '0 4px 12px rgba(239, 68, 68, 0.3)';
           }}
         >
           Clear Cart
@@ -504,7 +533,7 @@ export default function CartPage() {
                 <div style={{
                   display: 'flex',
                   alignItems: 'center',
-                  gap: '1rem'
+                  gap: '0.75rem'
                 }}>
                   {/* Restaurant Select Checkbox */}
                   <div style={{
@@ -538,33 +567,58 @@ export default function CartPage() {
                     </label>
                   </div>
                   
-                  {/* Restaurant Checkout Button */}
+                  {/* Clear Restaurant Button */}
                   <button
-                    onClick={() => handleRestaurantCheckout(parseInt(restaurantId))}
-                    disabled={isLoading}
+                    onClick={() => handleClearRestaurantCart(parseInt(restaurantId), group.restaurant?.name)}
                     style={{
-                      background: isLoading ? 'rgba(255, 255, 255, 0.1)' : 'linear-gradient(135deg, #ff6b6b, #ee5a24)',
+                      background: 'rgba(239, 68, 68, 0.2)',
                       border: '1px solid rgba(255, 255, 255, 0.3)',
                       borderRadius: '8px',
-                      padding: '0.5rem 1rem',
+                      padding: '0.5rem 0.75rem',
                       color: 'white',
                       fontSize: '0.8rem',
                       fontWeight: '500',
-                      cursor: isLoading ? 'not-allowed' : 'pointer',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s ease',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.25rem'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = 'rgba(239, 68, 68, 0.3)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = 'rgba(239, 68, 68, 0.2)';
+                    }}
+                  >
+                    <span>🗑️</span>
+                    <span>Clear</span>
+                  </button>
+                  
+                  {/* Restaurant Checkout Button */}
+                  <button
+                    onClick={() => handleRestaurantCheckout(parseInt(restaurantId))}
+                    style={{
+                      background: 'rgba(255, 255, 255, 0.9)',
+                      border: '1px solid rgba(255, 255, 255, 0.3)',
+                      borderRadius: '8px',
+                      padding: '0.5rem 1rem',
+                      color: '#ff6b6b',
+                      fontSize: '0.85rem',
+                      fontWeight: '600',
+                      cursor: 'pointer',
                       transition: 'all 0.2s ease'
                     }}
                     onMouseEnter={(e) => {
-                      if (!isLoading) {
-                        e.currentTarget.style.background = 'linear-gradient(135deg, #ee5a24, #dc2626)';
-                      }
+                      e.currentTarget.style.background = 'white';
+                      e.currentTarget.style.transform = 'translateY(-1px)';
                     }}
                     onMouseLeave={(e) => {
-                      if (!isLoading) {
-                        e.currentTarget.style.background = 'linear-gradient(135deg, #ff6b6b, #ee5a24)';
-                      }
+                      e.currentTarget.style.background = 'rgba(255, 255, 255, 0.9)';
+                      e.currentTarget.style.transform = 'translateY(0)';
                     }}
                   >
-                    Checkout ${getRestaurantTotal(parseInt(restaurantId)).toFixed(2)}
+                    Checkout ₹{getRestaurantTotal(parseInt(restaurantId)).toFixed(2)}
                   </button>
                 </div>
               </div>
@@ -581,7 +635,7 @@ export default function CartPage() {
                     background: selectedItems.has(`${item.id}-${item.restaurantId}`) ? '#f0f9ff' : 'transparent',
                     transition: 'background-color 0.2s ease'
                   }}>
-                    {/* Item Checkbox */}
+                    {/* Item Checkbox and Image */}
                     <div style={{
                       display: 'flex',
                       alignItems: 'center',
@@ -599,6 +653,42 @@ export default function CartPage() {
                           cursor: 'pointer'
                         }}
                       />
+                      
+                      {/* Food Image */}
+                      <div style={{
+                        minWidth: '80px',
+                        width: '80px',
+                        height: '80px',
+                        borderRadius: '12px',
+                        overflow: 'hidden',
+                        background: 'linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        border: '2px solid #e2e8f0'
+                      }}>
+                        {item.image && item.image.startsWith('http') ? (
+                          <img 
+                            src={item.image}
+                            alt={item.name}
+                            style={{
+                              width: '100%',
+                              height: '100%',
+                              objectFit: 'cover'
+                            }}
+                            onError={(e) => {
+                              const target = e.target as HTMLImageElement;
+                              target.style.display = 'none';
+                              const parent = target.parentElement;
+                              if (parent) {
+                                parent.innerHTML = '<div style="font-size: 2.5rem;">🍽️</div>';
+                              }
+                            }}
+                          />
+                        ) : (
+                          <div style={{ fontSize: '2.5rem' }}>🍽️</div>
+                        )}
+                      </div>
                       
                       <div style={{ flex: 1 }}>
                         <h4 style={{
@@ -628,7 +718,7 @@ export default function CartPage() {
                             fontWeight: '600',
                             color: '#ff6b6b'
                           }}>
-                            ${item.price} × {item.quantity} = ${(item.price * item.quantity).toFixed(2)}
+                            ₹{item.price} × {item.quantity} = ₹{(item.price * item.quantity).toFixed(2)}
                           </span>
                           <span style={{
                             fontSize: '0.8rem',
@@ -751,7 +841,7 @@ export default function CartPage() {
               marginBottom: '0.5rem'
             }}>
               <span style={{ color: '#666' }}>Subtotal ({getTotalItems()} items)</span>
-              <span style={{ fontWeight: '600' }}>${subtotal.toFixed(2)}</span>
+              <span style={{ fontWeight: '600' }}>₹{subtotal.toFixed(2)}</span>
             </div>
             <div style={{
               display: 'flex',
@@ -759,7 +849,7 @@ export default function CartPage() {
               marginBottom: '0.5rem'
             }}>
               <span style={{ color: '#666' }}>Delivery Fee</span>
-              <span style={{ fontWeight: '600' }}>${deliveryFee.toFixed(2)}</span>
+              <span style={{ fontWeight: '600' }}>₹{deliveryFee.toFixed(2)}</span>
             </div>
             <div style={{
               display: 'flex',
@@ -767,7 +857,7 @@ export default function CartPage() {
               marginBottom: '0.5rem'
             }}>
               <span style={{ color: '#666' }}>Tax (8%)</span>
-              <span style={{ fontWeight: '600' }}>${(subtotal * taxRate).toFixed(2)}</span>
+              <span style={{ fontWeight: '600' }}>₹{(subtotal * taxRate).toFixed(2)}</span>
             </div>
           </div>
 
@@ -780,7 +870,7 @@ export default function CartPage() {
             marginBottom: '2rem'
           }}>
             <span>Total</span>
-            <span>${(subtotal + deliveryFee + (subtotal * taxRate)).toFixed(2)}</span>
+            <span>₹{(subtotal + deliveryFee + (subtotal * taxRate)).toFixed(2)}</span>
           </div>
 
           {/* Checkout Buttons */}
@@ -815,7 +905,7 @@ export default function CartPage() {
                   }
                 }}
               >
-                {isLoading ? 'Processing...' : `Checkout Selected (${getSelectedCount()}) • $${selectedTotal.toFixed(2)}`}
+                {isLoading ? 'Processing...' : `Checkout Selected (${getSelectedCount()}) • ₹${selectedTotal.toFixed(2)}`}
               </button>
             )}
 
@@ -848,7 +938,7 @@ export default function CartPage() {
                 }
               }}
             >
-              {isLoading ? 'Processing...' : `Checkout All (${getTotalItems()}) • $${(subtotal + deliveryFee + (subtotal * taxRate)).toFixed(2)}`}
+              {isLoading ? 'Processing...' : `Checkout All (${getTotalItems()}) • ₹${(subtotal + deliveryFee + (subtotal * taxRate)).toFixed(2)}`}
             </button>
           </div>
 

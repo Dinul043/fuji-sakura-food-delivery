@@ -111,14 +111,14 @@ export default function AdminLoginPage() {
               }
             }
           } catch (parseError) {
-            console.error('Error parsing response:', parseError);
+            // Silent fallback - no console errors
             errorMessage = `Server error (${response.status}). Please try again.`;
           }
           
           setErrors(prev => ({ ...prev, password: errorMessage }));
         }
       } catch (error) {
-        console.error('Admin login error:', error);
+        // Silent fallback - no console errors
         
         // Handle different types of network errors
         let errorMessage = 'Network error. Please try again.';

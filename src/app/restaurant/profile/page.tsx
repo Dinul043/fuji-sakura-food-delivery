@@ -17,6 +17,7 @@ interface RestaurantProfile {
   description: string;
   business_license: string;
   food_permit: string;
+  restaurant_image?: string;
   status: string;
   created_at: string;
   approved_at: string;
@@ -45,6 +46,9 @@ export default function RestaurantProfile() {
     type: 'success',
     message: ''
   });
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
 
   useEffect(() => {
     fetchProfile();
@@ -55,6 +59,83 @@ export default function RestaurantProfile() {
     setTimeout(() => {
       setNotification(prev => ({ ...prev, show: false }));
     }, 4000);
+  };
+
+  const handleImageSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      // Validate file type
+      const allowedTypes = ['image/jpeg', 'image/png', 'image/jpg', 'image/webp'];
+      if (!allowedTypes.includes(file.type)) {
+        showNotification('error', 'Only JPEG, PNG, and WebP images are allowed');
+        return;
+      }
+
+      // Validate file size (max 5MB)
+      const maxSize = 5 * 1024 * 1024; // 5MB
+      if (file.size > maxSize) {
+        showNotification('error', 'File size must be less than 5MB');
+        return;
+      }
+
+      setImageFile(file);
+      
+      // Create preview
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setImagePreview(e.target?.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const uploadRestaurantImage = async () => {
+    if (!imageFile) return;
+
+    setIsUploadingImage(true);
+    try {
+      const token = localStorage.getItem('restaurantToken');
+      if (!token) {
+        router.push('/restaurant/login');
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append('file', imageFile);
+
+      const response = await fetch(`${API_BASE_URL}/api/restaurant/upload-restaurant-image`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+        body: formData
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        showNotification('success', 'Restaurant image uploaded successfully!');
+        
+        // Update profile with new image URL
+        setProfile(prev => prev ? { ...prev, restaurant_image: result.image_url } : null);
+        
+        // Clear the file input
+        setImageFile(null);
+        setImagePreview(null);
+        
+        // Reset file input
+        const fileInput = document.getElementById('restaurant-image-input') as HTMLInputElement;
+        if (fileInput) fileInput.value = '';
+        
+      } else {
+        const error = await response.json();
+        showNotification('error', error.detail || 'Failed to upload image');
+      }
+    } catch (error) {
+      // Silent fallback - no console errors
+      showNotification('error', 'Network error. Please try again.');
+    } finally {
+      setIsUploadingImage(false);
+    }
   };
 
   const fetchProfile = async () => {
@@ -90,7 +171,7 @@ export default function RestaurantProfile() {
         router.push('/restaurant/login');
       }
     } catch (error) {
-      console.error('Error fetching profile:', error);
+      // Silent fallback - no console errors
       showNotification('error', 'Network error. Please try again.');
     } finally {
       setIsLoading(false);
@@ -240,6 +321,40 @@ export default function RestaurantProfile() {
           boxShadow: '0 4px 15px rgba(0,0,0,0.08)',
           marginBottom: '2rem'
         }}>
+          {/* Image Upload Reminder */}
+          {!profile?.restaurant_image && (
+            <div style={{
+              background: 'linear-gradient(135deg, #fef3c7, #fde68a)',
+              border: '1px solid #f59e0b',
+              borderRadius: '12px',
+              padding: '1rem',
+              marginBottom: '2rem',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '1rem'
+            }}>
+              <div style={{ fontSize: '2rem' }}>⚠️</div>
+              <div>
+                <h4 style={{ 
+                  margin: '0 0 0.5rem 0', 
+                  color: '#92400e',
+                  fontSize: '1rem',
+                  fontWeight: '600'
+                }}>
+                  Restaurant Image Required
+                </h4>
+                <p style={{ 
+                  margin: 0, 
+                  color: '#92400e',
+                  fontSize: '0.9rem',
+                  lineHeight: '1.4'
+                }}>
+                  Your restaurant won't appear on the customer home page until you upload a restaurant image. Please upload an image below to make your restaurant visible to customers.
+                </p>
+              </div>
+            </div>
+          )}
+          
           <div style={{ 
             display: 'flex', 
             justifyContent: 'space-between', 
@@ -368,6 +483,219 @@ export default function RestaurantProfile() {
                   {profile?.business_name}
                 </p>
               )}
+            </div>
+
+            {/* Restaurant Image */}
+            <div>
+              <label style={{ 
+                display: 'block', 
+                marginBottom: '0.5rem', 
+                fontWeight: '600',
+                color: '#333',
+                fontSize: '0.9rem'
+              }}>
+                🖼️ Restaurant Image
+              </label>
+              
+              {/* Current Image Display */}
+              {profile?.restaurant_image && (
+                <div style={{ marginBottom: '1rem' }}>
+                  <div style={{
+                    width: '200px',
+                    height: '120px',
+                    borderRadius: '8px',
+                    overflow: 'hidden',
+                    border: '2px solid #e9ecef',
+                    position: 'relative',
+                    background: 'linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}>
+                    <img 
+                      src={profile.restaurant_image}
+                      alt="Restaurant"
+                      style={{
+                        width: '100%',
+                        height: '100%',
+                        objectFit: 'cover',
+                        display: 'block'
+                      }}
+                      onError={(e) => {
+                        const target = e.target as HTMLImageElement;
+                        target.style.display = 'none';
+                        const parent = target.parentElement;
+                        if (parent) {
+                          parent.innerHTML = `
+                            <div style="
+                              display: flex; 
+                              flex-direction: column; 
+                              align-items: center; 
+                              justify-content: center; 
+                              height: 100%; 
+                              color: #6c757d;
+                              font-size: 0.8rem;
+                              text-align: center;
+                              padding: 1rem;
+                            ">
+                              <div style="font-size: 2rem; margin-bottom: 0.5rem;">🖼️</div>
+                              <div>Image not available</div>
+                            </div>
+                          `;
+                        }
+                      }}
+                    />
+                  </div>
+                  <p style={{ 
+                    fontSize: '0.8rem', 
+                    color: '#666', 
+                    marginTop: '0.5rem',
+                    margin: '0.5rem 0 0 0'
+                  }}>
+                    Current restaurant image
+                  </p>
+                </div>
+              )}
+
+              {/* Image Upload Section */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                <input
+                  id="restaurant-image-input"
+                  type="file"
+                  accept="image/jpeg,image/png,image/jpg,image/webp"
+                  onChange={handleImageSelect}
+                  style={{ display: 'none' }}
+                />
+                
+                <button
+                  type="button"
+                  onClick={() => document.getElementById('restaurant-image-input')?.click()}
+                  style={{
+                    padding: '0.75rem 1rem',
+                    border: '2px dashed #FF5722',
+                    borderRadius: '8px',
+                    background: 'rgba(255, 87, 34, 0.05)',
+                    color: '#FF5722',
+                    cursor: 'pointer',
+                    fontSize: '0.9rem',
+                    fontWeight: '500',
+                    transition: 'all 0.2s ease',
+                    textAlign: 'center'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = 'rgba(255, 87, 34, 0.1)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = 'rgba(255, 87, 34, 0.05)';
+                  }}
+                >
+                  📁 Choose Restaurant Image
+                </button>
+
+                {/* Image Preview */}
+                {imagePreview && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                    <div style={{
+                      width: '200px',
+                      height: '120px',
+                      borderRadius: '8px',
+                      overflow: 'hidden',
+                      border: '2px solid #FF5722',
+                      position: 'relative',
+                      background: 'linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center'
+                    }}>
+                      <img 
+                        src={imagePreview}
+                        alt="Preview"
+                        style={{
+                          width: '100%',
+                          height: '100%',
+                          objectFit: 'cover',
+                          display: 'block'
+                        }}
+                        onError={(e) => {
+                          const target = e.target as HTMLImageElement;
+                          target.style.display = 'none';
+                          const parent = target.parentElement;
+                          if (parent) {
+                            parent.innerHTML = `
+                              <div style="
+                                display: flex; 
+                                flex-direction: column; 
+                                align-items: center; 
+                                justify-content: center; 
+                                height: 100%; 
+                                color: #FF5722;
+                                font-size: 0.8rem;
+                                text-align: center;
+                                padding: 1rem;
+                              ">
+                                <div style="font-size: 2rem; margin-bottom: 0.5rem;">📷</div>
+                                <div>Preview not available</div>
+                              </div>
+                            `;
+                          }
+                        }}
+                      />
+                    </div>
+                    <div style={{ display: 'flex', gap: '0.5rem' }}>
+                      <button
+                        type="button"
+                        onClick={uploadRestaurantImage}
+                        disabled={isUploadingImage}
+                        style={{
+                          padding: '0.5rem 1rem',
+                          background: '#FF5722',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '6px',
+                          fontSize: '0.8rem',
+                          fontWeight: '500',
+                          cursor: isUploadingImage ? 'not-allowed' : 'pointer',
+                          opacity: isUploadingImage ? 0.7 : 1,
+                          transition: 'all 0.2s ease'
+                        }}
+                      >
+                        {isUploadingImage ? '⏳ Uploading...' : '✅ Upload Image'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setImageFile(null);
+                          setImagePreview(null);
+                          const fileInput = document.getElementById('restaurant-image-input') as HTMLInputElement;
+                          if (fileInput) fileInput.value = '';
+                        }}
+                        style={{
+                          padding: '0.5rem 1rem',
+                          background: '#6c757d',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '6px',
+                          fontSize: '0.8rem',
+                          fontWeight: '500',
+                          cursor: 'pointer',
+                          transition: 'all 0.2s ease'
+                        }}
+                      >
+                        ❌ Cancel
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                <p style={{ 
+                  fontSize: '0.75rem', 
+                  color: '#666', 
+                  margin: 0,
+                  lineHeight: '1.4'
+                }}>
+                  Upload a banner image for your restaurant. Recommended size: 400x240px. Max file size: 5MB. Supported formats: JPEG, PNG, WebP.
+                </p>
+              </div>
             </div>
 
             {/* Owner Name */}
