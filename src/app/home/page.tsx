@@ -53,6 +53,7 @@ export default function HomePage() {
   const [searchSuggestions, setSearchSuggestions] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showSortDropdown, setShowSortDropdown] = useState(false);
   const router = useRouter();
   const restaurantsRef = useRef<HTMLDivElement>(null);
   const { getTotalItems } = useCart();
@@ -536,6 +537,197 @@ export default function HomePage() {
           )}
         </div>
 
+        {/* Sort Filter Icon - NEW */}
+        <div style={{ position: 'relative' }}>
+          <button
+            onClick={() => setShowSortDropdown(!showSortDropdown)}
+            onBlur={() => setTimeout(() => setShowSortDropdown(false), 200)}
+            style={{
+              position: 'relative',
+              padding: '0.75rem',
+              background: sortBy ? 'linear-gradient(135deg, #ff6b6b, #ee5a24)' : 'rgba(255, 255, 255, 0.15)',
+              backdropFilter: 'blur(10px)',
+              border: '1px solid rgba(255, 255, 255, 0.2)',
+              borderRadius: '50%',
+              color: 'white',
+              cursor: 'pointer',
+              transition: 'all 0.2s ease',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}
+            onMouseEnter={(e) => {
+              if (!sortBy) {
+                e.currentTarget.style.background = 'rgba(255, 255, 255, 0.25)';
+              }
+              e.currentTarget.style.transform = 'scale(1.05)';
+            }}
+            onMouseLeave={(e) => {
+              if (!sortBy) {
+                e.currentTarget.style.background = 'rgba(255, 255, 255, 0.15)';
+              }
+              e.currentTarget.style.transform = 'scale(1)';
+            }}
+            title="Sort restaurants"
+          >
+            <span style={{ fontSize: '1.2rem' }}>🔄</span>
+            {sortBy && (
+              <span style={{
+                position: 'absolute',
+                top: '-5px',
+                right: '-5px',
+                background: '#10b981',
+                color: 'white',
+                fontSize: '0.65rem',
+                fontWeight: 'bold',
+                borderRadius: '50%',
+                width: '18px',
+                height: '18px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                border: '2px solid white'
+              }}>✓</span>
+            )}
+          </button>
+
+          {/* Sort Dropdown */}
+          {showSortDropdown && (
+            <div style={{
+              position: 'absolute',
+              top: '100%',
+              right: 0,
+              marginTop: '0.5rem',
+              background: 'rgba(255, 255, 255, 0.98)',
+              backdropFilter: 'blur(15px)',
+              borderRadius: '16px',
+              boxShadow: '0 10px 40px rgba(0, 0, 0, 0.15)',
+              border: '1px solid rgba(255, 255, 255, 0.3)',
+              zIndex: 1000,
+              overflow: 'hidden',
+              minWidth: '220px',
+              animation: 'slideDown 0.2s ease-out'
+            }}>
+              <div style={{
+                padding: '0.75rem 1rem 0.5rem',
+                borderBottom: '1px solid rgba(0, 0, 0, 0.1)',
+                fontSize: '0.75rem',
+                fontWeight: '600',
+                color: '#666',
+                textTransform: 'uppercase',
+                letterSpacing: '0.5px'
+              }}>
+                Sort By
+              </div>
+              
+              {[
+                { id: 'rating', label: 'Rating', icon: '⭐', desc: 'High to Low' },
+                { id: 'distance', label: 'Distance', icon: '📍', desc: 'Nearest First' },
+                { id: 'time', label: 'Delivery Time', icon: '⏱️', desc: 'Fastest First' },
+                { id: 'price', label: 'Delivery Fee', icon: '💰', desc: 'Low to High' }
+              ].map((sort) => (
+                <button
+                  key={sort.id}
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    handleSortClick(sort.id);
+                    setShowSortDropdown(false);
+                  }}
+                  style={{
+                    width: '100%',
+                    padding: '0.85rem 1rem',
+                    background: sortBy === sort.id ? 'rgba(255, 107, 107, 0.1)' : 'transparent',
+                    border: 'none',
+                    textAlign: 'left',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.75rem',
+                    borderLeft: sortBy === sort.id ? '3px solid #ff6b6b' : '3px solid transparent'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = 'rgba(255, 107, 107, 0.08)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = sortBy === sort.id ? 'rgba(255, 107, 107, 0.1)' : 'transparent';
+                  }}
+                >
+                  <span style={{ fontSize: '1.1rem' }}>{sort.icon}</span>
+                  <div style={{ flex: 1 }}>
+                    <div style={{
+                      fontSize: '0.9rem',
+                      fontWeight: '600',
+                      color: sortBy === sort.id ? '#ff6b6b' : '#333',
+                      marginBottom: '0.1rem'
+                    }}>
+                      {sort.label}
+                    </div>
+                    <div style={{
+                      fontSize: '0.75rem',
+                      color: '#666'
+                    }}>
+                      {sort.desc}
+                    </div>
+                  </div>
+                  {sortBy === sort.id && (
+                    <span style={{
+                      fontSize: '0.9rem',
+                      color: '#ff6b6b',
+                      fontWeight: 'bold'
+                    }}>
+                      {sortOrder === 'high' ? '↓' : '↑'}
+                    </span>
+                  )}
+                </button>
+              ))}
+
+              {/* Clear Sort Option */}
+              {sortBy && (
+                <>
+                  <div style={{
+                    height: '1px',
+                    background: 'rgba(0, 0, 0, 0.1)',
+                    margin: '0.5rem 0'
+                  }}></div>
+                  <button
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      setSortBy('');
+                      setSortOrder('high');
+                      setShowSortDropdown(false);
+                    }}
+                    style={{
+                      width: '100%',
+                      padding: '0.75rem 1rem',
+                      background: 'transparent',
+                      border: 'none',
+                      textAlign: 'left',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s ease',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.75rem',
+                      color: '#dc2626',
+                      fontSize: '0.85rem',
+                      fontWeight: '600'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = 'rgba(239, 68, 68, 0.08)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = 'transparent';
+                    }}
+                  >
+                    <span>✕</span>
+                    <span>Clear Sort</span>
+                  </button>
+                </>
+              )}
+            </div>
+          )}
+        </div>
+
         {/* Cart & Profile */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
           <button 
@@ -941,8 +1133,8 @@ export default function HomePage() {
 
       {/* SECTION 3: POPULAR RESTAURANTS TITLE */}
       <section style={{
-        paddingTop: '4rem',
-        paddingBottom: '1rem',
+        paddingTop: '2rem',
+        paddingBottom: '1.5rem',
         position: 'relative',
         zIndex: 5
       }}>
@@ -953,195 +1145,23 @@ export default function HomePage() {
           textAlign: 'center'
         }}>
           <h3 style={{
-            fontSize: '2.5rem',
+            fontSize: '2rem',
             fontWeight: 'bold',
             color: 'white',
-            marginBottom: '0.5rem',
-            textShadow: '0 2px 4px rgba(0, 0, 0, 0.2)'
+            marginBottom: '0.25rem',
+            textShadow: '0 2px 4px rgba(0, 0, 0, 0.2)',
+            margin: '0 0 0.25rem 0'
           }}>
             Popular Restaurants
           </h3>
           <p style={{
-            fontSize: '1rem',
+            fontSize: '0.9rem',
             color: 'rgba(255, 255, 255, 0.8)',
             textShadow: '0 1px 2px rgba(0, 0, 0, 0.1)',
             margin: 0
           }}>
             {filteredRestaurants.length} restaurants found
           </p>
-        </div>
-      </section>
-
-      {/* SECTION 3.5: SORT BY FUNCTIONALITY */}
-      <section style={{
-        paddingTop: '2rem',
-        paddingBottom: '2rem',
-        position: 'relative',
-        zIndex: 5
-      }}>
-        <div style={{
-          maxWidth: '1200px',
-          margin: '0 auto',
-          padding: '0 2rem',
-          display: 'flex',
-          justifyContent: 'center'
-        }}>
-          <div style={{
-            background: 'rgba(255, 255, 255, 0.95)',
-            borderRadius: '20px',
-            padding: '1.5rem 2rem',
-            border: '1px solid rgba(255, 255, 255, 0.3)',
-            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '1.5rem',
-            flexWrap: 'wrap'
-          }}>
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.5rem',
-              color: '#333',
-              fontWeight: '600',
-              fontSize: '1rem'
-            }}>
-              <span style={{ fontSize: '1.2rem' }}>🔄</span>
-              <span>Sort by:</span>
-            </div>
-            
-            <div style={{
-              display: 'flex',
-              gap: '0.75rem',
-              flexWrap: 'wrap'
-            }}>
-              {[
-                { id: 'rating', label: 'Rating', icon: '⭐' },
-                { id: 'distance', label: 'Distance', icon: '📍' },
-                { id: 'time', label: 'Delivery Time', icon: '⏱️' },
-                { id: 'price', label: 'Delivery Fee', icon: '💰' }
-              ].map((sort) => (
-                <button
-                  key={sort.id}
-                  onClick={() => handleSortClick(sort.id)}
-                  style={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    gap: '0.25rem',
-                    padding: '0.75rem 1rem',
-                    background: sortBy === sort.id 
-                      ? 'linear-gradient(135deg, #ff6b6b, #ee5a24)' 
-                      : 'rgba(255, 255, 255, 0.9)',
-                    border: sortBy === sort.id 
-                      ? '2px solid rgba(255, 107, 107, 0.5)' 
-                      : '2px solid rgba(0, 0, 0, 0.1)',
-                    borderRadius: '12px',
-                    cursor: 'pointer',
-                    transition: 'all 0.3s ease',
-                    transform: sortBy === sort.id ? 'scale(1.05)' : 'scale(1)',
-                    boxShadow: sortBy === sort.id 
-                      ? '0 6px 20px rgba(255, 107, 107, 0.3)' 
-                      : '0 2px 8px rgba(0, 0, 0, 0.1)',
-                    minWidth: '110px'
-                  }}
-                  onMouseEnter={(e) => {
-                    if (sortBy !== sort.id) {
-                      e.currentTarget.style.background = 'linear-gradient(135deg, #ff6b6b, #ee5a24)';
-                      e.currentTarget.style.transform = 'scale(1.05)';
-                      e.currentTarget.style.boxShadow = '0 6px 20px rgba(255, 107, 107, 0.3)';
-                      // Change text color to white on hover
-                      const textElements = e.currentTarget.querySelectorAll('span, div');
-                      textElements.forEach(el => {
-                        (el as HTMLElement).style.color = 'white';
-                      });
-                    }
-                  }}
-                  onMouseLeave={(e) => {
-                    if (sortBy !== sort.id) {
-                      e.currentTarget.style.background = 'rgba(255, 255, 255, 0.9)';
-                      e.currentTarget.style.transform = 'scale(1)';
-                      e.currentTarget.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.1)';
-                      // Change text color back to dark
-                      const textElements = e.currentTarget.querySelectorAll('span, div');
-                      textElements.forEach(el => {
-                        (el as HTMLElement).style.color = '#333';
-                      });
-                    }
-                  }}
-                >
-                  <span style={{
-                    fontSize: '1.5rem',
-                    marginBottom: '0.25rem'
-                  }}>
-                    {sort.icon}
-                  </span>
-                  <div style={{
-                    fontWeight: '600',
-                    fontSize: '0.85rem',
-                    color: sortBy === sort.id ? 'white' : '#333',
-                    textAlign: 'center',
-                    lineHeight: '1.2'
-                  }}>
-                    {sort.label}
-                  </div>
-                  <div style={{
-                    fontSize: '0.7rem',
-                    color: sortBy === sort.id ? 'rgba(255, 255, 255, 0.9)' : '#666',
-                    textAlign: 'center',
-                    fontWeight: '500',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.25rem'
-                  }}>
-                    {sortBy === sort.id && (
-                      <span style={{ fontSize: '0.6rem' }}>
-                        {sortOrder === 'high' ? '↓' : '↑'}
-                      </span>
-                    )}
-                    <span>
-                      {sortBy === sort.id 
-                        ? (sortOrder === 'high' ? 'High → Low' : 'Low → High')
-                        : 'Click to sort'
-                      }
-                    </span>
-                  </div>
-                </button>
-              ))}
-            </div>
-            
-            {/* Clear Sort Button */}
-            {sortBy && (
-              <button
-                onClick={() => {
-                  setSortBy('');
-                  setSortOrder('high');
-                }}
-                style={{
-                  padding: '0.5rem 1rem',
-                  background: 'rgba(239, 68, 68, 0.1)',
-                  border: '1px solid rgba(239, 68, 68, 0.3)',
-                  borderRadius: '8px',
-                  color: '#dc2626',
-                  fontSize: '0.8rem',
-                  fontWeight: '500',
-                  cursor: 'pointer',
-                  transition: 'all 0.2s ease',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.25rem'
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = 'rgba(239, 68, 68, 0.2)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = 'rgba(239, 68, 68, 0.1)';
-                }}
-              >
-                <span>✕</span>
-                <span>Clear Sort</span>
-              </button>
-            )}
-          </div>
         </div>
       </section>
 

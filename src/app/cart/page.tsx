@@ -344,81 +344,83 @@ export default function CartPage() {
           border: '1px solid rgba(255, 255, 255, 0.3)',
           height: 'fit-content'
         }}>
+          {/* Header Row: Title on left, Delivery Address on right */}
           <div style={{
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            marginBottom: '1.5rem'
+            marginBottom: '1rem',
+            gap: '2rem'
           }}>
             <h2 style={{
               fontSize: '1.3rem',
               fontWeight: '600',
               color: '#333',
-              margin: 0
+              margin: 0,
+              lineHeight: '1.2'
             }}>
               Order Details
             </h2>
             
-            {/* Select All Checkbox */}
+            {/* Delivery Address - Compact on right */}
             <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.5rem',
               background: '#f8fafc',
-              padding: '0.5rem 1rem',
-              borderRadius: '8px',
-              border: '1px solid #e2e8f0'
+              borderRadius: '10px',
+              padding: '0.75rem 1rem',
+              border: '1px solid #e2e8f0',
+              minWidth: '280px',
+              maxWidth: '320px'
             }}>
-              <input
-                type="checkbox"
-                id="selectAll"
-                checked={selectAll}
-                onChange={handleSelectAll}
-                style={{
-                  width: '1.2rem',
-                  height: '1.2rem',
-                  cursor: 'pointer'
-                }}
-              />
-              <label
-                htmlFor="selectAll"
-                style={{
-                  fontSize: '0.9rem',
-                  fontWeight: '500',
-                  color: '#333',
-                  cursor: 'pointer'
-                }}
-              >
-                Select All ({cart.length} items)
-              </label>
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.4rem',
+                marginBottom: '0.35rem'
+              }}>
+                <span style={{ fontSize: '0.85rem' }}>📍</span>
+                <span style={{ fontWeight: '600', color: '#333', fontSize: '0.85rem' }}>Delivery Address</span>
+              </div>
+              <p style={{
+                color: '#666',
+                fontSize: '0.8rem',
+                margin: 0,
+                lineHeight: '1.3'
+              }}>
+                {deliveryAddress}
+              </p>
             </div>
           </div>
 
-          {/* Delivery Address */}
+          {/* Select All Checkbox - Below title, left-aligned */}
           <div style={{
-            background: '#f8fafc',
-            borderRadius: '12px',
-            padding: '1rem',
-            marginBottom: '1.5rem',
-            border: '1px solid #e2e8f0'
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.5rem',
+            marginBottom: '1.5rem'
           }}>
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.5rem',
-              marginBottom: '0.5rem'
-            }}>
-              <span style={{ fontSize: '1rem' }}>📍</span>
-              <span style={{ fontWeight: '600', color: '#333' }}>Delivery Address</span>
-            </div>
-            <p style={{
-              color: '#666',
-              fontSize: '0.9rem',
-              margin: 0,
-              lineHeight: '1.4'
-            }}>
-              {deliveryAddress}
-            </p>
+            <input
+              type="checkbox"
+              id="selectAll"
+              checked={selectAll}
+              onChange={handleSelectAll}
+              style={{
+                width: '1.2rem',
+                height: '1.2rem',
+                cursor: 'pointer',
+                accentColor: '#3b82f6'
+              }}
+            />
+            <label
+              htmlFor="selectAll"
+              style={{
+                fontSize: '0.9rem',
+                fontWeight: '500',
+                color: '#333',
+                cursor: 'pointer'
+              }}
+            >
+              Select All ({cart.length} items)
+            </label>
           </div>
 
           {/* Cart Items - Flat List */}
@@ -458,7 +460,8 @@ export default function CartPage() {
                     style={{
                       width: '1.2rem',
                       height: '1.2rem',
-                      cursor: 'pointer'
+                      cursor: 'pointer',
+                      accentColor: '#3b82f6'
                     }}
                   />
                   
