@@ -126,16 +126,19 @@ export default function RestaurantLogin() {
         setErrors(prev => ({ ...prev, password: errorMessage }));
       }
     } catch (error) {
-      // Silent fallback - no console errors
+      // Network or connection error
+      console.error('Login error:', error);
       
-      let errorMessage = 'Network error. Please try again.';
+      let errorMessage = 'Network error. Please check your connection and try again.';
       if (error instanceof Error) {
-        if (error.message === 'Failed to fetch') {
-          errorMessage = 'Unable to connect to server. Please check your internet connection and try again.';
+        if (error.message === 'Failed to fetch' || error.message.includes('fetch')) {
+          errorMessage = '❌ Unable to connect to server. Please ensure the backend is running and try again.';
+        } else {
+          errorMessage = `Error: ${error.message}`;
         }
       }
       
-      setErrors(prev => ({ ...prev, password: errorMessage }));
+      setErrors({ password: errorMessage });
     } finally {
       setIsLoading(false);
     }

@@ -13,7 +13,7 @@ interface MenuItem {
   category: string;
   image_url?: string;
   is_available: boolean;
-  is_veg: boolean;
+  isVeg: boolean;  // Changed to camelCase to match backend response
   restaurant_id: number;
   created_at: string;
   updated_at: string;
@@ -102,6 +102,7 @@ export default function MenuManagement() {
 
   const loadMenuItems = async (token: string) => {
     try {
+      console.log('📥 Loading menu items...');
       const response = await fetch(`${API_BASE_URL}/api/menu/`, {
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -111,6 +112,7 @@ export default function MenuManagement() {
 
       if (response.ok) {
         const menuItems: MenuItem[] = await response.json();
+        console.log('📋 Loaded menu items:', menuItems);
         
         // Group items by category
         const groupedItems: { [key: string]: MenuItem[] } = {};
@@ -128,11 +130,12 @@ export default function MenuManagement() {
         }));
 
         setMenuCategories(categories);
+        console.log('✅ Menu categories updated');
       } else {
-        // Silent fallback - no console errors
+        console.error('❌ Failed to load menu items');
       }
     } catch (error) {
-      // Silent fallback - no console errors
+      console.error('❌ Error loading menu items:', error);
     }
   };
 
@@ -200,6 +203,14 @@ export default function MenuManagement() {
     if (!editingItem || !newItem.item_name || !newItem.price) return;
     
     try {
+      console.log('🔄 Starting update for item:', editingItem.id);
+      console.log('📝 Update data:', {
+        item_name: newItem.item_name,
+        is_veg: newItem.is_veg,
+        price: newItem.price,
+        category: newItem.category
+      });
+      
       const token = localStorage.getItem('restaurantToken');
       if (!token) {
         router.push('/restaurant/login');
@@ -222,6 +233,8 @@ export default function MenuManagement() {
         is_veg: newItem.is_veg
       };
 
+      console.log('📤 Sending update request:', menuItemData);
+
       const response = await fetch(`${API_BASE_URL}/api/menu/${editingItem.id}`, {
         method: 'PUT',
         headers: {
@@ -231,7 +244,12 @@ export default function MenuManagement() {
         body: JSON.stringify(menuItemData)
       });
 
+      console.log('📡 Response status:', response.status);
+
       if (response.ok) {
+        const updatedItem = await response.json();
+        console.log('✅ Update successful:', updatedItem);
+        
         // Reload menu items to get the updated list
         await loadMenuItems(token);
         resetForm();
@@ -239,10 +257,11 @@ export default function MenuManagement() {
         setShowAddModal(false);
       } else {
         const error = await response.json();
+        console.error('❌ Update failed:', error);
         alert(`Failed to update menu item: ${error.detail || 'Unknown error'}`);
       }
     } catch (error) {
-      // Silent fallback - no console errors
+      console.error('❌ Update error:', error);
       alert('Failed to update menu item. Please try again.');
     }
   };
@@ -326,7 +345,7 @@ export default function MenuManagement() {
       description: item.description || '',
       price: item.price.toString(),
       category: item.category,
-      is_veg: item.is_veg,
+      is_veg: item.isVeg,  // Map from isVeg to is_veg for form state
       image_url: item.image_url || ''
     });
     setImagePreview(item.image_url || '');
