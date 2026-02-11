@@ -13,6 +13,7 @@ interface MenuItem {
   category: string;
   image_url?: string;
   is_available: boolean;
+  is_veg: boolean;
   restaurant_id: number;
   created_at: string;
   updated_at: string;
@@ -29,6 +30,7 @@ interface ApiMenuItem {
   price: number;
   category: string;
   image_url?: string;
+  is_veg: boolean;
 }
 
 export default function MenuManagement() {
@@ -47,6 +49,7 @@ export default function MenuManagement() {
     description: '',
     price: '',
     category: 'Appetizers',
+    is_veg: true,
     image_url: ''
   });
 
@@ -159,7 +162,8 @@ export default function MenuManagement() {
         description: newItem.description || undefined,
         price: parseFloat(newItem.price),
         category: newItem.category,
-        image_url: imageUrl || undefined
+        image_url: imageUrl || undefined,
+        is_veg: newItem.is_veg
       };
 
       console.log('📤 Sending menu item data:', menuItemData);
@@ -214,7 +218,8 @@ export default function MenuManagement() {
         description: newItem.description || undefined,
         price: parseFloat(newItem.price),
         category: newItem.category,
-        image_url: imageUrl || undefined
+        image_url: imageUrl || undefined,
+        is_veg: newItem.is_veg
       };
 
       const response = await fetch(`${API_BASE_URL}/api/menu/${editingItem.id}`, {
@@ -287,6 +292,7 @@ export default function MenuManagement() {
       description: '',
       price: '',
       category: availableCategories[0] || 'Appetizers',
+      is_veg: true,
       image_url: ''
     });
     setSelectedImage(null);
@@ -320,6 +326,7 @@ export default function MenuManagement() {
       description: item.description || '',
       price: item.price.toString(),
       category: item.category,
+      is_veg: item.is_veg,
       image_url: item.image_url || ''
     });
     setImagePreview(item.image_url || '');
@@ -905,6 +912,48 @@ export default function MenuManagement() {
                       <option key={cat} value={cat}>{cat}</option>
                     ))}
                   </select>
+                </div>
+              </div>
+              
+              <div>
+                <label style={{ display: 'block', marginBottom: '0.5rem', color: '#333', fontWeight: '500' }}>
+                  Food Type *
+                </label>
+                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                  <button
+                    type="button"
+                    onClick={() => setNewItem(prev => ({ ...prev, is_veg: true }))}
+                    style={{
+                      flex: 1,
+                      padding: '0.75rem',
+                      borderRadius: '8px',
+                      border: newItem.is_veg ? '2px solid #10b981' : '1px solid #ddd',
+                      background: newItem.is_veg ? '#dcfce7' : 'white',
+                      color: newItem.is_veg ? '#10b981' : '#666',
+                      fontSize: '0.9rem',
+                      fontWeight: newItem.is_veg ? '600' : '400',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    🟢 Veg
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setNewItem(prev => ({ ...prev, is_veg: false }))}
+                    style={{
+                      flex: 1,
+                      padding: '0.75rem',
+                      borderRadius: '8px',
+                      border: !newItem.is_veg ? '2px solid #ef4444' : '1px solid #ddd',
+                      background: !newItem.is_veg ? '#fee2e2' : 'white',
+                      color: !newItem.is_veg ? '#ef4444' : '#666',
+                      fontSize: '0.9rem',
+                      fontWeight: !newItem.is_veg ? '600' : '400',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    🔴 Non-Veg
+                  </button>
                 </div>
               </div>
             </div>
