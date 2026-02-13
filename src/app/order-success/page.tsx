@@ -8,14 +8,40 @@ export default function OrderSuccessPage() {
   const searchParams = useSearchParams();
   const orderId = searchParams.get('orderId');
   const [orderDetails, setOrderDetails] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (orderId) {
-      // Get order details from localStorage
-      const orderHistory = JSON.parse(localStorage.getItem('orderHistory') || '[]');
-      const order = orderHistory.find((o: any) => o.id.toString() === orderId);
-      setOrderDetails(order);
-    }
+    const fetchOrderDetails = async () => {
+      if (!orderId) {
+        setError('No order ID provided');
+        setIsLoading(false);
+        return;
+      }
+
+      try {
+        const token = localStorage.getItem('token');
+        const response = await fetch(`http://localhost:8000/api/orders/${orderId}`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to fetch order details');
+        }
+
+        const data = await response.json();
+        setOrderDetails(data);
+      } catch (err) {
+        console.error('Error fetching order:', err);
+        setError('Failed to load order details');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchOrderDetails();
   }, [orderId]);
 
   const handleBackToHome = () => {
@@ -25,6 +51,97 @@ export default function OrderSuccessPage() {
   const handleViewOrders = () => {
     router.push('/orders');
   };
+
+  if (isLoading) {
+    return (
+      <div style={{
+        minHeight: '100vh',
+        background: 'linear-gradient(135deg, #ff6b6b 0%, #ee5a24 25%, #ff9ff3 50%, #54a0ff 75%, #5f27cd 100%)',
+        backgroundSize: '400% 400%',
+        animation: 'gradientShift 15s ease infinite',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '2rem'
+      }}>
+        <div style={{
+          background: 'rgba(255, 255, 255, 0.95)',
+          backdropFilter: 'blur(10px)',
+          borderRadius: '24px',
+          padding: '3rem',
+          textAlign: 'center',
+          border: '1px solid rgba(255, 255, 255, 0.3)',
+          maxWidth: '400px'
+        }}>
+          <div style={{
+            width: '60px',
+            height: '60px',
+            border: '4px solid #f3f4f6',
+            borderTop: '4px solid #ff6b6b',
+            borderRadius: '50%',
+            animation: 'spin 1s linear infinite',
+            margin: '0 auto 1rem'
+          }} />
+          <h2 style={{ fontSize: '1.5rem', fontWeight: '600', color: '#333', margin: 0 }}>
+            Loading order details...
+          </h2>
+        </div>
+        <style jsx>{`
+          @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+          }
+        `}</style>
+      </div>
+    );
+  }
+
+  if (error || !orderDetails) {
+    return (
+      <div style={{
+        minHeight: '100vh',
+        background: 'linear-gradient(135deg, #ff6b6b 0%, #ee5a24 25%, #ff9ff3 50%, #54a0ff 75%, #5f27cd 100%)',
+        backgroundSize: '400% 400%',
+        animation: 'gradientShift 15s ease infinite',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '2rem'
+      }}>
+        <div style={{
+          background: 'rgba(255, 255, 255, 0.95)',
+          backdropFilter: 'blur(10px)',
+          borderRadius: '24px',
+          padding: '3rem',
+          textAlign: 'center',
+          border: '1px solid rgba(255, 255, 255, 0.3)',
+          maxWidth: '400px'
+        }}>
+          <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>❌</div>
+          <h2 style={{ fontSize: '1.5rem', fontWeight: '600', color: '#333', marginBottom: '1rem', margin: 0 }}>
+            {error || 'Order not found'}
+          </h2>
+          <button
+            onClick={handleBackToHome}
+            style={{
+              background: 'linear-gradient(135deg, #ff6b6b, #ee5a24)',
+              color: 'white',
+              border: 'none',
+              borderRadius: '12px',
+              padding: '1rem 2rem',
+              fontSize: '1rem',
+              fontWeight: '600',
+              cursor: 'pointer',
+              transition: 'all 0.2s ease',
+              marginTop: '1rem'
+            }}
+          >
+            Back to Home
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div style={{
@@ -101,7 +218,7 @@ export default function OrderSuccessPage() {
               marginBottom: '0.5rem'
             }}>
               <span style={{ color: '#666' }}>Order ID:</span>
-              <span style={{ fontWeight: '600' }}>#{orderDetails.id}</span>
+              <span style={{ fontWeight: '600' }}>{orderDetails.order_number}</span>
             </div>
 
             <div style={{
@@ -122,7 +239,7 @@ export default function OrderSuccessPage() {
             }}>
               <span style={{ color: '#666' }}>Total Amount:</span>
               <span style={{ fontWeight: '600', color: '#ff6b6b' }}>
-                ${orderDetails.total.toFixed(2)}
+                ${orderDetails.total_amount.toFixed(2)}
               </span>
             </div>
 
@@ -133,9 +250,9 @@ export default function OrderSuccessPage() {
             }}>
               <span style={{ color: '#666' }}>Payment Method:</span>
               <span style={{ fontWeight: '600' }}>
-                {orderDetails.paymentMethod === 'card' ? '💳 Card' :
-                 orderDetails.paymentMethod === 'upi' ? '📱 UPI' :
-                 orderDetails.paymentMethod === 'wallet' ? '👛 Wallet' : '💵 Cash on Delivery'}
+                {orderDetails.payment_method === 'card' ? '💳 Card' :
+                 orderDetails.payment_method === 'upi' ? '📱 UPI' :
+                 orderDetails.payment_method === 'wallet' ? '👛 Wallet' : '💵 Cash on Delivery'}
               </span>
             </div>
 
@@ -162,7 +279,7 @@ export default function OrderSuccessPage() {
                 margin: 0,
                 textAlign: 'center'
               }}>
-                {orderDetails.estimatedDelivery}
+                {orderDetails.estimated_delivery_time} minutes
               </p>
             </div>
           </div>

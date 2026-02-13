@@ -9,30 +9,27 @@ interface OrderItem {
   price: number;
   quantity: number;
   isVeg: boolean;
-  restaurantId: number;
+  menu_item_id: number;
 }
 
 interface Order {
   id: number;
+  order_number: string;
   items: OrderItem[];
-  address: {
-    fullName: string;
-    phone: string;
-    address: string;
-    landmark: string;
-    city: string;
-    pincode: string;
-  };
-  paymentMethod: string;
-  instructions: string;
+  delivery_address: string;
+  delivery_phone: string;
+  payment_method: string;
+  special_instructions: string;
   subtotal: number;
-  deliveryFee: number;
-  tax: number;
-  total: number;
-  status: 'confirmed' | 'preparing' | 'on-the-way' | 'delivered' | 'cancelled';
-  estimatedDelivery: string;
-  orderTime: string;
-  deliveredTime?: string;
+  delivery_fee: number;
+  tax_amount: number;
+  total_amount: number;
+  status: string;
+  estimated_delivery_time: number;
+  created_at: string;
+  delivered_at?: string;
+  restaurant_id: number;
+  restaurant_name: string;
 }
 
 export default function OrdersPage() {
@@ -42,22 +39,29 @@ export default function OrdersPage() {
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
 
   useEffect(() => {
-    // Load orders from localStorage
-    const loadOrders = () => {
+    const fetchOrders = async () => {
       try {
-        const orderHistory = localStorage.getItem('orderHistory');
-        if (orderHistory) {
-          const parsedOrders = JSON.parse(orderHistory);
-          setOrders(parsedOrders.reverse()); // Show newest first
+        const token = localStorage.getItem('token');
+        const response = await fetch('http://localhost:8000/api/orders/', {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to fetch orders');
         }
+
+        const data = await response.json();
+        setOrders(data);
       } catch (error) {
-        console.error('Error loading order history:', error);
+        console.error('❌ Error loading orders:', error);
       } finally {
         setIsLoading(false);
       }
     };
 
-    loadOrders();
+    fetchOrders();
   }, []);
 
   // Filter orders by status
@@ -65,27 +69,23 @@ export default function OrdersPage() {
     ? orders 
     : orders.filter(order => order.status === selectedStatus);
 
-  // Get restaurant info for an order (fallback since we removed hardcoded data)
-  const getRestaurantInfo = (restaurantId: number) => {
+  // Get restaurant info for an order
+  const getRestaurantInfo = (order: Order) => {
     return {
-      id: restaurantId,
-      name: `Restaurant ${restaurantId}`,
+      id: order.restaurant_id,
+      name: order.restaurant_name,
       image: '🏪'
     };
   };
 
-  // Group items by restaurant
-  const groupItemsByRestaurant = (items: OrderItem[]) => {
-    return items.reduce((acc, item) => {
-      if (!acc[item.restaurantId]) {
-        acc[item.restaurantId] = {
-          restaurant: getRestaurantInfo(item.restaurantId),
-          items: []
-        };
+  // Group items by restaurant (for multi-restaurant orders)
+  const groupItemsByRestaurant = (order: Order) => {
+    return {
+      [order.restaurant_id]: {
+        restaurant: getRestaurantInfo(order),
+        items: order.items
       }
-      acc[item.restaurantId].items.push(item);
-      return acc;
-    }, {} as Record<number, { restaurant: any; items: OrderItem[] }>);
+    };
   };
 
   // Format date
@@ -107,35 +107,42 @@ export default function OrdersPage() {
         return { color: '#3b82f6', bg: '#dbeafe', emoji: '✅', text: 'Order Confirmed' };
       case 'preparing':
         return { color: '#f59e0b', bg: '#fef3c7', emoji: '👨‍🍳', text: 'Preparing' };
-      case 'on-the-way':
+      case 'out_for_delivery':
         return { color: '#8b5cf6', bg: '#ede9fe', emoji: '🚗', text: 'On the Way' };
       case 'delivered':
         return { color: '#10b981', bg: '#d1fae5', emoji: '🎉', text: 'Delivered' };
       case 'cancelled':
         return { color: '#ef4444', bg: '#fee2e2', emoji: '❌', text: 'Cancelled' };
       default:
-        return { color: '#6b7280', bg: '#f3f4f6', emoji: '📦', text: 'Unknown' };
+        return { color: '#6b7280', bg: '#f3f4f6', emoji: '📦', text: 'Pending' };
     }
   };
 
   // Reorder functionality
-  const handleReorder = (order: Order) => {
-    // Add all items from the order back to cart
-    const cartItems = order.items.map(item => ({
-      ...item,
-      id: item.id,
-      restaurantId: item.restaurantId
-    }));
-
-    // Get existing cart
-    const existingCart = JSON.parse(localStorage.getItem('cart') || '[]');
-    
-    // Add reordered items to cart
-    const updatedCart = [...existingCart, ...cartItems];
-    localStorage.setItem('cart', JSON.stringify(updatedCart));
-
-    // Navigate to cart
-    router.push('/cart');
+  const handleReorder = async (order: Order) => {
+    try {
+      const token = localStorage.getItem('token');
+      
+      // Add items back to cart via API
+      for (const item of order.items) {
+        await fetch('http://localhost:8000/api/cart/add', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            menu_item_id: item.menu_item_id,
+            quantity: item.quantity
+          })
+        });
+      }
+      
+      // Navigate to cart
+      router.push('/cart');
+    } catch (error) {
+      console.error('❌ Error reordering:', error);
+    }
   };
 
   // Track order (navigate to order detail)
@@ -270,7 +277,7 @@ export default function OrdersPage() {
             { value: 'all', label: 'All Orders', emoji: '📦' },
             { value: 'confirmed', label: 'Confirmed', emoji: '✅' },
             { value: 'preparing', label: 'Preparing', emoji: '👨‍🍳' },
-            { value: 'on-the-way', label: 'On the Way', emoji: '🚗' },
+            { value: 'out_for_delivery', label: 'On the Way', emoji: '🚗' },
             { value: 'delivered', label: 'Delivered', emoji: '🎉' },
             { value: 'cancelled', label: 'Cancelled', emoji: '❌' }
           ].map((filter) => (
@@ -367,7 +374,7 @@ export default function OrdersPage() {
         }}>
           {filteredOrders.map((order) => {
             const statusInfo = getStatusInfo(order.status);
-            const restaurantGroups = groupItemsByRestaurant(order.items);
+            const restaurantGroups = groupItemsByRestaurant(order);
             
             return (
               <div
@@ -402,7 +409,7 @@ export default function OrdersPage() {
                         color: '#333',
                         margin: 0
                       }}>
-                        Order #{order.id}
+                        {order.order_number}
                       </h3>
                       <div style={{
                         display: 'flex',
@@ -424,16 +431,16 @@ export default function OrdersPage() {
                       fontSize: '0.9rem',
                       margin: 0
                     }}>
-                      Ordered on {formatDate(order.orderTime)}
+                      Ordered on {formatDate(order.created_at)}
                     </p>
-                    {order.deliveredTime && (
+                    {order.delivered_at && (
                       <p style={{
                         color: '#10b981',
                         fontSize: '0.9rem',
                         margin: 0,
                         fontWeight: '500'
                       }}>
-                        Delivered on {formatDate(order.deliveredTime)}
+                        Delivered on {formatDate(order.delivered_at)}
                       </p>
                     )}
                   </div>
@@ -447,7 +454,7 @@ export default function OrdersPage() {
                       color: '#ff6b6b',
                       marginBottom: '0.5rem'
                     }}>
-                      ${order.total.toFixed(2)}
+                      ${order.total_amount.toFixed(2)}
                     </div>
                     <div style={{
                       fontSize: '0.85rem',

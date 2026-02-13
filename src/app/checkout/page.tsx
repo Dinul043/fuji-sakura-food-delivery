@@ -138,7 +138,7 @@ export default function CheckoutPage() {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handlePlaceOrder = () => {
+  const handlePlaceOrder = async () => {
     if (!validateForm()) {
       // Scroll to first error
       window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -147,46 +147,66 @@ export default function CheckoutPage() {
 
     setIsLoading(true);
     
-    // Save address for future use
-    localStorage.setItem('deliveryAddress', JSON.stringify(deliveryAddress));
-    
-    // Create order object
-    const order = {
-      id: Date.now(),
-      items: checkoutItems,
-      address: deliveryAddress,
-      paymentMethod,
-      instructions: orderInstructions,
-      subtotal,
-      deliveryFee,
-      tax,
-      total,
-      status: 'confirmed',
-      estimatedDelivery: '25-35 minutes',
-      orderTime: new Date().toISOString()
-    };
-
-    console.log('📝 Order being placed:', order);
-    console.log('🍽️ Order Items:', order.items);
-    console.log('🏪 Restaurants in order:', Object.keys(groupedItems).map(id => groupedItems[parseInt(id)].restaurant.name));
-
-    // Save order to localStorage (for order history)
-    const existingOrders = JSON.parse(localStorage.getItem('orderHistory') || '[]');
-    existingOrders.push(order);
-    localStorage.setItem('orderHistory', JSON.stringify(existingOrders));
-
-    setTimeout(() => {
-      // Remove ordered items from cart based on checkout type
-      if (checkoutType === 'all') {
-        clearCart();
-      }
-      // For 'selected' and 'restaurant' types, we would need additional cart methods
-      // to remove specific items, but for now we'll just clear all for 'all' type
+    try {
+      // Save address for future use
+      localStorage.setItem('deliveryAddress', JSON.stringify(deliveryAddress));
       
-      // Redirect to order success page
-      router.push(`/order-success?orderId=${order.id}`);
+      // Get cart item IDs for the order (use cart_id which is the database ID)
+      console.log('📦 All checkout items:', checkoutItems);
+      
+      const cartItemIds = checkoutItems
+        .map(item => {
+          console.log(`   Item: ${item.name}, cart_id: ${item.cart_id}, id: ${item.id}`);
+          return item.cart_id;
+        })
+        .filter(id => id !== undefined && id !== null);
+      
+      console.log('🔢 Cart IDs being sent to backend:', cartItemIds);
+      
+      if (cartItemIds.length === 0) {
+        throw new Error('No valid cart items found. Please refresh the page and try again.');
+      }
+      
+      // Create order via API
+      const token = localStorage.getItem('token');
+      const response = await fetch('http://localhost:8000/api/orders/create', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          delivery_address: deliveryAddress,
+          payment_method: paymentMethod,
+          special_instructions: orderInstructions,
+          cart_items: cartItemIds
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ detail: 'Failed to place order' }));
+        throw new Error(errorData.detail || 'Failed to place order');
+      }
+
+      const data = await response.json();
+      console.log('✅ Order placed successfully:', data);
+      
+      // Get first order ID for redirect
+      const firstOrderId = data.orders[0]?.id;
+      
+      // Redirect immediately (cart is already cleared from backend database)
+      router.push(`/order-success?orderId=${firstOrderId}`);
+      
+    } catch (error) {
+      console.error('❌ Error placing order:', error);
+      setErrors({ 
+        ...errors, 
+        submit: error instanceof Error ? error.message : 'Failed to place order. Please try again.' 
+      });
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } finally {
       setIsLoading(false);
-    }, 2000);
+    }
   };
 
   const handleBackToCart = () => {
@@ -325,6 +345,34 @@ export default function CheckoutPage() {
           flexDirection: 'column',
           gap: '2rem' // Increased gap between sections
         }}>
+          {/* Error Message */}
+          {errors.submit && (
+            <div style={{
+              background: '#fee2e2',
+              border: '2px solid #ef4444',
+              borderRadius: '16px',
+              padding: '1.5rem',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '1rem',
+              boxShadow: '0 4px 12px rgba(239, 68, 68, 0.2)'
+            }}>
+              <span style={{ fontSize: '1.5rem' }}>⚠️</span>
+              <div>
+                <div style={{ 
+                  fontWeight: '600', 
+                  color: '#dc2626',
+                  marginBottom: '0.25rem'
+                }}>
+                  Order Failed
+                </div>
+                <div style={{ color: '#991b1b', fontSize: '0.95rem' }}>
+                  {errors.submit}
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Delivery Address Section */}
           <div style={{
             background: 'rgba(255, 255, 255, 0.95)',
