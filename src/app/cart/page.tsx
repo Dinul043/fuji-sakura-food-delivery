@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useCart } from '../../contexts/CartContext';
 import AuthPopup from '../../components/AuthPopup';
+import { getImageUrl } from '../../config/constants';
 
 export default function CartPage() {
   const router = useRouter();

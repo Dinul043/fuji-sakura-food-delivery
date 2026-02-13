@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { useCart } from '../../contexts/CartContext';
 import { API_BASE_URL } from '../../config/constants';
+import { useWebSocket } from '@/hooks/useWebSocket';
 
 // Define interfaces for real restaurant data
 interface RealRestaurant {
@@ -122,6 +123,46 @@ export default function HomePage() {
     fetchRestaurants();
     fetchCategories();
   }, []);
+
+  // WebSocket for real-time restaurant status updates
+  useEffect(() => {
+    if (restaurants.length === 0) return;
+
+    const wsConnections: WebSocket[] = [];
+
+    // Create WebSocket connection for each restaurant
+    restaurants.forEach((restaurant) => {
+      const ws = new WebSocket(`ws://localhost:8000/ws/restaurant/${restaurant.id}`);
+      
+      ws.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          if (data.type === 'restaurant_status_update') {
+            // Update restaurant status in state
+            setRestaurants(prev => prev.map(r => 
+              r.id === data.restaurant_id 
+                ? { ...r, is_online: data.is_online }
+                : r
+            ));
+            setFilteredRestaurants(prev => prev.map(r => 
+              r.id === data.restaurant_id 
+                ? { ...r, is_online: data.is_online }
+                : r
+            ));
+          }
+        } catch (error) {
+          // Silent error handling
+        }
+      };
+
+      wsConnections.push(ws);
+    });
+
+    // Cleanup on unmount
+    return () => {
+      wsConnections.forEach(ws => ws.close());
+    };
+  }, [restaurants.length]);
 
   useEffect(() => {
     if (restaurants.length === 0) return;

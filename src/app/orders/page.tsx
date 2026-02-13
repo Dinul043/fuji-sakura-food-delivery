@@ -37,6 +37,9 @@ export default function OrdersPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [orderToCancel, setOrderToCancel] = useState<number | null>(null);
+  const [isCancelling, setIsCancelling] = useState(false);
 
   useEffect(() => {
     const fetchOrders = async () => {
@@ -88,15 +91,17 @@ export default function OrdersPage() {
     };
   };
 
-  // Format date
+  // Format date - converts UTC to local timezone
   const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', {
+    // Backend sends UTC time, we need to display it in user's local timezone
+    const date = new Date(dateString + 'Z'); // Add 'Z' to indicate UTC
+    return date.toLocaleString('en-US', {
       year: 'numeric',
       month: 'short',
       day: 'numeric',
       hour: '2-digit',
-      minute: '2-digit'
+      minute: '2-digit',
+      hour12: true
     });
   };
 
@@ -150,6 +155,69 @@ export default function OrdersPage() {
     router.push(`/orders/${orderId}`);
   };
 
+  // Cancel order
+  const handleCancelOrder = async (orderId: number) => {
+    setOrderToCancel(orderId);
+    setShowCancelModal(true);
+  };
+
+  const confirmCancelOrder = async () => {
+    if (!orderToCancel) return;
+
+    setIsCancelling(true);
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`http://localhost:8000/api/orders/${orderToCancel}/cancel`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        console.error('❌ Failed to cancel order:', error.detail);
+        setShowCancelModal(false);
+        setOrderToCancel(null);
+        return;
+      }
+
+      // Refresh orders list
+      const ordersResponse = await fetch('http://localhost:8000/api/orders/', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (ordersResponse.ok) {
+        const data = await ordersResponse.json();
+        setOrders(data);
+      }
+
+      setShowCancelModal(false);
+      setOrderToCancel(null);
+    } catch (error) {
+      console.error('❌ Error cancelling order:', error);
+      setShowCancelModal(false);
+      setOrderToCancel(null);
+    } finally {
+      setIsCancelling(false);
+    }
+  };
+
+  // Check if order can be cancelled (within 5 minutes)
+  const canCancelOrder = (order: Order) => {
+    if (order.status === 'cancelled' || order.status === 'delivered') {
+      return false;
+    }
+    
+    const orderTime = new Date(order.created_at + 'Z').getTime();
+    const currentTime = new Date().getTime();
+    const timeDiff = (currentTime - orderTime) / 1000 / 60; // in minutes
+    
+    return timeDiff <= 5;
+  };
+
   if (isLoading) {
     return (
       <div style={{
@@ -196,6 +264,157 @@ export default function OrdersPage() {
       animation: 'gradientShift 15s ease infinite',
       padding: '2rem'
     }}>
+      {/* Cancel Order Modal */}
+      {showCancelModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0, 0, 0, 0.5)',
+          backdropFilter: 'blur(4px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 9999,
+          padding: '2rem'
+        }}>
+          <div style={{
+            background: 'white',
+            borderRadius: '20px',
+            padding: '2.5rem',
+            maxWidth: '450px',
+            width: '100%',
+            boxShadow: '0 20px 60px rgba(0, 0, 0, 0.3)',
+            animation: 'slideUp 0.3s ease-out'
+          }}>
+            <div style={{
+              fontSize: '3rem',
+              textAlign: 'center',
+              marginBottom: '1rem'
+            }}>
+              ⚠️
+            </div>
+            
+            <h2 style={{
+              fontSize: '1.5rem',
+              fontWeight: '700',
+              color: '#1f2937',
+              textAlign: 'center',
+              marginTop: 0,
+              marginLeft: 0,
+              marginRight: 0,
+              marginBottom: '1rem'
+            }}>
+              Cancel Order?
+            </h2>
+            
+            <p style={{
+              color: '#6b7280',
+              textAlign: 'center',
+              fontSize: '1rem',
+              lineHeight: '1.6',
+              marginTop: 0,
+              marginLeft: 0,
+              marginRight: 0,
+              marginBottom: '2rem'
+            }}>
+              Are you sure you want to cancel this order? This action cannot be undone.
+            </p>
+            
+            <div style={{
+              display: 'flex',
+              gap: '1rem',
+              justifyContent: 'center'
+            }}>
+              <button
+                onClick={() => {
+                  setShowCancelModal(false);
+                  setOrderToCancel(null);
+                }}
+                disabled={isCancelling}
+                style={{
+                  flex: 1,
+                  padding: '0.875rem 1.5rem',
+                  borderRadius: '12px',
+                  border: '2px solid #e5e7eb',
+                  background: 'white',
+                  color: '#374151',
+                  fontSize: '1rem',
+                  fontWeight: '600',
+                  cursor: isCancelling ? 'not-allowed' : 'pointer',
+                  transition: 'all 0.2s ease',
+                  opacity: isCancelling ? 0.5 : 1
+                }}
+                onMouseEnter={(e) => {
+                  if (!isCancelling) {
+                    e.currentTarget.style.background = '#f9fafb';
+                    e.currentTarget.style.borderColor = '#d1d5db';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (!isCancelling) {
+                    e.currentTarget.style.background = 'white';
+                    e.currentTarget.style.borderColor = '#e5e7eb';
+                  }
+                }}
+              >
+                No, Keep Order
+              </button>
+              
+              <button
+                onClick={confirmCancelOrder}
+                disabled={isCancelling}
+                style={{
+                  flex: 1,
+                  padding: '0.875rem 1.5rem',
+                  borderRadius: '12px',
+                  border: 'none',
+                  background: isCancelling ? '#9ca3af' : 'linear-gradient(135deg, #ef4444, #dc2626)',
+                  color: 'white',
+                  fontSize: '1rem',
+                  fontWeight: '600',
+                  cursor: isCancelling ? 'not-allowed' : 'pointer',
+                  transition: 'all 0.2s ease',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '0.5rem'
+                }}
+                onMouseEnter={(e) => {
+                  if (!isCancelling) {
+                    e.currentTarget.style.background = 'linear-gradient(135deg, #dc2626, #b91c1c)';
+                    e.currentTarget.style.transform = 'translateY(-2px)';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (!isCancelling) {
+                    e.currentTarget.style.background = 'linear-gradient(135deg, #ef4444, #dc2626)';
+                    e.currentTarget.style.transform = 'translateY(0)';
+                  }
+                }}
+              >
+                {isCancelling ? (
+                  <>
+                    <div style={{
+                      width: '16px',
+                      height: '16px',
+                      border: '2px solid white',
+                      borderTop: '2px solid transparent',
+                      borderRadius: '50%',
+                      animation: 'spin 0.6s linear infinite'
+                    }} />
+                    <span>Cancelling...</span>
+                  </>
+                ) : (
+                  'Yes, Cancel Order'
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {/* Header */}
       <div style={{
         display: 'flex',
@@ -275,11 +494,7 @@ export default function OrdersPage() {
         }}>
           {[
             { value: 'all', label: 'All Orders', emoji: '📦' },
-            { value: 'confirmed', label: 'Confirmed', emoji: '✅' },
-            { value: 'preparing', label: 'Preparing', emoji: '👨‍🍳' },
-            { value: 'out_for_delivery', label: 'On the Way', emoji: '🚗' },
-            { value: 'delivered', label: 'Delivered', emoji: '🎉' },
-            { value: 'cancelled', label: 'Cancelled', emoji: '❌' }
+            { value: 'delivered', label: 'Delivered', emoji: '🎉' }
           ].map((filter) => (
             <button
               key={filter.value}
@@ -561,6 +776,37 @@ export default function OrdersPage() {
                   paddingTop: '1rem',
                   borderTop: '1px solid #e2e8f0'
                 }}>
+                  {canCancelOrder(order) && (
+                    <button
+                      onClick={() => handleCancelOrder(order.id)}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.5rem',
+                        background: 'linear-gradient(135deg, #ef4444, #dc2626)',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '12px',
+                        padding: '0.75rem 1.5rem',
+                        fontSize: '0.9rem',
+                        fontWeight: '600',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s ease'
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.background = 'linear-gradient(135deg, #dc2626, #b91c1c)';
+                        e.currentTarget.style.transform = 'translateY(-2px)';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.background = 'linear-gradient(135deg, #ef4444, #dc2626)';
+                        e.currentTarget.style.transform = 'translateY(0)';
+                      }}
+                    >
+                      <span>❌</span>
+                      <span>Cancel Order</span>
+                    </button>
+                  )}
+
                   {order.status !== 'cancelled' && order.status !== 'delivered' && (
                     <button
                       onClick={() => handleTrackOrder(order.id)}

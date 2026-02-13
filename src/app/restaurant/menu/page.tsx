@@ -52,6 +52,9 @@ export default function MenuManagement() {
     is_veg: true,
     image_url: ''
   });
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [itemToDelete, setItemToDelete] = useState<number | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
     checkAuthAndLoadMenu();
@@ -382,8 +385,14 @@ export default function MenuManagement() {
   };
 
   const deleteItem = async (itemId: number) => {
-    if (!confirm('Are you sure you want to delete this item?')) return;
-    
+    setItemToDelete(itemId);
+    setShowDeleteModal(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!itemToDelete) return;
+
+    setIsDeleting(true);
     try {
       const token = localStorage.getItem('restaurantToken');
       if (!token) {
@@ -391,7 +400,7 @@ export default function MenuManagement() {
         return;
       }
 
-      const response = await fetch(`${API_BASE_URL}/api/menu/${itemId}`, {
+      const response = await fetch(`${API_BASE_URL}/api/menu/${itemToDelete}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -402,13 +411,13 @@ export default function MenuManagement() {
       if (response.ok) {
         // Reload menu items to get the updated list
         await loadMenuItems(token);
-      } else {
-        const error = await response.json();
-        alert(`Failed to delete menu item: ${error.detail || 'Unknown error'}`);
+        setShowDeleteModal(false);
+        setItemToDelete(null);
       }
     } catch (error) {
-      // Silent fallback - no console errors
-      alert('Failed to delete menu item. Please try again.');
+      // Silent fallback
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -448,6 +457,158 @@ export default function MenuManagement() {
       minHeight: '100vh', 
       background: 'linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)'
     }}>
+      {/* Delete Confirmation Modal */}
+      {showDeleteModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0, 0, 0, 0.5)',
+          backdropFilter: 'blur(4px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 9999,
+          padding: '2rem'
+        }}>
+          <div style={{
+            background: 'white',
+            borderRadius: '20px',
+            padding: '2.5rem',
+            maxWidth: '450px',
+            width: '100%',
+            boxShadow: '0 20px 60px rgba(0, 0, 0, 0.3)',
+            animation: 'slideUp 0.3s ease-out'
+          }}>
+            <div style={{
+              fontSize: '3rem',
+              textAlign: 'center',
+              marginBottom: '1rem'
+            }}>
+              🗑️
+            </div>
+            
+            <h2 style={{
+              fontSize: '1.5rem',
+              fontWeight: '700',
+              color: '#1f2937',
+              textAlign: 'center',
+              marginTop: 0,
+              marginLeft: 0,
+              marginRight: 0,
+              marginBottom: '1rem'
+            }}>
+              Delete Menu Item?
+            </h2>
+            
+            <p style={{
+              color: '#6b7280',
+              textAlign: 'center',
+              fontSize: '1rem',
+              lineHeight: '1.6',
+              marginTop: 0,
+              marginLeft: 0,
+              marginRight: 0,
+              marginBottom: '2rem'
+            }}>
+              Are you sure you want to delete this menu item? This action cannot be undone.
+            </p>
+            
+            <div style={{
+              display: 'flex',
+              gap: '1rem',
+              justifyContent: 'center'
+            }}>
+              <button
+                onClick={() => {
+                  setShowDeleteModal(false);
+                  setItemToDelete(null);
+                }}
+                disabled={isDeleting}
+                style={{
+                  flex: 1,
+                  padding: '0.875rem 1.5rem',
+                  borderRadius: '12px',
+                  border: '2px solid #e5e7eb',
+                  background: 'white',
+                  color: '#374151',
+                  fontSize: '1rem',
+                  fontWeight: '600',
+                  cursor: isDeleting ? 'not-allowed' : 'pointer',
+                  transition: 'all 0.2s ease',
+                  opacity: isDeleting ? 0.5 : 1
+                }}
+                onMouseEnter={(e) => {
+                  if (!isDeleting) {
+                    e.currentTarget.style.background = '#f9fafb';
+                    e.currentTarget.style.borderColor = '#d1d5db';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (!isDeleting) {
+                    e.currentTarget.style.background = 'white';
+                    e.currentTarget.style.borderColor = '#e5e7eb';
+                  }
+                }}
+              >
+                Cancel
+              </button>
+              
+              <button
+                onClick={confirmDelete}
+                disabled={isDeleting}
+                style={{
+                  flex: 1,
+                  padding: '0.875rem 1.5rem',
+                  borderRadius: '12px',
+                  border: 'none',
+                  background: isDeleting ? '#9ca3af' : 'linear-gradient(135deg, #ef4444, #dc2626)',
+                  color: 'white',
+                  fontSize: '1rem',
+                  fontWeight: '600',
+                  cursor: isDeleting ? 'not-allowed' : 'pointer',
+                  transition: 'all 0.2s ease',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '0.5rem'
+                }}
+                onMouseEnter={(e) => {
+                  if (!isDeleting) {
+                    e.currentTarget.style.background = 'linear-gradient(135deg, #dc2626, #b91c1c)';
+                    e.currentTarget.style.transform = 'translateY(-2px)';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (!isDeleting) {
+                    e.currentTarget.style.background = 'linear-gradient(135deg, #ef4444, #dc2626)';
+                    e.currentTarget.style.transform = 'translateY(0)';
+                  }
+                }}
+              >
+                {isDeleting ? (
+                  <>
+                    <div style={{
+                      width: '16px',
+                      height: '16px',
+                      border: '2px solid white',
+                      borderTop: '2px solid transparent',
+                      borderRadius: '50%',
+                      animation: 'spin 0.6s linear infinite'
+                    }} />
+                    <span>Deleting...</span>
+                  </>
+                ) : (
+                  'Delete Item'
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <header style={{ 
         background: 'white', 

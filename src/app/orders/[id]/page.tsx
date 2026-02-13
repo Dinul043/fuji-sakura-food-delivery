@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
+import { useWebSocket } from '@/hooks/useWebSocket';
 
 interface OrderItem {
   id: number;
@@ -29,10 +30,11 @@ interface Order {
   deliveryFee: number;
   tax: number;
   total: number;
-  status: 'confirmed' | 'preparing' | 'on-the-way' | 'delivered' | 'cancelled';
+  status: 'confirmed' | 'preparing' | 'out_for_delivery' | 'delivered' | 'cancelled';
   estimatedDelivery: string;
   orderTime: string;
   deliveredTime?: string;
+  restaurantName?: string;
 }
 
 export default function OrderTrackingPage() {
@@ -44,42 +46,137 @@ export default function OrderTrackingPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [currentStep, setCurrentStep] = useState(0);
 
+  // WebSocket connection for real-time updates
+  const { isConnected } = useWebSocket(
+    `ws://localhost:8000/ws/orders/${orderId}`,
+    (data) => {
+      if (data.type === 'order_status_update' && data.order) {
+        // Update order with new data from WebSocket
+        const updatedOrder = data.order;
+        const transformedOrder: Order = {
+          id: updatedOrder.id,
+          items: updatedOrder.items.map((item: any) => ({
+            id: item.id,
+            name: item.name,
+            price: item.price,
+            quantity: item.quantity,
+            isVeg: item.isVeg,
+            restaurantId: updatedOrder.restaurant_id
+          })),
+          address: {
+            fullName: updatedOrder.customer_name || '',
+            phone: updatedOrder.delivery_phone || '',
+            address: updatedOrder.delivery_address || '',
+            landmark: '',
+            city: '',
+            pincode: ''
+          },
+          paymentMethod: updatedOrder.payment_method || 'cod',
+          instructions: updatedOrder.special_instructions || '',
+          subtotal: updatedOrder.subtotal,
+          deliveryFee: updatedOrder.delivery_fee,
+          tax: updatedOrder.tax_amount,
+          total: updatedOrder.total_amount,
+          status: updatedOrder.status,
+          estimatedDelivery: `${updatedOrder.estimated_delivery_time} mins`,
+          orderTime: updatedOrder.created_at,
+          deliveredTime: updatedOrder.delivered_at,
+          restaurantName: updatedOrder.restaurant_name
+        };
+        
+        setOrder(transformedOrder);
+        
+        // Update step
+        const stepMap: Record<string, number> = {
+          'confirmed': 0,
+          'preparing': 1,
+          'out_for_delivery': 2,
+          'delivered': 3,
+          'cancelled': -1
+        };
+        setCurrentStep(stepMap[updatedOrder.status] || 0);
+      }
+    }
+  );
+
   useEffect(() => {
-    // Load specific order from localStorage
-    const loadOrder = () => {
+    // Fetch order from backend API
+    const fetchOrder = async () => {
       try {
-        const orderHistory = localStorage.getItem('orderHistory');
-        if (orderHistory) {
-          const orders = JSON.parse(orderHistory);
-          const foundOrder = orders.find((o: Order) => o.id === orderId);
-          if (foundOrder) {
-            setOrder(foundOrder);
-            // Set current step based on status
-            const stepMap = {
-              'confirmed': 0,
-              'preparing': 1,
-              'on-the-way': 2,
-              'delivered': 3,
-              'cancelled': -1
-            };
-            setCurrentStep(stepMap[foundOrder.status] || 0);
+        const token = localStorage.getItem('token');
+        const response = await fetch(`http://localhost:8000/api/orders/${orderId}`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
           }
+        });
+
+        if (!response.ok) {
+          setOrder(null);
+          setIsLoading(false);
+          return;
         }
+
+        const data = await response.json();
+        
+        // Transform backend data to match frontend interface
+        const transformedOrder: Order = {
+          id: data.id,
+          items: data.items.map((item: any) => ({
+            id: item.id,
+            name: item.name,
+            price: item.price,
+            quantity: item.quantity,
+            isVeg: item.isVeg,
+            restaurantId: data.restaurant_id
+          })),
+          address: {
+            fullName: data.customer_name || '',
+            phone: data.delivery_phone || '',
+            address: data.delivery_address || '',
+            landmark: '',
+            city: '',
+            pincode: ''
+          },
+          paymentMethod: data.payment_method || 'cod',
+          instructions: data.special_instructions || '',
+          subtotal: data.subtotal,
+          deliveryFee: data.delivery_fee,
+          tax: data.tax_amount,
+          total: data.total_amount,
+          status: data.status,
+          estimatedDelivery: `${data.estimated_delivery_time} mins`,
+          orderTime: data.created_at,
+          deliveredTime: data.delivered_at,
+          restaurantName: data.restaurant_name
+        };
+
+        setOrder(transformedOrder);
+        
+        // Set current step based on status
+        const stepMap: Record<string, number> = {
+          'confirmed': 0,
+          'preparing': 1,
+          'out_for_delivery': 2,
+          'delivered': 3,
+          'cancelled': -1
+        };
+        setCurrentStep(stepMap[data.status] || 0);
       } catch (error) {
-        console.error('Error loading order:', error);
+        console.error('❌ Error loading order:', error);
+        setOrder(null);
       } finally {
         setIsLoading(false);
       }
     };
 
-    loadOrder();
+    fetchOrder();
   }, [orderId]);
 
-  // Get restaurant info for an order (fallback since we removed hardcoded data)
-  const getRestaurantInfo = (restaurantId: number) => {
+  // Get restaurant info for an order
+  const getRestaurantInfo = (order: Order) => {
     return {
-      id: restaurantId,
-      name: `Restaurant ${restaurantId}`,
+      id: order.items[0]?.restaurantId || 0,
+      name: order.restaurantName || 'Restaurant',
       image: '🏪'
     };
   };
@@ -89,7 +186,7 @@ export default function OrderTrackingPage() {
     return items.reduce((acc, item) => {
       if (!acc[item.restaurantId]) {
         acc[item.restaurantId] = {
-          restaurant: getRestaurantInfo(item.restaurantId),
+          restaurant: order ? getRestaurantInfo(order) : { id: item.restaurantId, name: 'Restaurant', image: '🏪' },
           items: []
         };
       }
@@ -98,15 +195,17 @@ export default function OrderTrackingPage() {
     }, {} as Record<number, { restaurant: any; items: OrderItem[] }>);
   };
 
-  // Format date
+  // Format date - converts UTC to local timezone
   const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', {
+    // Backend sends UTC time, we need to display it in user's local timezone
+    const date = new Date(dateString + 'Z'); // Add 'Z' to indicate UTC
+    return date.toLocaleString('en-US', {
       year: 'numeric',
       month: 'short',
       day: 'numeric',
       hour: '2-digit',
-      minute: '2-digit'
+      minute: '2-digit',
+      hour12: true
     });
   };
 
@@ -214,10 +313,10 @@ export default function OrderTrackingPage() {
           maxWidth: '400px'
         }}>
           <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>❌</div>
-          <h2 style={{ fontSize: '1.5rem', fontWeight: '600', color: '#333', marginBottom: '1rem', margin: 0 }}>
+          <h2 style={{ fontSize: '1.5rem', fontWeight: '600', color: '#333', marginTop: 0, marginLeft: 0, marginRight: 0, marginBottom: 0 }}>
             Order not found
           </h2>
-          <p style={{ color: '#666', marginBottom: '2rem', margin: 0 }}>
+          <p style={{ color: '#666', marginTop: 0, marginLeft: 0, marginRight: 0, marginBottom: '2rem' }}>
             The order you're looking for doesn't exist or has been removed.
           </p>
           <button
@@ -296,9 +395,34 @@ export default function OrderTrackingPage() {
           fontSize: '1.8rem',
           fontWeight: '600',
           margin: 0,
-          textShadow: '0 2px 4px rgba(0, 0, 0, 0.1)'
+          textShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '1rem'
         }}>
           Track Order #{order.id}
+          {isConnected && (
+            <span style={{
+              fontSize: '0.75rem',
+              background: '#10b981',
+              color: 'white',
+              padding: '0.25rem 0.75rem',
+              borderRadius: '12px',
+              fontWeight: '500',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.25rem'
+            }}>
+              <span style={{
+                width: '6px',
+                height: '6px',
+                background: 'white',
+                borderRadius: '50%',
+                animation: 'pulse 2s infinite'
+              }} />
+              Live
+            </span>
+          )}
         </h1>
         
         <div style={{ width: '120px' }}></div>
@@ -330,8 +454,10 @@ export default function OrderTrackingPage() {
               fontSize: '1.4rem',
               fontWeight: '700',
               color: '#333',
+              marginTop: 0,
+              marginLeft: 0,
+              marginRight: 0,
               marginBottom: '2rem',
-              margin: 0,
               display: 'flex',
               alignItems: 'center',
               gap: '0.75rem',
@@ -352,12 +478,14 @@ export default function OrderTrackingPage() {
                   fontSize: '1.3rem',
                   fontWeight: '600',
                   color: '#ef4444',
-                  marginBottom: '0.5rem',
-                  margin: 0
+                  marginTop: 0,
+                  marginLeft: 0,
+                  marginRight: 0,
+                  marginBottom: '0.5rem'
                 }}>
                   Order Cancelled
                 </h3>
-                <p style={{ color: '#666', margin: 0 }}>
+                <p style={{ color: '#666', marginTop: 0, marginLeft: 0, marginRight: 0, marginBottom: 0 }}>
                   This order has been cancelled
                 </p>
               </div>
@@ -407,15 +535,20 @@ export default function OrderTrackingPage() {
                           fontSize: '1.1rem',
                           fontWeight: '600',
                           color: isCompleted ? step.color : '#9ca3af',
-                          marginBottom: '0.25rem',
-                          margin: 0
+                          marginTop: 0,
+                          marginLeft: 0,
+                          marginRight: 0,
+                          marginBottom: '0.25rem'
                         }}>
                           {step.title}
                         </h4>
                         <p style={{
                           fontSize: '0.9rem',
                           color: isCompleted ? '#374151' : '#9ca3af',
-                          margin: 0
+                          marginTop: 0,
+                          marginLeft: 0,
+                          marginRight: 0,
+                          marginBottom: 0
                         }}>
                           {step.description}
                         </p>
@@ -450,8 +583,10 @@ export default function OrderTrackingPage() {
               fontSize: '1.4rem',
               fontWeight: '700',
               color: '#333',
+              marginTop: 0,
+              marginLeft: 0,
+              marginRight: 0,
               marginBottom: '2rem',
-              margin: 0,
               display: 'flex',
               alignItems: 'center',
               gap: '0.75rem',
@@ -472,8 +607,10 @@ export default function OrderTrackingPage() {
                   fontSize: '1rem',
                   fontWeight: '600',
                   color: '#374151',
-                  marginBottom: '0.5rem',
-                  margin: 0
+                  marginTop: 0,
+                  marginLeft: 0,
+                  marginRight: 0,
+                  marginBottom: '0.5rem'
                 }}>
                   Delivery Address
                 </h4>
@@ -495,8 +632,10 @@ export default function OrderTrackingPage() {
                   fontSize: '1rem',
                   fontWeight: '600',
                   color: '#374151',
-                  marginBottom: '0.5rem',
-                  margin: 0
+                  marginTop: 0,
+                  marginLeft: 0,
+                  marginRight: 0,
+                  marginBottom: '0.5rem'
                 }}>
                   Estimated Delivery Time
                 </h4>
@@ -515,8 +654,10 @@ export default function OrderTrackingPage() {
                     fontSize: '1rem',
                     fontWeight: '600',
                     color: '#374151',
-                    marginBottom: '0.5rem',
-                    margin: 0
+                    marginTop: 0,
+                    marginLeft: 0,
+                    marginRight: 0,
+                    marginBottom: '0.5rem'
                   }}>
                     Special Instructions
                   </h4>
@@ -552,8 +693,10 @@ export default function OrderTrackingPage() {
               fontSize: '1.4rem',
               fontWeight: '700',
               color: '#333',
+              marginTop: 0,
+              marginLeft: 0,
+              marginRight: 0,
               marginBottom: '2rem',
-              margin: 0,
               display: 'flex',
               alignItems: 'center',
               gap: '0.75rem',
@@ -590,7 +733,9 @@ export default function OrderTrackingPage() {
                     <h3 style={{
                       fontSize: '1.1rem',
                       fontWeight: '700',
-                      margin: 0,
+                      marginTop: 0,
+                      marginLeft: 0,
+                      marginRight: 0,
                       marginBottom: '0.5rem',
                       textShadow: '0 1px 2px rgba(0, 0, 0, 0.1)'
                     }}>
@@ -689,8 +834,10 @@ export default function OrderTrackingPage() {
                 fontSize: '1.1rem',
                 fontWeight: '700',
                 color: '#374151',
+                marginTop: 0,
+                marginLeft: 0,
+                marginRight: 0,
                 marginBottom: '1rem',
-                margin: 0,
                 paddingBottom: '0.75rem',
                 borderBottom: '1px solid #e2e8f0'
               }}>
@@ -789,8 +936,10 @@ export default function OrderTrackingPage() {
               fontSize: '1.4rem',
               fontWeight: '700',
               color: '#333',
+              marginTop: 0,
+              marginLeft: 0,
+              marginRight: 0,
               marginBottom: '2rem',
-              margin: 0,
               display: 'flex',
               alignItems: 'center',
               gap: '0.75rem',

@@ -153,6 +153,7 @@ export default function CheckoutPage() {
       
       // Get cart item IDs for the order (use cart_id which is the database ID)
       console.log('📦 All checkout items:', checkoutItems);
+      console.log('📦 First item structure:', checkoutItems[0]);
       
       const cartItemIds = checkoutItems
         .map(item => {
@@ -162,9 +163,12 @@ export default function CheckoutPage() {
         .filter(id => id !== undefined && id !== null);
       
       console.log('🔢 Cart IDs being sent to backend:', cartItemIds);
+      console.log('🔢 Number of valid cart IDs:', cartItemIds.length);
       
       if (cartItemIds.length === 0) {
-        throw new Error('No valid cart items found. Please refresh the page and try again.');
+        console.error('❌ No cart_id found in items. This means cart was not loaded from database.');
+        console.error('❌ Please refresh the page and try again.');
+        throw new Error('Cart items are not properly loaded. Please refresh the page and try again.');
       }
       
       // Create order via API

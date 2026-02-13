@@ -4,7 +4,8 @@ import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useCart } from '../../../contexts/CartContext';
 import AuthPopup from '../../../components/AuthPopup';
-import { API_BASE_URL } from '../../../config/constants';
+import { API_BASE_URL, getImageUrl } from '../../../config/constants';
+import { useWebSocket } from '@/hooks/useWebSocket';
 
 interface MenuItem {
   id: number;
@@ -42,12 +43,112 @@ interface Restaurant {
 export default function RestaurantPage() {
   const router = useRouter();
   const params = useParams();
+  const restaurantId = parseInt(params.id as string);
   const [restaurant, setRestaurant] = useState<Restaurant | null>(null);
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [showAuthPopup, setShowAuthPopup] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // WebSocket for real-time menu updates
+  const { isConnected } = useWebSocket(
+    `ws://localhost:8000/ws/restaurant/${restaurantId}`,
+    (data) => {
+      if (!restaurant) return;
+
+      // Handle menu item availability update
+      if (data.type === 'menu_item_availability_update') {
+        const updatedMenuByCategory = { ...restaurant.menu_by_category };
+        Object.keys(updatedMenuByCategory).forEach(category => {
+          updatedMenuByCategory[category] = updatedMenuByCategory[category].map(item =>
+            item.id === data.menu_item_id
+              ? { ...item, is_available: data.is_available }
+              : item
+          );
+        });
+        setRestaurant({ ...restaurant, menu_by_category: updatedMenuByCategory });
+      }
+      
+      // Handle menu item deletion
+      if (data.type === 'menu_item_deleted') {
+        const updatedMenuByCategory = { ...restaurant.menu_by_category };
+        Object.keys(updatedMenuByCategory).forEach(category => {
+          updatedMenuByCategory[category] = updatedMenuByCategory[category].filter(
+            item => item.id !== data.menu_item_id
+          );
+        });
+        setRestaurant({ ...restaurant, menu_by_category: updatedMenuByCategory });
+      }
+
+      // Handle menu item update (edit)
+      if (data.type === 'menu_item_updated' && data.menu_item) {
+        const updatedItem = data.menu_item;
+        const updatedMenuByCategory = { ...restaurant.menu_by_category };
+        Object.keys(updatedMenuByCategory).forEach(category => {
+          updatedMenuByCategory[category] = updatedMenuByCategory[category].map(item =>
+            item.id === updatedItem.id
+              ? {
+                  id: updatedItem.id,
+                  name: updatedItem.item_name,
+                  description: updatedItem.description,
+                  price: updatedItem.price,
+                  image_url: updatedItem.image_url,
+                  category: updatedItem.category,
+                  is_available: updatedItem.is_available,
+                  isVeg: updatedItem.isVeg
+                }
+              : item
+          );
+        });
+        setRestaurant({ ...restaurant, menu_by_category: updatedMenuByCategory });
+      }
+
+      // Handle new menu item added
+      if (data.type === 'menu_item_added' && data.menu_item) {
+        const newItem = data.menu_item;
+        const updatedMenuByCategory = { ...restaurant.menu_by_category };
+        const category = newItem.category;
+        
+        if (!updatedMenuByCategory[category]) {
+          updatedMenuByCategory[category] = [];
+        }
+        
+        updatedMenuByCategory[category].push({
+          id: newItem.id,
+          name: newItem.item_name,
+          description: newItem.description,
+          price: newItem.price,
+          image_url: newItem.image_url,
+          category: newItem.category,
+          is_available: newItem.is_available,
+          isVeg: newItem.isVeg
+        });
+        
+        setRestaurant({ ...restaurant, menu_by_category: updatedMenuByCategory });
+      }
+
+      // Handle restaurant profile update
+      if (data.type === 'restaurant_profile_updated' && data.restaurant) {
+        setRestaurant({
+          ...restaurant,
+          name: data.restaurant.name,
+          cuisine: data.restaurant.cuisine,
+          description: data.restaurant.description,
+          address: data.restaurant.address,
+          phone: data.restaurant.phone
+        });
+      }
+
+      // Handle restaurant online/offline status
+      if (data.type === 'restaurant_status_update') {
+        setRestaurant({
+          ...restaurant,
+          is_open: data.is_online
+        });
+      }
+    }
+  );
   const { cart, addToCart, removeFromCart, updateQuantity, getTotalPrice, getTotalItems, getCartItemsByRestaurant } = useCart();
 
   // Keep original menu categories structure with "All" as first option
