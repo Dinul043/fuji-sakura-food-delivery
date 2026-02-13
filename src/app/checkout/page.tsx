@@ -17,6 +17,7 @@ export default function CheckoutPage() {
 
   const [isLoading, setIsLoading] = useState(false);
   const [showAuthPopup, setShowAuthPopup] = useState(false);
+  const [errors, setErrors] = useState<{[key: string]: string}>({});
   const [deliveryAddress, setDeliveryAddress] = useState({
     fullName: '',
     phone: '',
@@ -48,11 +49,21 @@ export default function CheckoutPage() {
 
   // Filter items based on checkout type
   const getCheckoutItems = () => {
+    console.log('🔍 Checkout Type:', checkoutType);
+    console.log('📦 All Cart Items:', cart);
+    console.log('🎯 Selected Item IDs:', selectedItemIds);
+    console.log('🏪 Restaurant ID:', restaurantId);
+    
     if (checkoutType === 'selected') {
-      return cart.filter(item => selectedItemIds.includes(`${item.id}-${item.restaurantId}`));
+      const filtered = cart.filter(item => selectedItemIds.includes(`${item.id}-${item.restaurantId}`));
+      console.log('✅ Filtered Selected Items:', filtered);
+      return filtered;
     } else if (checkoutType === 'restaurant' && restaurantId) {
-      return cart.filter(item => item.restaurantId === parseInt(restaurantId));
+      const filtered = cart.filter(item => item.restaurantId === parseInt(restaurantId));
+      console.log('✅ Filtered Restaurant Items:', filtered);
+      return filtered;
     }
+    console.log('✅ All Items:', cart);
     return cart; // 'all' type
   };
 
@@ -74,6 +85,8 @@ export default function CheckoutPage() {
     return acc;
   }, {} as Record<number, { restaurant: any; items: any[] }>);
 
+  console.log('🏪 Grouped Items by Restaurant:', groupedItems);
+
   // Calculate totals
   const subtotal = checkoutItems.reduce((total, item) => total + (item.price * item.quantity), 0);
   const deliveryFee = 2.99;
@@ -82,21 +95,53 @@ export default function CheckoutPage() {
   const total = subtotal + deliveryFee + tax;
 
   const handleAddressChange = (field: string, value: string) => {
-    setDeliveryAddress(prev => ({ ...prev, [field]: value }));
+    // Special handling for phone number - only allow digits and max 10
+    if (field === 'phone') {
+      const digitsOnly = value.replace(/\D/g, ''); // Remove non-digits
+      if (digitsOnly.length > 10) return; // Don't allow more than 10 digits
+      value = digitsOnly;
+    }
+    
+    const updatedAddress = { ...deliveryAddress, [field]: value };
+    setDeliveryAddress(updatedAddress);
+    
+    // Save to localStorage as user types (so it persists when navigating back/forth)
+    localStorage.setItem('deliveryAddress', JSON.stringify(updatedAddress));
+    
+    // Clear error when user starts typing
+    if (errors[field]) {
+      setErrors(prev => ({ ...prev, [field]: '' }));
+    }
   };
 
   const validateForm = () => {
-    if (!deliveryAddress.fullName.trim()) return 'Full name is required';
-    if (!deliveryAddress.phone.trim()) return 'Phone number is required';
-    if (!deliveryAddress.address.trim()) return 'Address is required';
-    if (!deliveryAddress.pincode.trim()) return 'Pincode is required';
-    return null;
+    const newErrors: {[key: string]: string} = {};
+    
+    if (!deliveryAddress.fullName.trim()) {
+      newErrors.fullName = 'Full name is required';
+    }
+    if (!deliveryAddress.phone.trim()) {
+      newErrors.phone = 'Phone number is required';
+    } else if (!/^\d{10}$/.test(deliveryAddress.phone.replace(/\D/g, ''))) {
+      newErrors.phone = 'Please enter a valid 10-digit phone number';
+    }
+    if (!deliveryAddress.address.trim()) {
+      newErrors.address = 'Complete address is required';
+    }
+    if (!deliveryAddress.pincode.trim()) {
+      newErrors.pincode = 'Pincode is required';
+    } else if (!/^\d{5,6}$/.test(deliveryAddress.pincode)) {
+      newErrors.pincode = 'Please enter a valid pincode';
+    }
+    
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
   };
 
   const handlePlaceOrder = () => {
-    const error = validateForm();
-    if (error) {
-      alert(error);
+    if (!validateForm()) {
+      // Scroll to first error
+      window.scrollTo({ top: 0, behavior: 'smooth' });
       return;
     }
 
@@ -120,6 +165,10 @@ export default function CheckoutPage() {
       estimatedDelivery: '25-35 minutes',
       orderTime: new Date().toISOString()
     };
+
+    console.log('📝 Order being placed:', order);
+    console.log('🍽️ Order Items:', order.items);
+    console.log('🏪 Restaurants in order:', Object.keys(groupedItems).map(id => groupedItems[parseInt(id)].restaurant.name));
 
     // Save order to localStorage (for order history)
     const existingOrders = JSON.parse(localStorage.getItem('orderHistory') || '[]');
@@ -324,7 +373,7 @@ export default function CheckoutPage() {
                   style={{
                     width: '100%',
                     padding: '1rem', // Increased padding
-                    border: '2px solid #e5e7eb',
+                    border: `2px solid ${errors.fullName ? '#ef4444' : '#e5e7eb'}`,
                     borderRadius: '12px', // More rounded
                     fontSize: '1rem',
                     transition: 'all 0.3s ease', // Smoother transition
@@ -335,16 +384,32 @@ export default function CheckoutPage() {
                   }}
                   placeholder="Enter your full name"
                   onFocus={(e) => {
-                    e.target.style.borderColor = '#ff6b6b';
+                    e.target.style.borderColor = errors.fullName ? '#ef4444' : '#ff6b6b';
                     e.target.style.backgroundColor = '#ffffff';
-                    e.target.style.boxShadow = '0 0 0 3px rgba(255, 107, 107, 0.1)';
+                    e.target.style.boxShadow = errors.fullName 
+                      ? '0 0 0 3px rgba(239, 68, 68, 0.1)' 
+                      : '0 0 0 3px rgba(255, 107, 107, 0.1)';
                   }}
                   onBlur={(e) => {
-                    e.target.style.borderColor = '#e5e7eb';
+                    e.target.style.borderColor = errors.fullName ? '#ef4444' : '#e5e7eb';
                     e.target.style.backgroundColor = '#fafafa';
                     e.target.style.boxShadow = '0 2px 4px rgba(0, 0, 0, 0.05)';
                   }}
                 />
+                {errors.fullName && (
+                  <p style={{
+                    color: '#ef4444',
+                    fontSize: '0.85rem',
+                    marginTop: '0.5rem',
+                    margin: '0.5rem 0 0 0',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.25rem'
+                  }}>
+                    <span>⚠️</span>
+                    {errors.fullName}
+                  </p>
+                )}
               </div>
 
               <div>
@@ -361,10 +426,13 @@ export default function CheckoutPage() {
                   type="tel"
                   value={deliveryAddress.phone}
                   onChange={(e) => handleAddressChange('phone', e.target.value)}
+                  maxLength={10}
+                  pattern="[0-9]*"
+                  inputMode="numeric"
                   style={{
                     width: '100%',
                     padding: '1rem',
-                    border: '2px solid #e5e7eb',
+                    border: `2px solid ${errors.phone ? '#ef4444' : '#e5e7eb'}`,
                     borderRadius: '12px',
                     fontSize: '1rem',
                     transition: 'all 0.3s ease',
@@ -375,16 +443,32 @@ export default function CheckoutPage() {
                   }}
                   placeholder="Enter your phone number"
                   onFocus={(e) => {
-                    e.target.style.borderColor = '#ff6b6b';
+                    e.target.style.borderColor = errors.phone ? '#ef4444' : '#ff6b6b';
                     e.target.style.backgroundColor = '#ffffff';
-                    e.target.style.boxShadow = '0 0 0 3px rgba(255, 107, 107, 0.1)';
+                    e.target.style.boxShadow = errors.phone 
+                      ? '0 0 0 3px rgba(239, 68, 68, 0.1)' 
+                      : '0 0 0 3px rgba(255, 107, 107, 0.1)';
                   }}
                   onBlur={(e) => {
-                    e.target.style.borderColor = '#e5e7eb';
+                    e.target.style.borderColor = errors.phone ? '#ef4444' : '#e5e7eb';
                     e.target.style.backgroundColor = '#fafafa';
                     e.target.style.boxShadow = '0 2px 4px rgba(0, 0, 0, 0.05)';
                   }}
                 />
+                {errors.phone && (
+                  <p style={{
+                    color: '#ef4444',
+                    fontSize: '0.85rem',
+                    marginTop: '0.5rem',
+                    margin: '0.5rem 0 0 0',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.25rem'
+                  }}>
+                    <span>⚠️</span>
+                    {errors.phone}
+                  </p>
+                )}
               </div>
             </div>
 
@@ -405,7 +489,7 @@ export default function CheckoutPage() {
                 style={{
                   width: '100%',
                   padding: '1rem',
-                  border: '2px solid #e5e7eb',
+                  border: `2px solid ${errors.address ? '#ef4444' : '#e5e7eb'}`,
                   borderRadius: '12px',
                   fontSize: '1rem',
                   transition: 'all 0.3s ease',
@@ -418,16 +502,32 @@ export default function CheckoutPage() {
                 }}
                 placeholder="House/Flat no., Building name, Street, Area"
                 onFocus={(e) => {
-                  e.target.style.borderColor = '#ff6b6b';
+                  e.target.style.borderColor = errors.address ? '#ef4444' : '#ff6b6b';
                   e.target.style.backgroundColor = '#ffffff';
-                  e.target.style.boxShadow = '0 0 0 3px rgba(255, 107, 107, 0.1)';
+                  e.target.style.boxShadow = errors.address 
+                    ? '0 0 0 3px rgba(239, 68, 68, 0.1)' 
+                    : '0 0 0 3px rgba(255, 107, 107, 0.1)';
                 }}
                 onBlur={(e) => {
-                  e.target.style.borderColor = '#e5e7eb';
+                  e.target.style.borderColor = errors.address ? '#ef4444' : '#e5e7eb';
                   e.target.style.backgroundColor = '#fafafa';
                   e.target.style.boxShadow = '0 2px 4px rgba(0, 0, 0, 0.05)';
                 }}
               />
+              {errors.address && (
+                <p style={{
+                  color: '#ef4444',
+                  fontSize: '0.85rem',
+                  marginTop: '0.5rem',
+                  margin: '0.5rem 0 0 0',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.25rem'
+                }}>
+                  <span>⚠️</span>
+                  {errors.address}
+                </p>
+              )}
             </div>
 
             <div style={{
@@ -532,7 +632,7 @@ export default function CheckoutPage() {
                   style={{
                     width: '100%',
                     padding: '1rem',
-                    border: '2px solid #e5e7eb',
+                    border: `2px solid ${errors.pincode ? '#ef4444' : '#e5e7eb'}`,
                     borderRadius: '12px',
                     fontSize: '1rem',
                     transition: 'all 0.3s ease',
@@ -543,16 +643,32 @@ export default function CheckoutPage() {
                   }}
                   placeholder="Pincode"
                   onFocus={(e) => {
-                    e.target.style.borderColor = '#ff6b6b';
+                    e.target.style.borderColor = errors.pincode ? '#ef4444' : '#ff6b6b';
                     e.target.style.backgroundColor = '#ffffff';
-                    e.target.style.boxShadow = '0 0 0 3px rgba(255, 107, 107, 0.1)';
+                    e.target.style.boxShadow = errors.pincode 
+                      ? '0 0 0 3px rgba(239, 68, 68, 0.1)' 
+                      : '0 0 0 3px rgba(255, 107, 107, 0.1)';
                   }}
                   onBlur={(e) => {
-                    e.target.style.borderColor = '#e5e7eb';
+                    e.target.style.borderColor = errors.pincode ? '#ef4444' : '#e5e7eb';
                     e.target.style.backgroundColor = '#fafafa';
                     e.target.style.boxShadow = '0 2px 4px rgba(0, 0, 0, 0.05)';
                   }}
                 />
+                {errors.pincode && (
+                  <p style={{
+                    color: '#ef4444',
+                    fontSize: '0.85rem',
+                    marginTop: '0.5rem',
+                    margin: '0.5rem 0 0 0',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.25rem'
+                  }}>
+                    <span>⚠️</span>
+                    {errors.pincode}
+                  </p>
+                )}
               </div>
             </div>
           </div>
