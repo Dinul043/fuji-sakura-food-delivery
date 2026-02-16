@@ -34,7 +34,6 @@ export default function OrderSuccessPage() {
         const data = await response.json();
         setOrderDetails(data);
       } catch (err) {
-        console.error('Error fetching order:', err);
         setError('Failed to load order details');
       } finally {
         setIsLoading(false);

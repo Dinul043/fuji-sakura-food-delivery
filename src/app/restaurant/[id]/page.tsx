@@ -229,14 +229,8 @@ export default function RestaurantPage() {
   const handleAddToCart = (item: MenuItem) => {
     if (!restaurant) return;
     
-    console.log('🔍 handleAddToCart called with item:', item);
-    console.log('   Item image_url:', item.image_url);
-    console.log('   Restaurant ID:', restaurant.id);
-    console.log('   Restaurant Name:', restaurant.name);
-    
     // Use centralized helper to get full image URL
     const fullImageUrl = getFullImageUrl(item.image_url);
-    console.log('   Full image URL:', fullImageUrl);
     
     const cartItem = {
       id: item.id,
@@ -250,8 +244,6 @@ export default function RestaurantPage() {
       restaurantId: restaurant.id,
       restaurantName: restaurant.name
     };
-    
-    console.log('🛒 Adding to cart:', cartItem);
     
     addToCart(cartItem);
     setIsCartOpen(true);

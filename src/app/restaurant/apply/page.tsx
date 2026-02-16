@@ -222,15 +222,7 @@ export default function RestaurantApplicationPage() {
         setErrors(prev => ({ ...prev, email: errorMessage }));
       }
     } catch (error) {
-      // Suppress console error logging for network issues
-      if (error instanceof Error && error.name !== 'AbortError') {
-        // Only log non-network errors
-        if (!error.message.includes('Failed to fetch') && !error.message.includes('NetworkError')) {
-          console.error('Email check error:', error);
-        }
-      }
-      
-      // Handle different network error types
+      // Handle different network error types silently
       let errorMessage = 'Network error. Please check your connection and try again.';
       
       if (error instanceof Error) {
@@ -365,15 +357,7 @@ export default function RestaurantApplicationPage() {
           setErrors(prev => ({ ...prev, businessLicense: errorMessage }));
         }
       } catch (error) {
-        // Suppress console error logging for network issues
-        if (error instanceof Error && error.name !== 'AbortError') {
-          // Only log non-network errors
-          if (!error.message.includes('Failed to fetch') && !error.message.includes('NetworkError')) {
-            console.error('Application submission error:', error);
-          }
-        }
-        
-        // Handle different types of network errors with user-friendly messages
+        // Handle different types of network errors with user-friendly messages silently
         let errorMessage = 'Network error. Please try again.';
         
         if (error instanceof Error) {

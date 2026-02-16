@@ -59,14 +59,12 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Listen for storage changes (when token is added/removed)
     const handleStorageChange = (e: StorageEvent) => {
       if (e.key === 'token' || e.key === 'userEmail') {
-        console.log('🔄 CartContext: Storage change detected, reinitializing cart');
         initializeCart();
       }
     };
     
     // Listen for custom events (for same-tab token changes)
     const handleTokenChange = () => {
-      console.log('🔄 CartContext: Token change event detected, reinitializing cart');
       // Small delay to ensure token is fully stored
       setTimeout(() => {
         initializeCart();
@@ -90,21 +88,13 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const userName = localStorage.getItem('userName') || sessionStorage.getItem('userName');
     const currentUserKey = userEmail || userName || 'guest';
     
-    console.log('🔄 CartContext: Initializing cart');
-    console.log('   Token exists:', !!token);
-    console.log('   User:', currentUserKey);
-    console.log('   Token source:', localStorage.getItem('token') ? 'localStorage' : sessionStorage.getItem('token') ? 'sessionStorage' : 'none');
-    
     setCurrentUser(currentUserKey);
     setIsAuthenticated(!!token);
     setCartItems([]); // Always start empty
     
     if (token) {
-      console.log('✅ CartContext: Authenticated - fetching from database');
       await fetchCartFromDatabase();
-      console.log('✅ CartContext: Database fetch completed');
     } else {
-      console.log('👤 CartContext: Guest - loading from localStorage');
       loadGuestCart(currentUserKey);
     }
   };
@@ -114,11 +104,9 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Check both localStorage and sessionStorage for token
     const token = localStorage.getItem('token') || sessionStorage.getItem('token');
     if (!token) {
-      console.log('❌ CartContext: No token found, cannot fetch from database');
       return;
     }
     
-    console.log('🔄 CartContext: Fetching cart from database...');
     setIsLoading(true);
     try {
       const response = await fetch(`${API_BASE_URL}/api/cart/`, {
@@ -127,10 +115,8 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       if (response.ok) {
         const data = await response.json();
-        console.log('✅ CartContext: Cart loaded from database:', data.length, 'items');
         setCartItems(data);
       } else {
-        console.log('❌ CartContext: Failed to fetch cart, status:', response.status);
         if (response.status === 401) {
           // Token might be invalid, clear it and switch to guest mode
           localStorage.removeItem('token');
@@ -142,7 +128,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       }
     } catch (error) {
-      console.log('❌ CartContext: Network error fetching cart:', error);
+      // Silent error handling - network might be down
     } finally {
       setIsLoading(false);
     }
@@ -169,16 +155,11 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Add item to cart
   const addToCart = async (item: Omit<CartItem, 'quantity'>) => {
-    console.log('🔍 CartContext addToCart called with:', item);
-    
     // Check both localStorage and sessionStorage for token
     const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-    console.log('   Token exists:', !!token);
-    console.log('   Token source:', localStorage.getItem('token') ? 'localStorage' : sessionStorage.getItem('token') ? 'sessionStorage' : 'none');
     
     if (token) {
       // Authenticated user - use database
-      console.log('✅ CartContext: Sending API request to add item to cart');
       try {
         const response = await fetch(`${API_BASE_URL}/api/cart/add`, {
           method: 'POST',
@@ -191,15 +172,10 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
             quantity: 1,
           }),
         });
-
-        console.log('📡 API Response status:', response.status);
         
         if (response.ok) {
-          const data = await response.json();
-          console.log('✅ API Response data:', data);
           await fetchCartFromDatabase();
         } else if (response.status === 401) {
-          console.log('❌ Token invalid, clearing auth and switching to guest mode');
           localStorage.removeItem('token');
           localStorage.removeItem('userEmail');
           localStorage.removeItem('userName');
@@ -207,14 +183,11 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setCurrentUser('guest');
           // Retry as guest
           await addToCart(item);
-        } else {
-          console.log('❌ API Error:', response.status, response.statusText);
         }
       } catch (error) {
-        console.log('❌ Network Error:', error);
+        // Silent error handling - network might be down
       }
     } else {
-      console.log('👤 CartContext: No token, using localStorage fallback');
       // Guest user - use localStorage
       setCartItems(prev => {
         const existingItem = prev.find(cartItem => 
@@ -380,7 +353,6 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Force refresh cart (for user switches)
   const forceRefreshCart = async () => {
-    console.log('🔄 CartContext: Force refresh requested');
     await initializeCart();
   };
 

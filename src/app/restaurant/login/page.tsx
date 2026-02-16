@@ -26,8 +26,6 @@ export default function RestaurantLogin() {
     // This prevents session conflicts when users navigate away without proper logout
     const existingToken = localStorage.getItem('restaurantToken');
     if (existingToken) {
-      console.log('🧹 Clearing stale restaurant session tokens on login page');
-      
       // Try to logout from backend (best effort)
       fetch(`${API_BASE_URL}/api/restaurant/logout`, {
         method: 'POST',
@@ -36,8 +34,7 @@ export default function RestaurantLogin() {
           'Content-Type': 'application/json'
         }
       }).catch(() => {
-        // Ignore errors - we're cleaning up anyway
-        console.log('Backend logout failed (expected if session was already invalid)');
+        // Silently ignore errors - we're cleaning up anyway
       });
       
       // Clear local storage
@@ -88,7 +85,6 @@ export default function RestaurantLogin() {
       
       if (response.ok) {
         const data = await response.json();
-        console.log('Login successful, data:', data);
         
         // Store restaurant info
         localStorage.setItem('restaurantInfo', JSON.stringify(data.restaurant));
@@ -98,7 +94,6 @@ export default function RestaurantLogin() {
         localStorage.setItem('restaurantOwner', data.restaurant.owner_name);
         localStorage.setItem('isRestaurant', 'true');
         
-        console.log('Redirecting to dashboard...');
         // Redirect to restaurant dashboard - don't set loading to false here
         router.push('/restaurant/dashboard');
         return; // Exit early to prevent setIsLoading(false)
@@ -126,15 +121,12 @@ export default function RestaurantLogin() {
         setErrors(prev => ({ ...prev, password: errorMessage }));
       }
     } catch (error) {
-      // Network or connection error
-      console.error('Login error:', error);
+      // Network or connection error - handle silently without console errors
+      let errorMessage = '❌ Unable to connect to server. Please check your internet connection and try again.';
       
-      let errorMessage = 'Network error. Please check your connection and try again.';
       if (error instanceof Error) {
-        if (error.message === 'Failed to fetch' || error.message.includes('fetch')) {
-          errorMessage = '❌ Unable to connect to server. Please ensure the backend is running and try again.';
-        } else {
-          errorMessage = `Error: ${error.message}`;
+        if (error.message === 'Failed to fetch' || error.message.includes('fetch') || error.message.includes('NetworkError')) {
+          errorMessage = '❌ Unable to connect to server. Please check your internet connection and try again.';
         }
       }
       

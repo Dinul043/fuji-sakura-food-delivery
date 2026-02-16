@@ -49,21 +49,13 @@ export default function CheckoutPage() {
 
   // Filter items based on checkout type
   const getCheckoutItems = () => {
-    console.log('🔍 Checkout Type:', checkoutType);
-    console.log('📦 All Cart Items:', cart);
-    console.log('🎯 Selected Item IDs:', selectedItemIds);
-    console.log('🏪 Restaurant ID:', restaurantId);
-    
     if (checkoutType === 'selected') {
       const filtered = cart.filter(item => selectedItemIds.includes(`${item.id}-${item.restaurantId}`));
-      console.log('✅ Filtered Selected Items:', filtered);
       return filtered;
     } else if (checkoutType === 'restaurant' && restaurantId) {
       const filtered = cart.filter(item => item.restaurantId === parseInt(restaurantId));
-      console.log('✅ Filtered Restaurant Items:', filtered);
       return filtered;
     }
-    console.log('✅ All Items:', cart);
     return cart; // 'all' type
   };
 
@@ -84,8 +76,6 @@ export default function CheckoutPage() {
     acc[item.restaurantId].items.push(item);
     return acc;
   }, {} as Record<number, { restaurant: any; items: any[] }>);
-
-  console.log('🏪 Grouped Items by Restaurant:', groupedItems);
 
   // Calculate totals
   const subtotal = checkoutItems.reduce((total, item) => total + (item.price * item.quantity), 0);
@@ -152,22 +142,11 @@ export default function CheckoutPage() {
       localStorage.setItem('deliveryAddress', JSON.stringify(deliveryAddress));
       
       // Get cart item IDs for the order (use cart_id which is the database ID)
-      console.log('📦 All checkout items:', checkoutItems);
-      console.log('📦 First item structure:', checkoutItems[0]);
-      
       const cartItemIds = checkoutItems
-        .map(item => {
-          console.log(`   Item: ${item.name}, cart_id: ${item.cart_id}, id: ${item.id}`);
-          return item.cart_id;
-        })
+        .map(item => item.cart_id)
         .filter(id => id !== undefined && id !== null);
       
-      console.log('🔢 Cart IDs being sent to backend:', cartItemIds);
-      console.log('🔢 Number of valid cart IDs:', cartItemIds.length);
-      
       if (cartItemIds.length === 0) {
-        console.error('❌ No cart_id found in items. This means cart was not loaded from database.');
-        console.error('❌ Please refresh the page and try again.');
         throw new Error('Cart items are not properly loaded. Please refresh the page and try again.');
       }
       
@@ -193,7 +172,6 @@ export default function CheckoutPage() {
       }
 
       const data = await response.json();
-      console.log('✅ Order placed successfully:', data);
       
       // Get first order ID for redirect
       const firstOrderId = data.orders[0]?.id;
@@ -202,10 +180,18 @@ export default function CheckoutPage() {
       router.push(`/order-success?orderId=${firstOrderId}`);
       
     } catch (error) {
-      console.error('❌ Error placing order:', error);
+      // Handle network errors gracefully
+      let errorMessage = 'Failed to place order. Please try again.';
+      
+      if (error instanceof TypeError && error.message.includes('fetch')) {
+        errorMessage = 'Unable to connect to server. Please check your connection and try again.';
+      } else if (error instanceof Error) {
+        errorMessage = error.message;
+      }
+      
       setErrors({ 
         ...errors, 
-        submit: error instanceof Error ? error.message : 'Failed to place order. Please try again.' 
+        submit: errorMessage
       });
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } finally {

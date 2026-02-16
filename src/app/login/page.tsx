@@ -234,16 +234,12 @@ export default function LoginPage() {
         if (response.ok) {
           const data = await response.json();
           
-          console.log('✅ Login successful, storing auth data:', data);
-          
           // ALWAYS store auth data in localStorage for CartContext compatibility
           localStorage.setItem('userName', data.user.name);
           localStorage.setItem('userEmail', data.user.email);
           localStorage.setItem('isGuest', 'false');
           localStorage.setItem('token', data.access_token);
           localStorage.setItem('rememberMe', rememberMe.toString());
-          
-          console.log('✅ Auth data stored in localStorage - CartContext will detect token');
           
           // Dispatch custom event to notify CartContext of token change
           window.dispatchEvent(new Event('tokenChanged'));

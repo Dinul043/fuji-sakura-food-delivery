@@ -101,8 +101,7 @@ export default function RestaurantDashboard() {
               });
             }
           } catch (error) {
-            // Ignore errors during unload
-            console.log('Logout during unload failed:', error);
+            // Silently ignore errors during unload
           }
         }
       }
@@ -112,7 +111,6 @@ export default function RestaurantDashboard() {
       // When page becomes hidden (user switches tabs, minimizes, etc.)
       if (document.hidden) {
         // Page is now hidden - user might be leaving
-        console.log('Page hidden - user might be leaving');
       } else {
         // Page is now visible - validate session
         validateSession();
@@ -235,7 +233,6 @@ export default function RestaurantDashboard() {
       });
 
       if (!response.ok) {
-        console.log('Session invalid, redirecting to login');
         setSessionValid(false);
         localStorage.removeItem('restaurantToken');
         localStorage.removeItem('restaurantInfo');

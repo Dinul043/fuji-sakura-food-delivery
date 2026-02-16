@@ -105,7 +105,6 @@ export default function MenuManagement() {
 
   const loadMenuItems = async (token: string) => {
     try {
-      console.log('📥 Loading menu items...');
       const response = await fetch(`${API_BASE_URL}/api/menu/`, {
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -115,7 +114,6 @@ export default function MenuManagement() {
 
       if (response.ok) {
         const menuItems: MenuItem[] = await response.json();
-        console.log('📋 Loaded menu items:', menuItems);
         
         // Group items by category
         const groupedItems: { [key: string]: MenuItem[] } = {};
@@ -133,12 +131,9 @@ export default function MenuManagement() {
         }));
 
         setMenuCategories(categories);
-        console.log('✅ Menu categories updated');
-      } else {
-        console.error('❌ Failed to load menu items');
       }
     } catch (error) {
-      console.error('❌ Error loading menu items:', error);
+      // Silent fallback - no console errors
     }
   };
 
@@ -146,8 +141,6 @@ export default function MenuManagement() {
     if (!newItem.item_name || !newItem.price) return;
     
     try {
-      console.log('🍽️ Adding menu item:', newItem.item_name);
-      
       const token = localStorage.getItem('restaurantToken');
       if (!token) {
         router.push('/restaurant/login');
@@ -158,9 +151,7 @@ export default function MenuManagement() {
 
       // If user selected a new image, upload it first
       if (selectedImage) {
-        console.log('📸 Uploading selected image:', selectedImage.name);
         imageUrl = await uploadImage(selectedImage);
-        console.log('🖼️ Image upload result:', imageUrl);
       }
 
       const menuItemData: ApiMenuItem = {
@@ -171,8 +162,6 @@ export default function MenuManagement() {
         image_url: imageUrl || undefined,
         is_veg: newItem.is_veg
       };
-
-      console.log('📤 Sending menu item data:', menuItemData);
 
       const response = await fetch(`${API_BASE_URL}/api/menu/`, {
         method: 'POST',
@@ -183,22 +172,17 @@ export default function MenuManagement() {
         body: JSON.stringify(menuItemData)
       });
 
-      console.log('📡 Menu item creation response:', response.status);
-
       if (response.ok) {
-        console.log('✅ Menu item created successfully');
         // Reload menu items to get the updated list
         await loadMenuItems(token);
         resetForm();
         setShowAddModal(false);
       } else {
         const error = await response.json();
-        // Silent fallback - no console errors
         alert(`Failed to add menu item: ${error.detail || 'Unknown error'}`);
       }
     } catch (error) {
-      // Silent fallback - no console errors
-      alert('Failed to add menu item. Please try again.');
+      alert('Failed to add menu item. Please check your internet connection and try again.');
     }
   };
 
@@ -206,14 +190,6 @@ export default function MenuManagement() {
     if (!editingItem || !newItem.item_name || !newItem.price) return;
     
     try {
-      console.log('🔄 Starting update for item:', editingItem.id);
-      console.log('📝 Update data:', {
-        item_name: newItem.item_name,
-        is_veg: newItem.is_veg,
-        price: newItem.price,
-        category: newItem.category
-      });
-      
       const token = localStorage.getItem('restaurantToken');
       if (!token) {
         router.push('/restaurant/login');
@@ -236,8 +212,6 @@ export default function MenuManagement() {
         is_veg: newItem.is_veg
       };
 
-      console.log('📤 Sending update request:', menuItemData);
-
       const response = await fetch(`${API_BASE_URL}/api/menu/${editingItem.id}`, {
         method: 'PUT',
         headers: {
@@ -247,12 +221,7 @@ export default function MenuManagement() {
         body: JSON.stringify(menuItemData)
       });
 
-      console.log('📡 Response status:', response.status);
-
       if (response.ok) {
-        const updatedItem = await response.json();
-        console.log('✅ Update successful:', updatedItem);
-        
         // Reload menu items to get the updated list
         await loadMenuItems(token);
         resetForm();
@@ -260,25 +229,20 @@ export default function MenuManagement() {
         setShowAddModal(false);
       } else {
         const error = await response.json();
-        console.error('❌ Update failed:', error);
         alert(`Failed to update menu item: ${error.detail || 'Unknown error'}`);
       }
     } catch (error) {
-      console.error('❌ Update error:', error);
-      alert('Failed to update menu item. Please try again.');
+      alert('Failed to update menu item. Please check your internet connection and try again.');
     }
   };
 
   // Image upload function
   const uploadImage = async (file: File): Promise<string> => {
     try {
-      console.log('🔄 Starting image upload...', file.name);
-      
       const formData = new FormData();
       formData.append('file', file);  // Changed from 'image' to 'file'
 
       const token = localStorage.getItem('restaurantToken');
-      console.log('🔑 Using token:', token ? 'Token exists' : 'No token');
       
       const response = await fetch(`${API_BASE_URL}/api/menu/upload-image`, {
         method: 'POST',
@@ -287,22 +251,15 @@ export default function MenuManagement() {
         },
         body: formData
       });
-
-      console.log('📡 Upload response status:', response.status);
       
       if (response.ok) {
         const result = await response.json();
-        console.log('✅ Upload successful:', result);
         return result.image_url;
       } else {
-        const errorText = await response.text();
-        // Silent fallback - no console errors
         // If upload fails, return empty string so we use smart defaults
-        // Silent fallback - image upload failed, will use smart default image
         return '';
       }
     } catch (error) {
-      // Silent fallback - no console errors
       // If upload fails, return empty string so we use smart defaults
       return '';
     }
