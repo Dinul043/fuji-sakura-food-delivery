@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { API_BASE_URL } from '../../../config/constants';
+import { API_BASE_URL, getFullImageUrl } from '../../../config/constants';
 
 interface MenuItem {
   id: number;
@@ -351,7 +351,8 @@ export default function MenuManagement() {
       is_veg: item.isVeg,  // Map from isVeg to is_veg for form state
       image_url: item.image_url || ''
     });
-    setImagePreview(item.image_url || '');
+    // Use helper to convert relative path to full URL for preview
+    setImagePreview(item.image_url ? getFullImageUrl(item.image_url) : '');
     setShowAddModal(true);
   };
 
@@ -723,18 +724,26 @@ export default function MenuManagement() {
                     overflow: 'hidden',
                     position: 'relative'
                   }}>
-                    {item.image_url ? (
+                    {getFullImageUrl(item.image_url).startsWith('http') ? (
                       <img 
-                        src={item.image_url} 
+                        src={getFullImageUrl(item.image_url)} 
                         alt={item.item_name}
                         style={{
                           width: '100%',
                           height: '100%',
                           objectFit: 'cover'
                         }}
+                        onError={(e) => {
+                          const target = e.target as HTMLImageElement;
+                          target.style.display = 'none';
+                          const parent = target.parentElement;
+                          if (parent) {
+                            parent.innerHTML = '<span style="font-size: 2rem;">🍽️</span>';
+                          }
+                        }}
                       />
                     ) : (
-                      <span>🍽️</span>
+                      <span>{getFullImageUrl(item.image_url)}</span>
                     )}
                   </div>
                   

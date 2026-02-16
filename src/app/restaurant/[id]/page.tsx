@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useCart } from '../../../contexts/CartContext';
 import AuthPopup from '../../../components/AuthPopup';
-import { API_BASE_URL, getImageUrl } from '../../../config/constants';
+import { API_BASE_URL, getFullImageUrl } from '../../../config/constants';
 import { useWebSocket } from '@/hooks/useWebSocket';
 
 interface MenuItem {
@@ -205,31 +205,6 @@ export default function RestaurantPage() {
     }
   }, [params.id]);
 
-  // Function to normalize image URLs - fix the image display issue
-  const normalizeImageUrl = (imageUrl?: string): string => {
-    if (!imageUrl) return '🍽️';
-    
-    // If it's already a full URL, return as is
-    if (imageUrl.startsWith('http')) {
-      return imageUrl;
-    }
-    
-    // If it's a relative path to uploads, make it absolute
-    if (imageUrl.startsWith('/uploads/') || imageUrl.startsWith('uploads/')) {
-      const cleanPath = imageUrl.startsWith('/') ? imageUrl : `/${imageUrl}`;
-      return `${API_BASE_URL}${cleanPath}`;
-    }
-    
-    // If it's a static image path, make it absolute
-    if (imageUrl.startsWith('/images/') || imageUrl.startsWith('images/')) {
-      const cleanPath = imageUrl.startsWith('/') ? imageUrl : `/${imageUrl}`;
-      return `http://localhost:3000${cleanPath}`;
-    }
-    
-    // Default fallback
-    return '🍽️';
-  };
-
   // Function to map backend categories to frontend categories
   const mapBackendCategoryToFrontend = (backendCategory: string): string => {
     const categoryMap: { [key: string]: string } = {
@@ -255,18 +230,20 @@ export default function RestaurantPage() {
     if (!restaurant) return;
     
     console.log('🔍 handleAddToCart called with item:', item);
+    console.log('   Item image_url:', item.image_url);
     console.log('   Restaurant ID:', restaurant.id);
     console.log('   Restaurant Name:', restaurant.name);
     
-    // Normalize image URL before adding to cart
-    const normalizedImage = normalizeImageUrl(item.image_url);
+    // Use centralized helper to get full image URL
+    const fullImageUrl = getFullImageUrl(item.image_url);
+    console.log('   Full image URL:', fullImageUrl);
     
     const cartItem = {
       id: item.id,
       name: item.name,
       description: item.description,
       price: item.price,
-      image: normalizedImage,
+      image: fullImageUrl,
       category: item.category,
       isVeg: item.isVeg ?? true,
       rating: item.rating ?? 4.0,
@@ -294,13 +271,18 @@ export default function RestaurantPage() {
   };
 
   // Get filtered menu items based on selected category
-  const filteredMenuItems = selectedCategory === 'all' || selectedCategory === 'recommended'
+  const filteredMenuItems = (selectedCategory === 'all' || selectedCategory === 'recommended'
     ? menuItems  // Show ALL items for "All" and "Recommended"
     : menuItems.filter(item => {
         // Map backend categories to frontend categories for filtering
         const itemFrontendCategory = mapBackendCategoryToFrontend(item.category);
         return itemFrontendCategory === selectedCategory;
-      });
+      })
+  ).sort((a, b) => {
+    // Sort: available items first, unavailable items last
+    if (a.is_available === b.is_available) return 0;
+    return a.is_available ? -1 : 1;
+  });
 
   if (loading) {
     return (
@@ -646,9 +628,9 @@ export default function RestaurantPage() {
                     justifyContent: 'center',
                     filter: item.is_available ? 'none' : 'grayscale(100%)'
                   }}>
-                    {normalizeImageUrl(item.image_url).startsWith('http') ? (
+                    {getFullImageUrl(item.image_url).startsWith('http') ? (
                       <img 
-                        src={normalizeImageUrl(item.image_url)}
+                        src={getFullImageUrl(item.image_url)}
                         alt={item.name}
                         style={{
                           width: '80px',
@@ -667,7 +649,7 @@ export default function RestaurantPage() {
                       />
                     ) : (
                       <div style={{ fontSize: '3rem' }}>
-                        {normalizeImageUrl(item.image_url)}
+                        {getFullImageUrl(item.image_url)}
                       </div>
                     )}
                   </div>
@@ -853,30 +835,69 @@ export default function RestaurantPage() {
                       <div style={{ 
                         fontSize: '1.5rem',
                         minWidth: '40px',
-                        textAlign: 'center'
+                        textAlign: 'center',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center'
                       }}>
-                        {item.image.startsWith('http') ? (
-                          <img 
-                            src={item.image}
-                            alt={item.name}
-                            style={{
-                              width: '40px',
-                              height: '40px',
-                              objectFit: 'cover',
-                              borderRadius: '6px'
-                            }}
-                            onError={(e) => {
-                              const target = e.target as HTMLImageElement;
-                              target.style.display = 'none';
-                              const parent = target.parentElement;
-                              if (parent) {
-                                parent.innerHTML = '🍽️';
-                              }
-                            }}
-                          />
-                        ) : (
-                          <span>{item.image}</span>
-                        )}
+                        {(() => {
+                          // Handle different image formats
+                          if (!item.image) {
+                            return <div style={{ fontSize: '1.5rem' }}>🍽️</div>;
+                          }
+                          
+                          // If it's a full URL, show image
+                          if (item.image.startsWith('http')) {
+                            return (
+                              <img 
+                                src={item.image}
+                                alt={item.name}
+                                style={{
+                                  width: '40px',
+                                  height: '40px',
+                                  objectFit: 'cover',
+                                  borderRadius: '6px'
+                                }}
+                                onError={(e) => {
+                                  const target = e.target as HTMLImageElement;
+                                  target.style.display = 'none';
+                                  const parent = target.parentElement;
+                                  if (parent) {
+                                    parent.innerHTML = '<div style="font-size: 1.5rem;">🍽️</div>';
+                                  }
+                                }}
+                              />
+                            );
+                          }
+                          
+                          // If it's a relative path, convert to full URL
+                          if (item.image.startsWith('/uploads/') || item.image.startsWith('uploads/')) {
+                            const fullUrl = `${API_BASE_URL}${item.image.startsWith('/') ? item.image : '/' + item.image}`;
+                            return (
+                              <img 
+                                src={fullUrl}
+                                alt={item.name}
+                                style={{
+                                  width: '40px',
+                                  height: '40px',
+                                  objectFit: 'cover',
+                                  borderRadius: '6px'
+                                }}
+                                onError={(e) => {
+                                  const target = e.target as HTMLImageElement;
+                                  target.style.display = 'none';
+                                  const parent = target.parentElement;
+                                  if (parent) {
+                                    parent.innerHTML = '<div style="font-size: 1.5rem;">🍽️</div>';
+                                  }
+                                }}
+                              />
+                            );
+                          }
+                          
+                          // If it's an emoji or other text, show it
+                          return <div style={{ fontSize: '1.5rem' }}>{item.image}</div>;
+                        })()}
                       </div>
                       <div style={{ flex: 1 }}>
                         <h5 style={{

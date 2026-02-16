@@ -3,8 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+import { API_BASE_URL, getFullImageUrl } from '../../../config/constants';
 
 interface RestaurantProfile {
   id: number;
@@ -512,39 +511,52 @@ export default function RestaurantProfile() {
                     alignItems: 'center',
                     justifyContent: 'center'
                   }}>
-                    <img 
-                      src={profile.restaurant_image}
-                      alt="Restaurant"
-                      style={{
-                        width: '100%',
+                    {getFullImageUrl(profile.restaurant_image).startsWith('http') ? (
+                      <img 
+                        src={getFullImageUrl(profile.restaurant_image)}
+                        alt="Restaurant"
+                        style={{
+                          width: '100%',
+                          height: '100%',
+                          objectFit: 'cover',
+                          display: 'block'
+                        }}
+                        onError={(e) => {
+                          const target = e.target as HTMLImageElement;
+                          target.style.display = 'none';
+                          const parent = target.parentElement;
+                          if (parent) {
+                            parent.innerHTML = `
+                              <div style="
+                                display: flex; 
+                                flex-direction: column; 
+                                align-items: center; 
+                                justify-content: center; 
+                                height: 100%; 
+                                color: #6c757d;
+                                font-size: 0.8rem;
+                                text-align: center;
+                                padding: 1rem;
+                              ">
+                                <div style="font-size: 2rem; margin-bottom: 0.5rem;">🖼️</div>
+                                <div>Image not available</div>
+                              </div>
+                            `;
+                          }
+                        }}
+                      />
+                    ) : (
+                      <div style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        justifyContent: 'center',
                         height: '100%',
-                        objectFit: 'cover',
-                        display: 'block'
-                      }}
-                      onError={(e) => {
-                        const target = e.target as HTMLImageElement;
-                        target.style.display = 'none';
-                        const parent = target.parentElement;
-                        if (parent) {
-                          parent.innerHTML = `
-                            <div style="
-                              display: flex; 
-                              flex-direction: column; 
-                              align-items: center; 
-                              justify-content: center; 
-                              height: 100%; 
-                              color: #6c757d;
-                              font-size: 0.8rem;
-                              text-align: center;
-                              padding: 1rem;
-                            ">
-                              <div style="font-size: 2rem; margin-bottom: 0.5rem;">🖼️</div>
-                              <div>Image not available</div>
-                            </div>
-                          `;
-                        }
-                      }}
-                    />
+                        fontSize: '2rem'
+                      }}>
+                        {getFullImageUrl(profile.restaurant_image)}
+                      </div>
+                    )}
                   </div>
                   <p style={{ 
                     fontSize: '0.8rem', 

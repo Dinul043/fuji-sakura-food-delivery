@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useCart } from '../../contexts/CartContext';
 import AuthPopup from '../../components/AuthPopup';
-import { getImageUrl } from '../../config/constants';
+import { getFullImageUrl } from '../../config/constants';
 
 export default function CartPage() {
   const router = useRouter();
@@ -479,9 +479,9 @@ export default function CartPage() {
                     justifyContent: 'center',
                     border: '2px solid #e2e8f0'
                   }}>
-                    {item.image && item.image.startsWith('http') ? (
+                    {getFullImageUrl(item.image).startsWith('http') ? (
                       <img 
-                        src={item.image}
+                        src={getFullImageUrl(item.image)}
                         alt={item.name}
                         style={{
                           width: '100%',
@@ -498,7 +498,9 @@ export default function CartPage() {
                         }}
                       />
                     ) : (
-                      <div style={{ fontSize: '2.5rem' }}>🍽️</div>
+                      <div style={{ fontSize: '2.5rem' }}>
+                        {getFullImageUrl(item.image)}
+                      </div>
                     )}
                   </div>
                   

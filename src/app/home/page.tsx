@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { useCart } from '../../contexts/CartContext';
-import { API_BASE_URL } from '../../config/constants';
+import { API_BASE_URL, getFullImageUrl } from '../../config/constants';
 import { useWebSocket } from '@/hooks/useWebSocket';
 
 // Define interfaces for real restaurant data
@@ -1460,9 +1460,9 @@ export default function HomePage() {
                     overflow: 'hidden',
                     position: 'relative'
                   }}>
-                    {restaurant.restaurant_image ? (
+                    {getFullImageUrl(restaurant.restaurant_image).startsWith('http') ? (
                       <img 
-                        src={restaurant.restaurant_image}
+                        src={getFullImageUrl(restaurant.restaurant_image)}
                         alt={restaurant.name}
                         style={{
                           width: '100%',
@@ -1490,7 +1490,15 @@ export default function HomePage() {
                         }}
                       />
                     ) : (
-                      <div style={{ fontSize: '4rem' }}>🍽️</div>
+                      <div style={{ 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        justifyContent: 'center', 
+                        height: '100%', 
+                        fontSize: '4rem' 
+                      }}>
+                        {getFullImageUrl(restaurant.restaurant_image)}
+                      </div>
                     )}
                     
                     {/* Rating Overlay */}
