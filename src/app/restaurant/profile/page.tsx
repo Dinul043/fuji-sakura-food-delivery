@@ -1051,7 +1051,7 @@ export default function RestaurantProfile() {
                 📅 APPROVED ON
               </p>
               <p style={{ margin: 0, fontSize: '1rem', color: '#333' }}>
-                {profile?.approved_at ? new Date(profile.approved_at + 'Z').toLocaleDateString() : 'N/A'}
+                {profile?.approved_at ? new Date(profile.approved_at).toLocaleDateString() : 'N/A'}
               </p>
             </div>
           </div>

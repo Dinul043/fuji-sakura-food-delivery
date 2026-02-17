@@ -8,7 +8,7 @@ import AuthPopup from '../../components/AuthPopup';
 export default function CheckoutPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { cart, clearCart } = useCart();
+  const { cart, clearCart, refreshCart } = useCart();
   
   // Get checkout type from URL params
   const checkoutType = searchParams.get('type') || 'all';
@@ -176,7 +176,10 @@ export default function CheckoutPage() {
       // Get first order ID for redirect
       const firstOrderId = data.orders[0]?.id;
       
-      // Redirect immediately (cart is already cleared from backend database)
+      // Refresh cart from database to reflect backend changes (items removed)
+      await refreshCart();
+      
+      // Redirect to success page
       router.push(`/order-success?orderId=${firstOrderId}`);
       
     } catch (error) {

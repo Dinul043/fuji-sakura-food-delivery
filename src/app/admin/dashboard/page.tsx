@@ -792,7 +792,7 @@ export default function AdminDashboard() {
                             <strong>🍽️ Cuisine:</strong> {application.cuisine_type}
                           </p>
                           <p style={{ fontSize: '0.9rem', color: '#666', margin: 0 }}>
-                            📅 Applied: {new Date(application.created_at + 'Z').toLocaleDateString()}
+                            📅 Applied: {new Date(application.created_at).toLocaleDateString()}
                           </p>
                         </div>
                       </div>
@@ -944,7 +944,7 @@ export default function AdminDashboard() {
                   { label: 'Cuisine Type', value: selectedApplication.cuisine_type, icon: '🍽️' },
                   { label: 'Business License', value: selectedApplication.business_license, icon: '📄' },
                   { label: 'Food Permit', value: selectedApplication.food_permit, icon: '🍽️' },
-                  { label: 'Application Date', value: new Date(selectedApplication.created_at + 'Z').toLocaleString(), icon: '📅' }
+                  { label: 'Application Date', value: new Date(selectedApplication.created_at).toLocaleString(), icon: '📅' }
                 ].map((item, index) => (
                   <div key={index} style={{
                     background: '#f8f9fa',
@@ -1592,10 +1592,10 @@ export default function AdminDashboard() {
                           
                           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.5rem', fontSize: '0.9rem', color: '#666' }}>
                             <div>📧 {admin.email}</div>
-                            <div>📅 Created: {new Date(admin.created_at + 'Z').toLocaleDateString()}</div>
+                            <div>📅 Created: {new Date(admin.created_at).toLocaleDateString()}</div>
                             <div>👤 Created by: {admin.created_by_name}</div>
                             {admin.last_login && (
-                              <div>🕐 Last login: {new Date(admin.last_login + 'Z').toLocaleDateString()}</div>
+                              <div>🕐 Last login: {new Date(admin.last_login).toLocaleDateString()}</div>
                             )}
                           </div>
                         </div>

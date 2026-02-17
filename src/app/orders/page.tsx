@@ -93,8 +93,8 @@ export default function OrdersPage() {
 
   // Format date - converts UTC to local timezone
   const formatDate = (dateString: string) => {
-    // Backend sends UTC time, we need to display it in user's local timezone
-    const date = new Date(dateString + 'Z'); // Add 'Z' to indicate UTC
+    // Backend sends local time, display it as-is
+    const date = new Date(dateString);
     return date.toLocaleString('en-US', {
       year: 'numeric',
       month: 'short',
@@ -211,7 +211,7 @@ export default function OrdersPage() {
       return false;
     }
     
-    const orderTime = new Date(order.created_at + 'Z').getTime();
+    const orderTime = new Date(order.created_at).getTime();
     const currentTime = new Date().getTime();
     const timeDiff = (currentTime - orderTime) / 1000 / 60; // in minutes
     

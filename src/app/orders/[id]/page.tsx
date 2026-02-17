@@ -195,10 +195,10 @@ export default function OrderTrackingPage() {
     }, {} as Record<number, { restaurant: any; items: OrderItem[] }>);
   };
 
-  // Format date - converts UTC to local timezone
+  // Format date - display local time as-is
   const formatDate = (dateString: string) => {
-    // Backend sends UTC time, we need to display it in user's local timezone
-    const date = new Date(dateString + 'Z'); // Add 'Z' to indicate UTC
+    // Backend sends local time, display it as-is
+    const date = new Date(dateString);
     return date.toLocaleString('en-US', {
       year: 'numeric',
       month: 'short',
