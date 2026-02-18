@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import Image from 'next/image';
 import { useCart } from '../../contexts/CartContext';
 import AuthPopup from '../../components/AuthPopup';
 
@@ -227,7 +228,9 @@ export default function CheckoutPage() {
           border: '1px solid rgba(255, 255, 255, 0.3)',
           maxWidth: '400px'
         }}>
-          <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>🛒</div>
+          <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>
+            <Image src="/icons/navigation/cart.svg" alt="Cart" width={64} height={64} />
+          </div>
           <h2 style={{ fontSize: '1.5rem', fontWeight: '600', color: '#333', marginBottom: '1rem', margin: 0 }}>
             No items to checkout
           </h2>
@@ -350,7 +353,7 @@ export default function CheckoutPage() {
               gap: '1rem',
               boxShadow: '0 4px 12px rgba(239, 68, 68, 0.2)'
             }}>
-              <span style={{ fontSize: '1.5rem' }}>⚠️</span>
+              <Image src="/icons/status/warning.svg" alt="Warning" width={24} height={24} />
               <div>
                 <div style={{ 
                   fontWeight: '600', 
@@ -387,7 +390,7 @@ export default function CheckoutPage() {
               paddingBottom: '1rem', // Added padding bottom
               borderBottom: '2px solid #f1f5f9' // Added separator line
             }}>
-              <span style={{ fontSize: '1.5rem' }}>📍</span>
+              <Image src="/icons/delivery/location.svg" alt="Location" width={24} height={24} />
               Delivery Address
             </h2>
 
@@ -735,7 +738,7 @@ export default function CheckoutPage() {
               paddingBottom: '1rem',
               borderBottom: '2px solid #f1f5f9'
             }}>
-              <span style={{ fontSize: '1.5rem' }}>💳</span>
+              <Image src="/icons/payment/card.svg" alt="Payment" width={24} height={24} />
               Payment Method
             </h2>
 
@@ -745,10 +748,10 @@ export default function CheckoutPage() {
               gap: '1rem'
             }}>
               {[
-                { id: 'card', icon: '💳', name: 'Credit/Debit Card', desc: 'Visa, Mastercard, Rupay' },
-                { id: 'upi', icon: '📱', name: 'UPI Payment', desc: 'PhonePe, Google Pay, Paytm' },
-                { id: 'wallet', icon: '👛', name: 'Digital Wallet', desc: 'Paytm, Amazon Pay' },
-                { id: 'cod', icon: '💵', name: 'Cash on Delivery', desc: 'Pay when order arrives' }
+                { id: 'card', icon: '/icons/payment/card.svg', name: 'Credit/Debit Card', desc: 'Visa, Mastercard, Rupay' },
+                { id: 'upi', icon: '/icons/payment/phone-pay.svg', name: 'UPI Payment', desc: 'PhonePe, Google Pay, Paytm' },
+                { id: 'wallet', icon: '/icons/payment/wallet.svg', name: 'Digital Wallet', desc: 'Paytm, Amazon Pay' },
+                { id: 'cod', icon: '/icons/payment/cash.svg', name: 'Cash on Delivery', desc: 'Pay when order arrives' }
               ].map((method) => (
                 <div
                   key={method.id}
@@ -803,10 +806,15 @@ export default function CheckoutPage() {
                       }} />
                     )}
                   </div>
-                  <span style={{ 
-                    fontSize: '1.8rem', // Larger icon
-                    filter: paymentMethod === method.id ? 'none' : 'grayscale(0.3)'
-                  }}>{method.icon}</span>
+                  <Image 
+                    src={method.icon} 
+                    alt={method.name} 
+                    width={28} 
+                    height={28}
+                    style={{ 
+                      filter: paymentMethod === method.id ? 'none' : 'grayscale(0.3)'
+                    }}
+                  />
                   <div style={{ flex: 1 }}>
                     <div style={{ 
                       fontWeight: '600', 
@@ -826,7 +834,7 @@ export default function CheckoutPage() {
                       fontSize: '1.2rem',
                       fontWeight: '600'
                     }}>
-                      ✓
+                    <Image src="/icons/actions/check.svg" alt="Check" width={16} height={16} />
                     </div>
                   )}
                 </div>
@@ -855,7 +863,7 @@ export default function CheckoutPage() {
               paddingBottom: '1rem',
               borderBottom: '2px solid #f1f5f9'
             }}>
-              <span style={{ fontSize: '1.5rem' }}>📝</span>
+              <Image src="/icons/actions/edit.svg" alt="Instructions" width={24} height={24} />
               Special Instructions
             </h2>
 
@@ -934,7 +942,7 @@ export default function CheckoutPage() {
             paddingBottom: '1rem', // Added padding bottom
             borderBottom: '2px solid #f1f5f9' // Added separator line
           }}>
-            <span style={{ fontSize: '1.5rem' }}>🛒</span>
+            <Image src="/icons/navigation/cart.svg" alt="Cart" width={24} height={24} />
             Order Summary ({checkoutItems.reduce((total, item) => total + item.quantity, 0)} items)
           </h2>
 
@@ -1069,7 +1077,8 @@ export default function CheckoutPage() {
               paddingBottom: '0.75rem',
               borderBottom: '1px solid #e2e8f0'
             }}>
-              💰 Price Breakdown
+              <Image src="/icons/payment/money.svg" alt="Money" width={20} height={20} style={{ display: 'inline-block', marginRight: '8px' }} />
+              Price Breakdown
             </h3>
             
             <div style={{
@@ -1144,7 +1153,7 @@ export default function CheckoutPage() {
               alignItems: 'center',
               gap: '0.5rem'
             }}>
-              <span style={{ fontSize: '1.2rem' }}>💳</span>
+              <Image src="/icons/payment/card.svg" alt="Total" width={20} height={20} style={{ display: 'inline-block' }} />
               Total Amount
             </span>
             <span style={{ color: '#ff6b6b' }}>${total.toFixed(2)}</span>

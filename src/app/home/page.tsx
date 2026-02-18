@@ -6,6 +6,7 @@ import Image from 'next/image';
 import { useCart } from '../../contexts/CartContext';
 import { API_BASE_URL, getFullImageUrl } from '../../config/constants';
 import { useWebSocket } from '@/hooks/useWebSocket';
+import Icon from '@/components/Icon';
 
 // Define interfaces for real restaurant data
 interface RealRestaurant {
@@ -453,7 +454,7 @@ export default function HomePage() {
             padding: '0.5rem 1rem',
             border: '1px solid rgba(255, 255, 255, 0.2)'
           }}>
-            <span style={{ color: 'white', fontSize: '0.9rem' }}>📍</span>
+            <Icon name="delivery/location" size={18} style={{ filter: 'brightness(0) invert(1)' }} />
             <span style={{ color: 'white', fontSize: '0.9rem', fontWeight: '500' }}>Delivering to</span>
             <span style={{ color: 'white', fontSize: '0.9rem', fontWeight: 'bold' }}>Tokyo, Shibuya</span>
             <span style={{ color: 'white', fontSize: '0.8rem' }}>🔽</span>
@@ -507,7 +508,9 @@ export default function HomePage() {
               transform: 'translateY(-50%)',
               color: '#666',
               fontSize: '1rem'
-            }}>🔍</span>
+            }}>
+              <Image src="/icons/actions/search.svg" alt="Search" width={20} height={20} />
+            </span>
           </div>
 
           {/* Search Suggestions Dropdown */}
@@ -570,7 +573,7 @@ export default function HomePage() {
                     e.currentTarget.style.color = '#333';
                   }}
                 >
-                  <span style={{ fontSize: '0.8rem', opacity: 0.6 }}>🔍</span>
+                  <Icon name="actions/search" size={14} style={{ opacity: 0.6 }} />
                   <span>{suggestion}</span>
                 </button>
               ))}
@@ -611,7 +614,7 @@ export default function HomePage() {
             }}
             title="Sort restaurants"
           >
-            <span style={{ fontSize: '1.2rem' }}>🔄</span>
+            <Icon name="actions/filter" size={20} style={{ filter: 'brightness(0) invert(1)' }} />
             {sortBy && (
               <span style={{
                 position: 'absolute',
@@ -628,7 +631,9 @@ export default function HomePage() {
                 alignItems: 'center',
                 justifyContent: 'center',
                 border: '2px solid white'
-              }}>✓</span>
+              }}>
+                <Image src="/icons/actions/check.svg" alt="Selected" width={16} height={16} />
+              </span>
             )}
           </button>
 
@@ -662,10 +667,10 @@ export default function HomePage() {
               </div>
               
               {[
-                { id: 'rating', label: 'Rating', icon: '⭐', desc: 'High to Low' },
-                { id: 'distance', label: 'Distance', icon: '📍', desc: 'Nearest First' },
-                { id: 'time', label: 'Delivery Time', icon: '⏱️', desc: 'Fastest First' },
-                { id: 'price', label: 'Delivery Fee', icon: '💰', desc: 'Low to High' }
+                { id: 'rating', label: 'Rating', icon: '/icons/status/star.svg', desc: 'High to Low' },
+                { id: 'distance', label: 'Distance', icon: '/icons/delivery/location.svg', desc: 'Nearest First' },
+                { id: 'time', label: 'Delivery Time', icon: '/icons/time/clock.svg', desc: 'Fastest First' },
+                { id: 'price', label: 'Delivery Fee', icon: '/icons/payment/money.svg', desc: 'Low to High' }
               ].map((sort) => (
                 <button
                   key={sort.id}
@@ -694,7 +699,7 @@ export default function HomePage() {
                     e.currentTarget.style.background = sortBy === sort.id ? 'rgba(255, 107, 107, 0.1)' : 'transparent';
                   }}
                 >
-                  <span style={{ fontSize: '1.1rem' }}>{sort.icon}</span>
+                  <Image src={sort.icon} alt={sort.label} width={20} height={20} />
                   <div style={{ flex: 1 }}>
                     <div style={{
                       fontSize: '0.9rem',
@@ -793,7 +798,7 @@ export default function HomePage() {
             e.currentTarget.style.transform = 'scale(1)';
           }}
           >
-            <span style={{ fontSize: '1.2rem' }}>🛒</span>
+            <Image src="/icons/navigation/cart.svg" alt="Cart" width={24} height={24} />
             {getTotalItems() > 0 && (
               <span style={{
                 position: 'absolute',
@@ -861,7 +866,7 @@ export default function HomePage() {
                 e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.3)';
               }}
             >
-              <span>📦</span>
+              <Image src="/icons/navigation/orders.svg" alt="Orders" width={20} height={20} />
               <span>Orders</span>
             </button>
             
@@ -918,7 +923,7 @@ export default function HomePage() {
           justifyContent: 'center',
           gap: '1rem'
         }}>
-          <span style={{ fontSize: '2rem' }}>🍽️</span>
+          <Image src="/icons/food/food.svg" alt="Food" width={32} height={32} style={{ display: 'inline-block', marginRight: '8px' }} />
           What are you craving?
         </h2>
         <p style={{
@@ -1398,7 +1403,9 @@ export default function HomePage() {
                 textAlign: 'center',
                 maxWidth: '500px'
               }}>
-                <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>🔍</div>
+                <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>
+                  <Image src="/icons/actions/search.svg" alt="Search" width={48} height={48} />
+                </div>
                 <h3 style={{
                   color: 'white',
                   fontSize: '1.2rem',
@@ -1483,7 +1490,7 @@ export default function HomePage() {
                                 height: 100%; 
                                 font-size: 4rem;
                               ">
-                                🍽️
+                                <img src="/icons/food/food.svg" alt="Food" width="64" height="64" />
                               </div>
                             `;
                           }
@@ -1516,7 +1523,7 @@ export default function HomePage() {
                       boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
                       border: '1px solid rgba(255, 255, 255, 0.2)'
                     }}>
-                      <span style={{ fontSize: '0.8rem' }}>⭐</span>
+                      <Image src="/icons/status/star.svg" alt="Rating" width={14} height={14} style={{ display: 'inline-block' }} />
                       <span style={{
                         fontSize: '0.8rem',
                         fontWeight: '700',
@@ -1603,11 +1610,11 @@ export default function HomePage() {
                         <span>{restaurant.delivery_time}</span>
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-                        <span>🚚</span>
+                        <Image src="/icons/delivery/delivery.svg" alt="Delivery" width={16} height={16} />
                         <span>${restaurant.delivery_fee}</span>
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-                        <span>💬</span>
+                        <Image src="/icons/misc/list.svg" alt="Reviews" width={16} height={16} />
                         <span>{restaurant.reviews}</span>
                       </div>
                     </div>
@@ -1622,7 +1629,7 @@ export default function HomePage() {
                       marginBottom: '0.75rem'
                     }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-                        <span>🍽️</span>
+                        <Image src="/icons/food/food.svg" alt="Menu" width={16} height={16} />
                         <span>{restaurant.menu_items_count} items</span>
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 import { useCart } from '../../contexts/CartContext';
 import AuthPopup from '../../components/AuthPopup';
 import { getFullImageUrl } from '../../config/constants';
@@ -190,7 +191,9 @@ export default function CartPage() {
           textAlign: 'center',
           border: '1px solid rgba(255, 255, 255, 0.3)'
         }}>
-          <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>🛒</div>
+          <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>
+            <Image src="/icons/navigation/cart.svg" alt="Cart" width={64} height={64} />
+          </div>
           <h2 style={{
             fontSize: '1.5rem',
             fontWeight: '600',
@@ -378,7 +381,7 @@ export default function CartPage() {
                 gap: '0.4rem',
                 marginBottom: '0.35rem'
               }}>
-                <span style={{ fontSize: '0.85rem' }}>📍</span>
+                <Image src="/icons/delivery/location.svg" alt="Location" width={14} height={14} style={{ display: 'inline-block' }} />
                 <span style={{ fontWeight: '600', color: '#333', fontSize: '0.85rem' }}>Delivery Address</span>
               </div>
               <p style={{
@@ -493,7 +496,7 @@ export default function CartPage() {
                           target.style.display = 'none';
                           const parent = target.parentElement;
                           if (parent) {
-                            parent.innerHTML = '<div style="font-size: 2.5rem;">🍽️</div>';
+                            parent.innerHTML = '<img src="/icons/food/food.svg" alt="Food" width="40" height="40" />';
                           }
                         }}
                       />
@@ -567,7 +570,8 @@ export default function CartPage() {
                     boxShadow: '0 2px 8px rgba(255, 107, 107, 0.3)',
                     whiteSpace: 'nowrap'
                   }}>
-                    🏪 {item.restaurantName}
+                    <Image src="/icons/navigation/restaurant.svg" alt="Restaurant" width={16} height={16} style={{ display: 'inline-block', marginRight: '4px' }} />
+                    {item.restaurantName}
                   </div>
                 </div>
 
@@ -638,7 +642,7 @@ export default function CartPage() {
                       fontSize: '1rem'
                     }}
                   >
-                    🗑️
+                    <Image src="/icons/actions/close.svg" alt="Delete" width={20} height={20} />
                   </button>
                 </div>
               </div>

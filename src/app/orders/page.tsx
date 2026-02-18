@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 
 interface OrderItem {
   id: number;
@@ -109,17 +110,17 @@ export default function OrdersPage() {
   const getStatusInfo = (status: string) => {
     switch (status) {
       case 'confirmed':
-        return { color: '#3b82f6', bg: '#dbeafe', emoji: '✅', text: 'Order Confirmed' };
+        return { color: '#3b82f6', bg: '#dbeafe', icon: '/icons/actions/check.svg', text: 'Order Confirmed' };
       case 'preparing':
-        return { color: '#f59e0b', bg: '#fef3c7', emoji: '👨‍🍳', text: 'Preparing' };
+        return { color: '#f59e0b', bg: '#fef3c7', icon: '/icons/food/food.svg', text: 'Preparing' };
       case 'out_for_delivery':
-        return { color: '#8b5cf6', bg: '#ede9fe', emoji: '🚗', text: 'On the Way' };
+        return { color: '#8b5cf6', bg: '#ede9fe', icon: '/icons/delivery/delivery.svg', text: 'On the Way' };
       case 'delivered':
-        return { color: '#10b981', bg: '#d1fae5', emoji: '🎉', text: 'Delivered' };
+        return { color: '#10b981', bg: '#d1fae5', icon: '/icons/status/success.svg', text: 'Delivered' };
       case 'cancelled':
-        return { color: '#ef4444', bg: '#fee2e2', emoji: '❌', text: 'Cancelled' };
+        return { color: '#ef4444', bg: '#fee2e2', icon: '/icons/actions/close.svg', text: 'Cancelled' };
       default:
-        return { color: '#6b7280', bg: '#f3f4f6', emoji: '📦', text: 'Pending' };
+        return { color: '#6b7280', bg: '#f3f4f6', icon: '/icons/navigation/orders.svg', text: 'Pending' };
     }
   };
 
@@ -493,8 +494,8 @@ export default function OrdersPage() {
           flexWrap: 'wrap'
         }}>
           {[
-            { value: 'all', label: 'All Orders', emoji: '📦' },
-            { value: 'delivered', label: 'Delivered', emoji: '🎉' }
+            { value: 'all', label: 'All Orders', icon: '/icons/navigation/orders.svg' },
+            { value: 'delivered', label: 'Delivered', icon: '/icons/status/success.svg' }
           ].map((filter) => (
             <button
               key={filter.value}
@@ -525,7 +526,7 @@ export default function OrdersPage() {
                 }
               }}
             >
-              <span>{filter.emoji}</span>
+              <Image src={filter.icon} alt={filter.label} width={20} height={20} />
               <span>{filter.label}</span>
             </button>
           ))}
@@ -544,7 +545,12 @@ export default function OrdersPage() {
           boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)'
         }}>
           <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>
-            {selectedStatus === 'all' ? '📦' : getStatusInfo(selectedStatus).emoji}
+            <Image 
+              src={selectedStatus === 'all' ? '/icons/navigation/orders.svg' : getStatusInfo(selectedStatus).icon} 
+              alt="Status" 
+              width={64} 
+              height={64} 
+            />
           </div>
           <h2 style={{ fontSize: '1.5rem', fontWeight: '600', color: '#333', marginBottom: '1rem', margin: 0 }}>
             {selectedStatus === 'all' ? 'No orders yet' : `No ${selectedStatus} orders`}
@@ -637,7 +643,7 @@ export default function OrdersPage() {
                         fontSize: '0.9rem',
                         fontWeight: '600'
                       }}>
-                        <span>{statusInfo.emoji}</span>
+                        <Image src={statusInfo.icon} alt={statusInfo.text} width={18} height={18} />
                         <span>{statusInfo.text}</span>
                       </div>
                     </div>

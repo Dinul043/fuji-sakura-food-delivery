@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import Image from 'next/image';
 
 export default function OrderSuccessPage() {
   const router = useRouter();
@@ -116,7 +117,9 @@ export default function OrderSuccessPage() {
           border: '1px solid rgba(255, 255, 255, 0.3)',
           maxWidth: '400px'
         }}>
-          <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>❌</div>
+          <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>
+            <Image src="/icons/actions/close.svg" alt="Error" width={64} height={64} />
+          </div>
           <h2 style={{ fontSize: '1.5rem', fontWeight: '600', color: '#333', marginBottom: '1rem', margin: 0 }}>
             {error || 'Order not found'}
           </h2>
@@ -169,7 +172,7 @@ export default function OrderSuccessPage() {
           marginBottom: '1rem',
           animation: 'bounce 2s infinite'
         }}>
-          🎉
+          <Image src="/icons/status/success.svg" alt="Success" width={64} height={64} />
         </div>
 
         <h1 style={{
@@ -249,9 +252,9 @@ export default function OrderSuccessPage() {
             }}>
               <span style={{ color: '#666' }}>Payment Method:</span>
               <span style={{ fontWeight: '600' }}>
-                {orderDetails.payment_method === 'card' ? '💳 Card' :
-                 orderDetails.payment_method === 'upi' ? '📱 UPI' :
-                 orderDetails.payment_method === 'wallet' ? '👛 Wallet' : '💵 Cash on Delivery'}
+                {orderDetails.payment_method === 'card' ? <><Image src="/icons/payment/card.svg" alt="Card" width={16} height={16} style={{ display: 'inline-block', marginRight: '4px' }} /> Card</> :
+                 orderDetails.payment_method === 'upi' ? <><Image src="/icons/payment/phone-pay.svg" alt="UPI" width={16} height={16} style={{ display: 'inline-block', marginRight: '4px' }} /> UPI</> :
+                 orderDetails.payment_method === 'wallet' ? <><Image src="/icons/payment/wallet.svg" alt="Wallet" width={16} height={16} style={{ display: 'inline-block', marginRight: '4px' }} /> Wallet</> : <><Image src="/icons/payment/cash.svg" alt="Cash" width={16} height={16} style={{ display: 'inline-block', marginRight: '4px' }} /> Cash on Delivery</>}
               </span>
             </div>
 
@@ -357,9 +360,11 @@ export default function OrderSuccessPage() {
             margin: 0,
             lineHeight: '1.5'
           }}>
-            📱 You'll receive SMS updates about your order status.
+            <Image src="/icons/contact/phone.svg" alt="Phone" width={16} height={16} style={{ display: 'inline-block', marginRight: '4px' }} />
+            You'll receive SMS updates about your order status.
             <br />
-            💬 Need help? Contact our support team.
+            <Image src="/icons/contact/notification.svg" alt="Support" width={16} height={16} style={{ display: 'inline-block', marginRight: '4px' }} />
+            Need help? Contact our support team.
           </p>
         </div>
       </div>

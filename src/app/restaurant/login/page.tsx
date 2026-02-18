@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 
 // API Configuration
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
@@ -122,11 +123,11 @@ export default function RestaurantLogin() {
       }
     } catch (error) {
       // Network or connection error - handle silently without console errors
-      let errorMessage = '❌ Unable to connect to server. Please check your internet connection and try again.';
+      let errorMessage = 'Unable to connect to server. Please check your internet connection and try again.';
       
       if (error instanceof Error) {
         if (error.message === 'Failed to fetch' || error.message.includes('fetch') || error.message.includes('NetworkError')) {
-          errorMessage = '❌ Unable to connect to server. Please check your internet connection and try again.';
+          errorMessage = 'Unable to connect to server. Please check your internet connection and try again.';
         }
       }
       
@@ -227,10 +228,10 @@ export default function RestaurantLogin() {
             width: '100%'
           }}>
             {[
-              { icon: '📊', title: 'Dashboard', desc: 'View your analytics' },
-              { icon: '🍽️', title: 'Menu', desc: 'Manage your dishes' },
-              { icon: '📱', title: 'Orders', desc: 'Handle customer orders' },
-              { icon: '⚙️', title: 'Settings', desc: 'Update your profile' }
+              { icon: '/icons/dashboard/dashboard.svg', title: 'Dashboard', desc: 'View your analytics' },
+              { icon: '/icons/food/food.svg', title: 'Menu', desc: 'Manage your dishes' },
+              { icon: '/icons/navigation/orders.svg', title: 'Orders', desc: 'Handle customer orders' },
+              { icon: '/icons/navigation/settings.svg', title: 'Settings', desc: 'Update your profile' }
             ].map((feature, index) => (
               <div key={index} style={{
                 background: 'rgba(255, 255, 255, 0.15)',
@@ -240,7 +241,9 @@ export default function RestaurantLogin() {
                 backdropFilter: 'blur(10px)',
                 border: '1px solid rgba(255, 255, 255, 0.2)'
               }}>
-                <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>{feature.icon}</div>
+                <div style={{ marginBottom: '0.5rem' }}>
+                  <Image src={feature.icon} alt={feature.title} width={32} height={32} />
+                </div>
                 <h3 style={{ 
                   color: 'white', 
                   fontSize: '1rem', 
@@ -321,7 +324,9 @@ export default function RestaurantLogin() {
                 margin: '0 auto 1rem auto',
                 boxShadow: '0 8px 25px rgba(255, 87, 34, 0.3)'
               }}>
-                <span style={{ fontSize: '1.5rem', color: 'white' }}>🏪</span>
+                <span style={{ fontSize: '1.5rem', color: 'white' }}>
+                  <Image src="/icons/navigation/restaurant.svg" alt="Restaurant" width={24} height={24} style={{ filter: 'brightness(0) invert(1)' }} />
+                </span>
               </div>
               
               <h2 style={{ 
@@ -466,7 +471,12 @@ export default function RestaurantLogin() {
                   }
                 }}
               >
-                {isLoading ? 'Signing In...' : '🏪 Sign In to Dashboard'}
+                {isLoading ? 'Signing In...' : (
+                  <>
+                    <Image src="/icons/navigation/restaurant.svg" alt="Restaurant" width={20} height={20} style={{ display: 'inline-block', marginRight: '8px', filter: 'brightness(0) invert(1)' }} />
+                    Sign In to Dashboard
+                  </>
+                )}
               </button>
             </form>
 
