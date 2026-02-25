@@ -923,7 +923,7 @@ export default function HomePage() {
           justifyContent: 'center',
           gap: '1rem'
         }}>
-          <Image src="/icons/food/food.svg" alt="Food" width={32} height={32} style={{ display: 'inline-block', marginRight: '8px' }} />
+          <span style={{ fontSize: '2rem', marginRight: '8px' }}>🍽️</span>
           What are you craving?
         </h2>
         <p style={{
