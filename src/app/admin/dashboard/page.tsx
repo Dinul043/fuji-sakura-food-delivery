@@ -497,29 +497,31 @@ export default function AdminDashboard() {
           </div>
           
           <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-            {/* Add Admin Button */}
-            <button
-              onClick={() => setShowAddAdminModal(true)}
-              style={{
-                background: 'rgba(255, 255, 255, 0.2)',
-                border: '1px solid rgba(255, 255, 255, 0.3)',
-                color: 'white',
-                padding: '0.75rem 1.25rem',
-                borderRadius: '25px',
-                fontSize: '1rem',
-                fontWeight: '600',
-                cursor: 'pointer',
-                transition: 'background 0.2s ease'
-              }}
-              onMouseOver={(e) => {
-                e.currentTarget.style.background = 'rgba(255, 255, 255, 0.3)';
-              }}
-              onMouseOut={(e) => {
-                e.currentTarget.style.background = 'rgba(255, 255, 255, 0.2)';
-              }}
-            >
-              👤+ Add Admin
-            </button>
+            {/* Add Admin Button - Only for Super Admins */}
+            {currentAdmin?.is_super_admin && (
+              <button
+                onClick={() => setShowAddAdminModal(true)}
+                style={{
+                  background: 'rgba(255, 255, 255, 0.2)',
+                  border: '1px solid rgba(255, 255, 255, 0.3)',
+                  color: 'white',
+                  padding: '0.75rem 1.25rem',
+                  borderRadius: '25px',
+                  fontSize: '1rem',
+                  fontWeight: '600',
+                  cursor: 'pointer',
+                  transition: 'background 0.2s ease'
+                }}
+                onMouseOver={(e) => {
+                  e.currentTarget.style.background = 'rgba(255, 255, 255, 0.3)';
+                }}
+                onMouseOut={(e) => {
+                  e.currentTarget.style.background = 'rgba(255, 255, 255, 0.2)';
+                }}
+              >
+                👤+ Add Admin
+              </button>
+            )}
 
             {/* Manage Admins Button - Only for Super Admins */}
             {currentAdmin?.is_super_admin && (
@@ -1220,8 +1222,8 @@ export default function AdminDashboard() {
         </div>
       )}
 
-      {/* Add Admin Modal */}
-      {showAddAdminModal && (
+      {/* Add Admin Modal - Only for Super Admins */}
+      {showAddAdminModal && currentAdmin?.is_super_admin && (
         <div style={{
           position: 'fixed',
           top: 0,
