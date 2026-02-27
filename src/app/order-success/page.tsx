@@ -9,6 +9,7 @@ export default function OrderSuccessPage() {
   const searchParams = useSearchParams();
   const orderId = searchParams.get('orderId');
   const [orderDetails, setOrderDetails] = useState<any>(null);
+  const [paymentDetails, setPaymentDetails] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -22,18 +23,37 @@ export default function OrderSuccessPage() {
 
       try {
         const token = localStorage.getItem('token');
-        const response = await fetch(`http://localhost:8000/api/orders/${orderId}`, {
+        
+        // Fetch order details
+        const orderResponse = await fetch(`http://localhost:8000/api/orders/${orderId}`, {
           headers: {
             'Authorization': `Bearer ${token}`
           }
         });
 
-        if (!response.ok) {
+        if (!orderResponse.ok) {
           throw new Error('Failed to fetch order details');
         }
 
-        const data = await response.json();
-        setOrderDetails(data);
+        const orderData = await orderResponse.json();
+        setOrderDetails(orderData);
+
+        // Fetch payment details
+        try {
+          const paymentResponse = await fetch(`http://localhost:8000/api/payments/status/${orderId}`, {
+            headers: {
+              'Authorization': `Bearer ${token}`
+            }
+          });
+
+          if (paymentResponse.ok) {
+            const paymentData = await paymentResponse.json();
+            setPaymentDetails(paymentData);
+          }
+        } catch (err) {
+          // Payment details are optional, don't fail if not available
+          console.log('Payment details not available');
+        }
       } catch (err) {
         setError('Failed to load order details');
       } finally {
@@ -248,15 +268,71 @@ export default function OrderSuccessPage() {
             <div style={{
               display: 'flex',
               justifyContent: 'space-between',
-              marginBottom: '1rem'
+              marginBottom: '0.5rem'
             }}>
               <span style={{ color: '#666' }}>Payment Method:</span>
-              <span style={{ fontWeight: '600' }}>
-                {orderDetails.payment_method === 'card' ? <><Image src="/icons/payment/card.svg" alt="Card" width={16} height={16} style={{ display: 'inline-block', marginRight: '4px' }} /> Card</> :
-                 orderDetails.payment_method === 'upi' ? <><Image src="/icons/payment/phone-pay.svg" alt="UPI" width={16} height={16} style={{ display: 'inline-block', marginRight: '4px' }} /> UPI</> :
-                 orderDetails.payment_method === 'wallet' ? <><Image src="/icons/payment/wallet.svg" alt="Wallet" width={16} height={16} style={{ display: 'inline-block', marginRight: '4px' }} /> Wallet</> : <><Image src="/icons/payment/cash.svg" alt="Cash" width={16} height={16} style={{ display: 'inline-block', marginRight: '4px' }} /> Cash on Delivery</>}
+              <span style={{ fontWeight: '600', textTransform: 'capitalize' }}>
+                {orderDetails.payment_method === 'cod' ? 'Cash on Delivery' : orderDetails.payment_method}
               </span>
             </div>
+
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              marginBottom: '1rem'
+            }}>
+              <span style={{ color: '#666' }}>Payment Status:</span>
+              <span style={{
+                fontWeight: '600',
+                color: orderDetails.payment_status === 'paid' ? '#10b981' : 
+                       orderDetails.payment_status === 'pending' ? '#f59e0b' : '#ef4444'
+              }}>
+                {orderDetails.payment_status === 'paid' ? '✅ Paid' :
+                 orderDetails.payment_status === 'pending' ? '⏳ Pending' : '❌ Failed'}
+              </span>
+            </div>
+
+            {/* Transaction Reference (if payment is completed) */}
+            {paymentDetails && paymentDetails.transaction_reference && (
+              <div style={{
+                background: '#f0fdf4',
+                borderRadius: '8px',
+                padding: '0.75rem',
+                marginBottom: '1rem',
+                border: '1px solid #bbf7d0'
+              }}>
+                <div style={{
+                  fontSize: '0.85rem',
+                  color: '#166534',
+                  marginBottom: '0.25rem'
+                }}>
+                  Transaction ID
+                </div>
+                <div style={{
+                  fontSize: '0.9rem',
+                  fontWeight: '600',
+                  color: '#15803d',
+                  fontFamily: 'monospace'
+                }}>
+                  {paymentDetails.transaction_reference}
+                </div>
+              </div>
+            )}
+
+            {/* Payment Timestamp */}
+            {paymentDetails && paymentDetails.payment_completed_at && (
+              <div style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                marginBottom: '1rem',
+                fontSize: '0.9rem'
+              }}>
+                <span style={{ color: '#666' }}>Payment Time:</span>
+                <span style={{ fontWeight: '600', color: '#333' }}>
+                  {new Date(paymentDetails.payment_completed_at).toLocaleString()}
+                </span>
+              </div>
+            )}
 
             <div style={{
               background: '#e6fffa',

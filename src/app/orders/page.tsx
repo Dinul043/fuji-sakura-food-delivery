@@ -46,27 +46,41 @@ export default function OrdersPage() {
     const fetchOrders = async () => {
       try {
         const token = localStorage.getItem('token');
+        
+        if (!token) {
+          // User not logged in, redirect to login
+          setIsLoading(false);
+          router.push('/login');
+          return;
+        }
+
         const response = await fetch('http://localhost:8000/api/orders/', {
           headers: {
             'Authorization': `Bearer ${token}`
           }
         });
 
-        if (!response.ok) {
-          throw new Error('Failed to fetch orders');
+        if (response.ok) {
+          const data = await response.json();
+          setOrders(data || []); // Handle empty array
+        } else if (response.status === 401) {
+          // Token expired or invalid
+          localStorage.removeItem('token');
+          router.push('/login');
+        } else {
+          // Other errors - just set empty orders, no console error
+          setOrders([]);
         }
-
-        const data = await response.json();
-        setOrders(data);
       } catch (error) {
-        console.error('❌ Error loading orders:', error);
+        // Network error or server down - silently handle, show empty state
+        setOrders([]);
       } finally {
         setIsLoading(false);
       }
     };
 
     fetchOrders();
-  }, []);
+  }, [router]);
 
   // Filter orders by status
   const filteredOrders = selectedStatus === 'all' 
@@ -78,7 +92,8 @@ export default function OrdersPage() {
     return {
       id: order.restaurant_id,
       name: order.restaurant_name,
-      image: '🏪'
+      image: '🏪',
+      cuisine: '' // Add cuisine property (empty since not in Order model)
     };
   };
 
@@ -147,7 +162,7 @@ export default function OrdersPage() {
       // Navigate to cart
       router.push('/cart');
     } catch (error) {
-      console.error('❌ Error reordering:', error);
+      // Silently handle error - user will see empty cart if it fails
     }
   };
 
@@ -176,8 +191,7 @@ export default function OrdersPage() {
       });
 
       if (!response.ok) {
-        const error = await response.json();
-        console.error('❌ Failed to cancel order:', error.detail);
+        // Failed to cancel - silently close modal
         setShowCancelModal(false);
         setOrderToCancel(null);
         return;
@@ -198,7 +212,7 @@ export default function OrdersPage() {
       setShowCancelModal(false);
       setOrderToCancel(null);
     } catch (error) {
-      console.error('❌ Error cancelling order:', error);
+      // Silently handle error
       setShowCancelModal(false);
       setOrderToCancel(null);
     } finally {

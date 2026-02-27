@@ -18,6 +18,9 @@ export default function CheckoutPage() {
 
   const [isLoading, setIsLoading] = useState(false);
   const [showAuthPopup, setShowAuthPopup] = useState(false);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [currentOrderId, setCurrentOrderId] = useState<number | null>(null);
+  const [currentOrderAmount, setCurrentOrderAmount] = useState<number>(0);
   const [errors, setErrors] = useState<{[key: string]: string}>({});
   const [deliveryAddress, setDeliveryAddress] = useState({
     fullName: '',
@@ -27,8 +30,35 @@ export default function CheckoutPage() {
     city: 'Tokyo',
     pincode: ''
   });
-  const [paymentMethod, setPaymentMethod] = useState('card');
+  const [paymentMethod, setPaymentMethod] = useState('');
   const [orderInstructions, setOrderInstructions] = useState('');
+  const [paymentDetailsFilled, setPaymentDetailsFilled] = useState(false);
+  
+  // Card details state
+  const [cardNumber, setCardNumber] = useState('');
+  const [cardName, setCardName] = useState('');
+  const [expiryDate, setExpiryDate] = useState('');
+  const [cvv, setCvv] = useState('');
+  
+  // UPI details state
+  const [upiId, setUpiId] = useState('');
+  
+  // Wallet state
+  const [selectedWallet, setSelectedWallet] = useState('paytm');
+
+  // Disable body scroll when modal is open
+  useEffect(() => {
+    if (showPaymentModal) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+    
+    // Cleanup on unmount
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [showPaymentModal]);
 
   useEffect(() => {
     // Check if user is guest and show popup
@@ -125,6 +155,11 @@ export default function CheckoutPage() {
       newErrors.pincode = 'Please enter a valid pincode';
     }
     
+    // Payment method validation
+    if (!paymentMethod) {
+      newErrors.paymentMethod = 'Please select a payment method';
+    }
+    
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -174,14 +209,22 @@ export default function CheckoutPage() {
 
       const data = await response.json();
       
-      // Get first order ID for redirect
-      const firstOrderId = data.orders[0]?.id;
+      // Get first order from response
+      const firstOrder = data.orders[0];
+      setCurrentOrderId(firstOrder.id);
+      setCurrentOrderAmount(firstOrder.total_amount);
       
       // Refresh cart from database to reflect backend changes (items removed)
       await refreshCart();
       
-      // Redirect to success page
-      router.push(`/order-success?orderId=${firstOrderId}`);
+      // Route based on payment method
+      if (paymentMethod === 'cod') {
+        // COD: Go directly to success page
+        router.push(`/order-success?orderId=${firstOrder.id}`);
+      } else {
+        // Card/UPI/Wallet: Process payment immediately
+        await processPayment(firstOrder.id);
+      }
       
     } catch (error) {
       // Handle network errors gracefully
@@ -205,6 +248,35 @@ export default function CheckoutPage() {
 
   const handleBackToCart = () => {
     router.push('/cart');
+  };
+
+  const processPayment = async (orderId: number) => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch('http://localhost:8000/api/payments/success', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          order_id: orderId
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Payment processing failed');
+      }
+
+      // Payment successful, go to success page
+      router.push(`/order-success?orderId=${orderId}`);
+    } catch (err) {
+      setErrors({ 
+        ...errors, 
+        submit: 'Payment failed. Please try again.'
+      });
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
   };
 
   if (checkoutItems.length === 0) {
@@ -755,7 +827,21 @@ export default function CheckoutPage() {
               ].map((method) => (
                 <div
                   key={method.id}
-                  onClick={() => setPaymentMethod(method.id)}
+                  onClick={() => {
+                    setPaymentMethod(method.id);
+                    setPaymentDetailsFilled(false); // Reset when changing payment method
+                    // Clear payment method error when selected
+                    if (errors.paymentMethod) {
+                      setErrors(prev => ({ ...prev, paymentMethod: '' }));
+                    }
+                    // Show payment modal immediately for non-COD methods
+                    if (method.id !== 'cod') {
+                      setShowPaymentModal(true);
+                    } else {
+                      setShowPaymentModal(false);
+                      setPaymentDetailsFilled(true); // COD doesn't need details
+                    }
+                  }}
                   style={{
                     display: 'flex',
                     alignItems: 'center',
@@ -828,19 +914,47 @@ export default function CheckoutPage() {
                       lineHeight: '1.4'
                     }}>{method.desc}</div>
                   </div>
-                  {paymentMethod === method.id && (
+                  {/* Show checkmark if payment method selected and details filled */}
+                  {paymentMethod === method.id && (method.id === 'cod' || paymentDetailsFilled) && (
                     <div style={{
-                      color: '#ff6b6b',
-                      fontSize: '1.2rem',
+                      color: '#10b981',
+                      fontSize: '1.5rem',
+                      fontWeight: '700'
+                    }}>
+                      ✓
+                    </div>
+                  )}
+                  {paymentMethod === method.id && method.id !== 'cod' && !paymentDetailsFilled && (
+                    <div style={{
+                      color: '#f59e0b',
+                      fontSize: '0.85rem',
                       fontWeight: '600'
                     }}>
-                    <Image src="/icons/actions/check.svg" alt="Check" width={16} height={16} />
+                      Fill Details
                     </div>
                   )}
                 </div>
               ))}
             </div>
           </div>
+
+          {/* Payment Method Error */}
+          {errors.paymentMethod && (
+            <div style={{
+              background: '#fee2e2',
+              border: '2px solid #ef4444',
+              borderRadius: '12px',
+              padding: '1rem',
+              color: '#991b1b',
+              fontWeight: '600',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.5rem'
+            }}>
+              <span style={{ fontSize: '1.2rem' }}>⚠️</span>
+              {errors.paymentMethod}
+            </div>
+          )}
 
           {/* Order Instructions Section */}
           <div style={{
@@ -1282,6 +1396,523 @@ export default function CheckoutPage() {
         }}
         message="To proceed with checkout and place your order, please create an account or log in. This helps us track your order and provide better service!"
       />
+
+      {/* Payment Modal - Shows when Card/UPI/Wallet selected */}
+      {showPaymentModal && !currentOrderId && (
+        <PaymentDetailsModal
+          amount={total}
+          paymentMethod={paymentMethod}
+          onClose={() => {
+            setShowPaymentModal(false);
+            setPaymentMethod(''); // Clear selection
+            setPaymentDetailsFilled(false); // Clear filled status
+          }}
+          onSave={() => {
+            setShowPaymentModal(false);
+            setPaymentDetailsFilled(true); // Mark as filled
+          }}
+          cardNumber={cardNumber}
+          setCardNumber={setCardNumber}
+          cardName={cardName}
+          setCardName={setCardName}
+          expiryDate={expiryDate}
+          setExpiryDate={setExpiryDate}
+          cvv={cvv}
+          setCvv={setCvv}
+          upiId={upiId}
+          setUpiId={setUpiId}
+          selectedWallet={selectedWallet}
+          setSelectedWallet={setSelectedWallet}
+        />
+      )}
     </div>
   );
 }
+
+// Payment Details Modal Component (shown before order creation)
+function PaymentDetailsModal({
+  amount,
+  paymentMethod,
+  onClose,
+  onSave,
+  cardNumber,
+  setCardNumber,
+  cardName,
+  setCardName,
+  expiryDate,
+  setExpiryDate,
+  cvv,
+  setCvv,
+  upiId,
+  setUpiId,
+  selectedWallet,
+  setSelectedWallet
+}: any) {
+  const [error, setError] = useState('');
+
+  // Card formatting functions
+  const formatCardNumber = (value: string) => {
+    const cleaned = value.replace(/\s/g, '').replace(/\D/g, '');
+    const chunks = cleaned.match(/.{1,4}/g) || [];
+    return chunks.join(' ').substring(0, 19);
+  };
+
+  const formatExpiryDate = (value: string) => {
+    const cleaned = value.replace(/\D/g, '');
+    if (cleaned.length >= 2) {
+      return cleaned.substring(0, 2) + '/' + cleaned.substring(2, 4);
+    }
+    return cleaned;
+  };
+
+  const getCardType = () => {
+    const cleaned = cardNumber.replace(/\s/g, '');
+    if (/^4/.test(cleaned)) return 'Visa';
+    if (/^5[1-5]/.test(cleaned)) return 'Mastercard';
+    if (/^3[47]/.test(cleaned)) return 'Amex';
+    return 'Card';
+  };
+
+  const validateAndSave = () => {
+    setError('');
+    
+    if (paymentMethod === 'card') {
+      if (cardNumber.replace(/\s/g, '').length !== 16) {
+        setError('Please enter a valid 16-digit card number');
+        return;
+      }
+      if (!cardName.trim()) {
+        setError('Please enter cardholder name');
+        return;
+      }
+      if (!/^\d{2}\/\d{2}$/.test(expiryDate)) {
+        setError('Please enter expiry date in MM/YY format');
+        return;
+      }
+      if (cvv.length !== 3) {
+        setError('Please enter a valid 3-digit CVV');
+        return;
+      }
+    } else if (paymentMethod === 'upi') {
+      if (!upiId.trim() || !upiId.includes('@')) {
+        setError('Please enter a valid UPI ID (e.g., yourname@paytm)');
+        return;
+      }
+    }
+
+    // Details are valid, close modal and mark as filled
+    onSave();
+  };
+
+  return (
+    <div style={{
+      position: 'fixed',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      background: 'rgba(0, 0, 0, 0.7)',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      zIndex: 9999,
+      padding: '2rem',
+      overflow: 'hidden' // Prevent background scroll
+    }}
+    onClick={(e) => {
+      // Close modal if clicking on backdrop
+      if (e.target === e.currentTarget) {
+        onClose();
+      }
+    }}
+    >
+      <div style={{
+        background: 'white',
+        borderRadius: '24px',
+        padding: '2.5rem',
+        maxWidth: '500px',
+        width: '100%',
+        maxHeight: '90vh',
+        overflowY: 'auto',
+        boxShadow: '0 20px 60px rgba(0, 0, 0, 0.3)'
+      }}
+      onClick={(e) => e.stopPropagation()} // Prevent closing when clicking inside modal
+      >
+        {/* Header */}
+        <div style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginBottom: '2rem'
+        }}>
+          <h2 style={{
+            fontSize: '1.75rem',
+            fontWeight: '700',
+            color: '#333',
+            margin: 0
+          }}>
+            {paymentMethod === 'card' && (
+              <>
+                <Image 
+                  src="/icons/payment-methods/card-generic.svg" 
+                  alt="Card" 
+                  width={24} 
+                  height={24}
+                  onError={(e) => {
+                    // Fallback to emoji if icon not found
+                    e.currentTarget.style.display = 'none';
+                    e.currentTarget.nextElementSibling!.textContent = '💳 Enter Card Details';
+                  }}
+                />
+                <span>Enter Card Details</span>
+              </>
+            )}
+            {paymentMethod === 'upi' && (
+              <>
+                <Image 
+                  src="/icons/payment-methods/upi.svg" 
+                  alt="UPI" 
+                  width={24} 
+                  height={24}
+                  onError={(e) => {
+                    e.currentTarget.style.display = 'none';
+                    e.currentTarget.nextElementSibling!.textContent = '📱 Enter UPI Details';
+                  }}
+                />
+                <span>Enter UPI Details</span>
+              </>
+            )}
+            {paymentMethod === 'wallet' && (
+              <>
+                <Image 
+                  src="/icons/payment-methods/wallet.svg" 
+                  alt="Wallet" 
+                  width={24} 
+                  height={24}
+                  onError={(e) => {
+                    e.currentTarget.style.display = 'none';
+                    e.currentTarget.nextElementSibling!.textContent = '👛 Select Wallet';
+                  }}
+                />
+                <span>Select Wallet</span>
+              </>
+            )}
+          </h2>
+          <button
+            onClick={onClose}
+            style={{
+              background: 'none',
+              border: 'none',
+              fontSize: '1.5rem',
+              cursor: 'pointer',
+              color: '#999',
+              padding: '0.5rem'
+            }}
+          >
+            ✕
+          </button>
+        </div>
+
+        {/* Amount Display */}
+        <div style={{
+          background: 'linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%)',
+          borderRadius: '16px',
+          padding: '1.5rem',
+          marginBottom: '2rem',
+          textAlign: 'center'
+        }}>
+          <div style={{ color: 'rgba(255, 255, 255, 0.9)', fontSize: '0.9rem', marginBottom: '0.5rem' }}>
+            Order Amount
+          </div>
+          <div style={{ color: 'white', fontSize: '2rem', fontWeight: '700' }}>
+            ₹{amount.toFixed(2)}
+          </div>
+        </div>
+
+        {/* Error Message */}
+        {error && (
+          <div style={{
+            background: '#fee2e2',
+            border: '2px solid #ef4444',
+            borderRadius: '12px',
+            padding: '1rem',
+            marginBottom: '1.5rem',
+            color: '#991b1b',
+            fontSize: '0.9rem'
+          }}>
+            {error}
+          </div>
+        )}
+
+        {/* Card Payment Form */}
+        {paymentMethod === 'card' && (
+          <div>
+            <div style={{ marginBottom: '1.5rem' }}>
+              <label style={{ display: 'block', marginBottom: '0.5rem', color: '#666', fontSize: '0.9rem', fontWeight: '600' }}>
+                Card Number
+              </label>
+              <input
+                type="text"
+                value={cardNumber}
+                onChange={(e) => setCardNumber(formatCardNumber(e.target.value))}
+                placeholder="1234 5678 9012 3456"
+                autoComplete="off"
+                style={{
+                  width: '100%',
+                  padding: '0.875rem',
+                  border: '2px solid #e5e7eb',
+                  borderRadius: '12px',
+                  fontSize: '1rem',
+                  boxSizing: 'border-box',
+                  transition: 'border-color 0.2s'
+                }}
+                onFocus={(e) => e.target.style.borderColor = '#ff6b6b'}
+                onBlur={(e) => e.target.style.borderColor = '#e5e7eb'}
+              />
+              {cardNumber && (
+                <div style={{ marginTop: '0.5rem', fontSize: '0.85rem', color: '#ff6b6b', fontWeight: '600' }}>
+                  {getCardType()}
+                </div>
+              )}
+            </div>
+
+            <div style={{ marginBottom: '1.5rem' }}>
+              <label style={{ display: 'block', marginBottom: '0.5rem', color: '#666', fontSize: '0.9rem', fontWeight: '600' }}>
+                Cardholder Name
+              </label>
+              <input
+                type="text"
+                value={cardName}
+                onChange={(e) => setCardName(e.target.value.toUpperCase())}
+                placeholder="JOHN DOE"
+                style={{
+                  width: '100%',
+                  padding: '0.875rem',
+                  border: '2px solid #e5e7eb',
+                  borderRadius: '12px',
+                  fontSize: '1rem',
+                  boxSizing: 'border-box',
+                  textTransform: 'uppercase'
+                }}
+                onFocus={(e) => e.target.style.borderColor = '#ff6b6b'}
+                onBlur={(e) => e.target.style.borderColor = '#e5e7eb'}
+              />
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1.5rem' }}>
+              <div>
+                <label style={{ display: 'block', marginBottom: '0.5rem', color: '#666', fontSize: '0.9rem', fontWeight: '600' }}>
+                  Expiry Date
+                </label>
+                <input
+                  type="text"
+                  value={expiryDate}
+                  onChange={(e) => setExpiryDate(formatExpiryDate(e.target.value))}
+                  placeholder="MM/YY"
+                  style={{
+                    width: '100%',
+                    padding: '0.875rem',
+                    border: '2px solid #e5e7eb',
+                    borderRadius: '12px',
+                    fontSize: '1rem',
+                    boxSizing: 'border-box'
+                  }}
+                  onFocus={(e) => e.target.style.borderColor = '#ff6b6b'}
+                  onBlur={(e) => e.target.style.borderColor = '#e5e7eb'}
+                />
+              </div>
+              <div>
+                <label style={{ display: 'block', marginBottom: '0.5rem', color: '#666', fontSize: '0.9rem', fontWeight: '600' }}>
+                  CVV
+                </label>
+                <input
+                  type="password"
+                  value={cvv}
+                  onChange={(e) => setCvv(e.target.value.replace(/\D/g, '').substring(0, 3))}
+                  placeholder="•••"
+                  maxLength={3}
+                  style={{
+                    width: '100%',
+                    padding: '0.875rem',
+                    border: '2px solid #e5e7eb',
+                    borderRadius: '12px',
+                    fontSize: '1rem',
+                    boxSizing: 'border-box'
+                  }}
+                  onFocus={(e) => e.target.style.borderColor = '#ff6b6b'}
+                  onBlur={(e) => e.target.style.borderColor = '#e5e7eb'}
+                />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* UPI Payment Form */}
+        {paymentMethod === 'upi' && (
+          <div>
+            <div style={{ marginBottom: '1.5rem' }}>
+              <label style={{ display: 'block', marginBottom: '0.5rem', color: '#666', fontSize: '0.9rem', fontWeight: '600' }}>
+                Enter UPI ID
+              </label>
+              <input
+                type="text"
+                value={upiId}
+                onChange={(e) => setUpiId(e.target.value)}
+                placeholder="yourname@paytm"
+                style={{
+                  width: '100%',
+                  padding: '0.875rem',
+                  border: '2px solid #e5e7eb',
+                  borderRadius: '12px',
+                  fontSize: '1rem',
+                  boxSizing: 'border-box'
+                }}
+                onFocus={(e) => e.target.style.borderColor = '#ff6b6b'}
+                onBlur={(e) => e.target.style.borderColor = '#e5e7eb'}
+              />
+            </div>
+
+            <div style={{
+              background: '#f8f9fa',
+              padding: '1.5rem',
+              borderRadius: '12px',
+              textAlign: 'center',
+              marginBottom: '1.5rem'
+            }}>
+              <div style={{ fontSize: '0.9rem', color: '#666', marginBottom: '1rem' }}>Or scan QR code</div>
+              <div style={{
+                width: '150px',
+                height: '150px',
+                background: 'white',
+                border: '2px solid #ddd',
+                borderRadius: '12px',
+                margin: '0 auto',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '3rem'
+              }}>
+                <Image 
+                  src="/icons/payment-methods/qr-code.svg" 
+                  alt="QR Code" 
+                  width={120} 
+                  height={120}
+                  onError={(e) => {
+                    // Fallback to emoji if icon not found
+                    e.currentTarget.style.display = 'none';
+                    const parent = e.currentTarget.parentElement;
+                    if (parent) parent.textContent = '📱';
+                  }}
+                />
+              </div>
+              <div style={{ fontSize: '0.85rem', color: '#999', marginTop: '0.5rem' }}>
+                Scan with any UPI app
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Wallet Payment Form */}
+        {paymentMethod === 'wallet' && (
+          <div style={{ marginBottom: '1.5rem' }}>
+            <label style={{ display: 'block', marginBottom: '0.75rem', color: '#666', fontSize: '0.9rem', fontWeight: '600' }}>
+              Select Wallet
+            </label>
+            <div style={{ display: 'grid', gap: '0.75rem' }}>
+              {[
+                { id: 'paytm', name: 'Paytm', iconPath: '/icons/payment-methods/paytm-wallet.svg', fallbackEmoji: '💙', balance: 5000 },
+                { id: 'phonepe', name: 'PhonePe', iconPath: '/icons/payment-methods/phonepe-wallet.svg', fallbackEmoji: '💜', balance: 3500 },
+                { id: 'amazonpay', name: 'Amazon Pay', iconPath: '/icons/payment-methods/amazonpay.svg', fallbackEmoji: '🧡', balance: 4200 }
+              ].map((wallet) => (
+                <div
+                  key={wallet.id}
+                  onClick={() => setSelectedWallet(wallet.id)}
+                  style={{
+                    padding: '1rem',
+                    border: `2px solid ${selectedWallet === wallet.id ? '#ff6b6b' : '#e5e7eb'}`,
+                    borderRadius: '12px',
+                    cursor: 'pointer',
+                    background: selectedWallet === wallet.id ? '#f0f4ff' : 'white',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '1rem',
+                    transition: 'all 0.2s'
+                  }}
+                >
+                  <div style={{ fontSize: '2rem', width: '48px', height: '48px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <Image 
+                      src={wallet.iconPath} 
+                      alt={wallet.name} 
+                      width={48} 
+                      height={48}
+                      onError={(e) => {
+                        // Fallback to emoji if icon not found
+                        e.currentTarget.style.display = 'none';
+                        const parent = e.currentTarget.parentElement;
+                        if (parent) parent.textContent = wallet.fallbackEmoji;
+                      }}
+                    />
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontWeight: '600', color: '#333' }}>{wallet.name}</div>
+                    <div style={{ fontSize: '0.85rem', color: '#666' }}>Balance: ₹{wallet.balance.toLocaleString()}</div>
+                  </div>
+                  {selectedWallet === wallet.id && (
+                    <div style={{ color: '#ff6b6b', fontSize: '1.25rem' }}>✓</div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Action Buttons */}
+        <div style={{ display: 'flex', gap: '1rem', marginTop: '2rem' }}>
+          <button
+            onClick={onClose}
+            style={{
+              flex: 1,
+              padding: '1rem',
+              border: '2px solid #e5e7eb',
+              borderRadius: '12px',
+              background: 'white',
+              color: '#666',
+              fontSize: '1rem',
+              fontWeight: '600',
+              cursor: 'pointer'
+            }}
+          >
+            Cancel
+          </button>
+          <button
+            onClick={validateAndSave}
+            style={{
+              flex: 2,
+              padding: '1rem',
+              border: 'none',
+              borderRadius: '12px',
+              background: 'linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%)',
+              color: 'white',
+              fontSize: '1rem',
+              fontWeight: '600',
+              cursor: 'pointer'
+            }}
+          >
+            Continue
+          </button>
+        </div>
+
+        {/* Info Text */}
+        <div style={{
+          marginTop: '1.5rem',
+          textAlign: 'center',
+          fontSize: '0.85rem',
+          color: '#999'
+        }}>
+          You can review and place your order after this
+        </div>
+      </div>
+    </div>
+  );
+}
+
