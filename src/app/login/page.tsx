@@ -650,7 +650,7 @@ export default function LoginPage() {
   };
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', width: '100%', margin: 0, padding: 0, fontFamily: 'system-ui, -apple-system, sans-serif' }}>
+    <div style={{ display: 'flex', minHeight: '100vh', width: '100%', margin: 0, padding: 0,  overflow: 'hidden', fontFamily: 'system-ui, -apple-system, sans-serif' }}>
       {/* Left Column - 60% width - 4 Image Panels */}
       <div style={{ width: '60%', display: 'flex', minHeight: '100vh', margin: 0, padding: 0, backgroundColor: '#D9D9D9' }}>
         {/* Image Panel 1 - visible but lighter */}

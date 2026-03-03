@@ -1,11 +1,6 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // Disable all development indicators
-  devIndicators: {
-    buildActivity: false,
-    buildActivityPosition: 'bottom-right',
-  },
   // Disable React DevTools in production-like development
   reactStrictMode: true,
   // Disable source maps in development for cleaner experience
@@ -30,6 +25,10 @@ const nextConfig: NextConfig = {
     localPatterns: [
       {
         pathname: '/images/**',
+        search: '',
+      },
+      {
+        pathname: '/icons/**',
         search: '',
       },
     ],
