@@ -23,8 +23,8 @@ export default function CheckoutPage() {
     fullName: '',
     phone: '',
     address: '',
-    landmark: '',
-    city: 'Tokyo',
+    landmark: '', 
+    city: 'Chennai',
     pincode: ''
   });
   const [paymentMethod, setPaymentMethod] = useState('');
@@ -68,7 +68,7 @@ export default function CheckoutPage() {
       acc[item.restaurantId] = {
         restaurant: {
           id: item.restaurantId,
-          name: item.restaurantName,
+          name: item.restaurantName,  
           image: '🏪' // Default restaurant emoji
         },
         items: []

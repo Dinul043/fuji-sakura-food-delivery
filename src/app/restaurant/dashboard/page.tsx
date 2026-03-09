@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 
@@ -25,6 +25,7 @@ interface DashboardStats {
   todayRevenue: number;
   menuItems: number;
   avgRating: number;
+  pendingOrders?: number;
 }
 
 export default function RestaurantDashboard() {
@@ -36,7 +37,8 @@ export default function RestaurantDashboard() {
     totalRevenue: 0,
     todayRevenue: 0,
     menuItems: 0,
-    avgRating: 0
+    avgRating: 0,
+    pendingOrders: 0
   });
   const [isLoading, setIsLoading] = useState(true);
   const [isOnline, setIsOnline] = useState(true);
@@ -49,6 +51,9 @@ export default function RestaurantDashboard() {
     message: '',
     type: 'success'
   });
+  const [newOrderNotification, setNewOrderNotification] = useState<{show: boolean; orderNumber: string; amount: number} | null>(null);
+  const [recentActivities, setRecentActivities] = useState<any[]>([]);
+  const wsRef = useRef<WebSocket | null>(null);
 
   useEffect(() => {
     checkAuthAndLoadData();
@@ -58,6 +63,10 @@ export default function RestaurantDashboard() {
     
     return () => {
       clearInterval(heartbeatInterval);
+      // Close WebSocket on unmount
+      if (wsRef.current) {
+        wsRef.current.close();
+      }
     };
   }, []);
 
@@ -246,17 +255,154 @@ export default function RestaurantDashboard() {
     }
   };
 
-  const loadDashboardStats = () => {
-    // Mock data - will be replaced with real API calls
-    setStats({
-      totalOrders: 247,
-      todayOrders: 12,
-      totalRevenue: 45680,
-      todayRevenue: 1250,
-      menuItems: 28,
-      avgRating: 4.3
-    });
+  const loadDashboardStats = async () => {
+    try {
+      const token = localStorage.getItem('restaurantToken');
+      if (!token) return;
+
+      const response = await fetch(`${API_BASE_URL}/api/restaurant/stats`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        const statsData = await response.json();
+        setStats(statsData);
+        
+        // Connect WebSocket after loading stats
+        if (restaurantData?.id) {
+          connectWebSocket(restaurantData.id);
+        }
+      } else {
+        // Fallback to mock data if API fails
+        console.log('Failed to fetch stats, using fallback data');
+        setStats({
+          totalOrders: 0,
+          todayOrders: 0,
+          totalRevenue: 0,
+          todayRevenue: 0,
+          menuItems: 0,
+          avgRating: 4.3
+        });
+      }
+    } catch (error) {
+      // Fallback to mock data on error
+      console.log('Error fetching stats, using fallback data');
+      setStats({
+        totalOrders: 0,
+        todayOrders: 0,
+        totalRevenue: 0,
+        todayRevenue: 0,
+        menuItems: 0,
+        avgRating: 4.3
+      });
+    }
   };
+
+  const connectWebSocket = (restaurantId: number) => {
+    if (wsRef.current) {
+      wsRef.current.close();
+    }
+
+    const ws = new WebSocket(`ws://localhost:8000/ws/restaurant-dashboard/${restaurantId}`);
+    
+    ws.onopen = () => {
+      console.log('WebSocket connected to dashboard');
+      const heartbeat = setInterval(() => {
+        if (ws.readyState === WebSocket.OPEN) {
+          ws.send('ping');
+        }
+      }, 30000);
+      ws.addEventListener('close', () => clearInterval(heartbeat));
+    };
+    
+    ws.onmessage = (event) => {
+      if (typeof event.data === 'string' && event.data === 'pong') {
+        return;
+      }
+      
+      try {
+        const message = JSON.parse(event.data);
+        if (message.event === 'new_order') {
+          handleNewOrder(message.data);
+        }
+      } catch (error) {
+        if (event.data !== 'pong') {
+          console.error('Failed to parse WebSocket message:', error);
+        }
+      }
+    };
+    
+    ws.onerror = () => console.log('WebSocket error');
+    ws.onclose = () => {
+      console.log('WebSocket disconnected');
+      setTimeout(() => connectWebSocket(restaurantId), 3000);
+    };
+    
+    wsRef.current = ws;
+  };
+
+  const handleNewOrder = (orderData: any) => {
+    // Update stats
+    setStats(prev => ({
+      ...prev,
+      todayOrders: prev.todayOrders + 1,
+      todayRevenue: prev.todayRevenue + (orderData.total_amount || 0)
+    }));
+    
+    // Show notification
+    setNewOrderNotification({
+      show: true,
+      orderNumber: orderData.order_number,
+      amount: orderData.total_amount
+    });
+    
+    // Add to recent activity
+    addRecentActivity({
+      time: 'Just now',
+      action: 'New order received',
+      details: `${orderData.order_number} - ₹${orderData.total_amount}`,
+      icon: '🆕',
+      timestamp: new Date()
+    });
+    
+    // Hide notification after 10 seconds
+    setTimeout(() => {
+      setNewOrderNotification(null);
+    }, 10000);
+  };
+
+  const addRecentActivity = (activity: any) => {
+    setRecentActivities(prev => [activity, ...prev].slice(0, 5)); // Keep only last 5
+  };
+
+  const formatTimeAgo = (timestamp: Date) => {
+    const now = new Date();
+    const diff = now.getTime() - timestamp.getTime();
+    const minutes = Math.floor(diff / 60000);
+    const hours = Math.floor(diff / 3600000);
+    
+    if (minutes < 1) return 'Just now';
+    if (minutes < 60) return `${minutes} min ago`;
+    if (hours < 24) return `${hours} hour${hours > 1 ? 's' : ''} ago`;
+    return timestamp.toLocaleDateString();
+  };
+
+  // Connect WebSocket when restaurant data is loaded
+  useEffect(() => {
+    if (restaurantData?.id) {
+      connectWebSocket(restaurantData.id);
+    }
+    
+    return () => {
+      if (wsRef.current) {
+        wsRef.current.close();
+      }
+    };
+  }, [restaurantData?.id]);
 
   const handleLogout = async () => {
     setShowLogoutConfirm(true);
@@ -568,7 +714,7 @@ export default function RestaurantDashboard() {
                 {stats.todayOrders}
               </h3>
               <p style={{ margin: 0, fontSize: '0.85rem', opacity: 0.8 }}>
-                📈 +15% from yesterday
+                📈 Orders received today
               </p>
             </div>
             <div style={{ 
@@ -599,7 +745,7 @@ export default function RestaurantDashboard() {
                 ₹{stats.todayRevenue.toLocaleString()}
               </h3>
               <p style={{ margin: 0, fontSize: '0.85rem', opacity: 0.8 }}>
-                💰 +8% from yesterday
+                💰 Revenue earned today
               </p>
             </div>
             <div style={{ 
@@ -840,39 +986,120 @@ export default function RestaurantDashboard() {
             Recent Activity
           </h3>
           
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            {[
-              { time: '2 min ago', action: 'New order received', details: 'Order #1247 - ₹450', icon: '🆕' },
-              { time: '15 min ago', action: 'Order completed', details: 'Order #1246 - ₹320', icon: '✅' },
-              { time: '1 hour ago', action: 'Menu item updated', details: 'Chicken Biryani price changed', icon: '📝' },
-              { time: '2 hours ago', action: 'Customer review', details: '5 stars - "Excellent food!"', icon: '⭐' }
-            ].map((activity, index) => (
-              <div key={index} style={{ 
-                display: 'flex', 
-                alignItems: 'center', 
-                gap: '1rem',
-                padding: '1rem',
-                borderRadius: '8px',
-                background: '#f8f9fa',
-                border: '1px solid #e9ecef'
-              }}>
-                <div style={{ fontSize: '1.5rem' }}>{activity.icon}</div>
-                <div style={{ flex: 1 }}>
-                  <p style={{ margin: '0 0 0.25rem 0', fontWeight: '500', color: '#333' }}>
-                    {activity.action}
-                  </p>
-                  <p style={{ margin: 0, fontSize: '0.85rem', color: '#666' }}>
-                    {activity.details}
-                  </p>
+          {recentActivities.length === 0 ? (
+            <div style={{
+              textAlign: 'center',
+              padding: '3rem 1rem',
+              color: '#999'
+            }}>
+              <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>📊</div>
+              <p style={{ margin: 0, fontSize: '1rem' }}>
+                No recent activity yet. New orders and updates will appear here.
+              </p>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              {recentActivities.map((activity, index) => (
+                <div key={index} style={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  gap: '1rem',
+                  padding: '1rem',
+                  borderRadius: '8px',
+                  background: '#f8f9fa',
+                  border: '1px solid #e9ecef'
+                }}>
+                  <div style={{ fontSize: '1.5rem' }}>{activity.icon}</div>
+                  <div style={{ flex: 1 }}>
+                    <p style={{ margin: '0 0 0.25rem 0', fontWeight: '500', color: '#333' }}>
+                      {activity.action}
+                    </p>
+                    <p style={{ margin: 0, fontSize: '0.85rem', color: '#666' }}>
+                      {activity.details}
+                    </p>
+                  </div>
+                  <span style={{ fontSize: '0.8rem', color: '#999' }}>
+                    {formatTimeAgo(activity.timestamp)}
+                  </span>
                 </div>
-                <span style={{ fontSize: '0.8rem', color: '#999' }}>
-                  {activity.time}
-                </span>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
       </main>
+
+      {/* New Order Notification */}
+      {newOrderNotification?.show && (
+        <div style={{
+          position: 'fixed',
+          top: '2rem',
+          right: '2rem',
+          zIndex: 9999,
+          background: 'rgba(255, 255, 255, 0.98)',
+          backdropFilter: 'blur(10px)',
+          borderRadius: '20px',
+          padding: '1.5rem',
+          maxWidth: '400px',
+          border: '2px solid #10b981',
+          boxShadow: '0 20px 60px rgba(0, 0, 0, 0.3)',
+          animation: 'slideInRight 0.3s ease-out'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'start', justifyContent: 'space-between' }}>
+            <div style={{ flex: 1 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
+                <span style={{ fontSize: '2rem' }}>🎉</span>
+                <h3 style={{ fontSize: '1.3rem', fontWeight: '700', color: '#10b981', margin: 0 }}>
+                  New Order Received!
+                </h3>
+              </div>
+              <p style={{ fontSize: '1rem', fontWeight: '600', color: '#333', margin: '0.5rem 0' }}>
+                Order: <span style={{ color: '#ff6b6b' }}>{newOrderNotification.orderNumber}</span>
+              </p>
+              <p style={{ fontSize: '1.2rem', fontWeight: '700', color: '#ff6b6b', marginTop: '0.75rem', marginBottom: 0 }}>
+                ₹{newOrderNotification.amount}
+              </p>
+              <button
+                onClick={() => router.push('/restaurant/orders')}
+                style={{
+                  marginTop: '1rem',
+                  width: '100%',
+                  padding: '0.75rem',
+                  borderRadius: '12px',
+                  border: 'none',
+                  background: 'linear-gradient(135deg, #10b981, #059669)',
+                  color: 'white',
+                  fontSize: '0.95rem',
+                  fontWeight: '600',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.transform = 'translateY(-2px)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = 'translateY(0)';
+                }}
+              >
+                View Order
+              </button>
+            </div>
+            <button 
+              onClick={() => setNewOrderNotification(null)}
+              style={{
+                background: 'transparent',
+                border: 'none',
+                fontSize: '1.5rem',
+                color: '#999',
+                cursor: 'pointer',
+                padding: '0.25rem',
+                lineHeight: 1
+              }}
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Logout Confirmation Modal */}
       {showLogoutConfirm && (
