@@ -221,7 +221,7 @@ export default function CheckoutPage() {
       setIsLoading(true);
       const token = localStorage.getItem('token');
       
-      console.log('Creating Razorpay order for:', orderId);
+      console.log('Creating Razorpay order for:', orderId, 'amount:', amount);
       
       // Step 1: Create Razorpay order
       const response = await fetch('http://localhost:8000/api/payments/razorpay/create-order', {
@@ -234,9 +234,16 @@ export default function CheckoutPage() {
       });
       
       if (!response.ok) {
-        const errorData = await response.json();
+        let errorData: any = {};
+        try {
+          const text = await response.text();
+          console.error('Backend raw response:', text);
+          errorData = text ? JSON.parse(text) : { detail: `Server error ${response.status}` };
+        } catch {
+          errorData = { detail: `Server error (${response.status}): ${response.statusText}` };
+        }
         console.error('Backend error:', errorData);
-        throw new Error(errorData.detail || 'Failed to create Razorpay order');
+        throw new Error(errorData.detail || `Payment failed with status ${response.status}`);
       }
       
       const data = await response.json();
