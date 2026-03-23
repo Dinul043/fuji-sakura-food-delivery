@@ -1,0 +1,619 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+
+interface UserProfile {
+  id: number;
+  name: string;
+  email: string;
+  phone: string | null;
+  address: string | null;
+  is_verified: boolean;
+  created_at: string;
+  last_login: string;
+}
+
+export default function ProfilePage() {
+  const router = useRouter();
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [newName, setNewName] = useState('');
+  const [isSavingName, setIsSavingName] = useState(false);
+
+  // Contact & address state
+  const [isEditingContact, setIsEditingContact] = useState(false);
+  const [newPhone, setNewPhone] = useState('');
+  const [newAddress, setNewAddress] = useState('');
+  const [isSavingContact, setIsSavingContact] = useState(false);
+
+  // Change password state
+  const [showPasswordForm, setShowPasswordForm] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [isSavingPassword, setIsSavingPassword] = useState(false);
+
+  // Toast state
+  const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+
+  const showToast = (type: 'success' | 'error', message: string) => {
+    setToast({ type, message });
+    setTimeout(() => setToast(null), 4000);
+  };
+
+  useEffect(() => {
+    fetchProfile();
+  }, []);
+
+  const fetchProfile = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) { router.push('/login'); return; }
+
+      const res = await fetch(`${API_BASE_URL}/api/auth/me`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+
+      if (!res.ok) { router.push('/login'); return; }
+
+      const data = await res.json();
+      setProfile(data);
+      setNewName(data.name);
+      setNewPhone(data.phone || '');
+      setNewAddress(data.address || '');
+    } catch {
+      router.push('/login');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleSaveName = async () => {
+    if (!newName.trim()) return;
+    setIsSavingName(true);
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_BASE_URL}/api/auth/me`, {
+        method: 'PUT',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: newName.trim(), phone: profile?.phone, address: profile?.address })
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setProfile(prev => prev ? { ...prev, name: data.name } : null);
+        localStorage.setItem('userName', data.name);
+        setIsEditingName(false);
+        showToast('success', 'Name updated successfully!');
+      } else {
+        const err = await res.json();
+        showToast('error', err.detail || 'Failed to update name');
+      }
+    } catch {
+      showToast('error', 'Network error. Please try again.');
+    } finally {
+      setIsSavingName(false);
+    }
+  };
+
+  const handleSaveContact = async () => {
+    setIsSavingContact(true);
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_BASE_URL}/api/auth/me`, {
+        method: 'PUT',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: profile?.name, phone: newPhone.trim(), address: newAddress.trim() })
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setProfile(prev => prev ? { ...prev, phone: data.phone, address: data.address } : null);
+        setIsEditingContact(false);
+        showToast('success', 'Contact details updated!');
+      } else {
+        const err = await res.json();
+        showToast('error', err.detail || 'Failed to update contact');
+      }
+    } catch {
+      showToast('error', 'Network error. Please try again.');
+    } finally {
+      setIsSavingContact(false);
+    }
+  };
+
+  const handleChangePassword = async () => {
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      showToast('error', 'Please fill all password fields'); return;
+    }
+    if (newPassword !== confirmPassword) {
+      showToast('error', 'New passwords do not match'); return;
+    }
+
+    setIsSavingPassword(true);
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_BASE_URL}/api/auth/me/change-password`, {
+        method: 'PUT',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ current_password: currentPassword, new_password: newPassword })
+      });
+
+      if (res.ok) {
+        showToast('success', 'Password changed successfully!');
+        setShowPasswordForm(false);
+        setCurrentPassword(''); setNewPassword(''); setConfirmPassword('');
+      } else {
+        const err = await res.json();
+        showToast('error', err.detail || 'Failed to change password');
+      }
+    } catch {
+      showToast('error', 'Network error. Please try again.');
+    } finally {
+      setIsSavingPassword(false);
+    }
+  };
+
+  const formatDate = (dateStr: string) => {
+    if (!dateStr) return 'N/A';
+    return new Date(dateStr).toLocaleDateString('en-US', {
+      year: 'numeric', month: 'long', day: 'numeric'
+    });
+  };
+
+  const getInitials = (name: string) => {
+    return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+  };
+
+  if (isLoading) {
+    return (
+      <div style={{
+        minHeight: '100vh',
+        background: 'linear-gradient(135deg, #ff6b6b 0%, #ee5a24 25%, #ff9ff3 50%, #54a0ff 75%, #5f27cd 100%)',
+        backgroundSize: '400% 400%',
+        animation: 'gradientShift 15s ease infinite',
+        display: 'flex', alignItems: 'center', justifyContent: 'center'
+      }}>
+        <div style={{
+          background: 'rgba(255,255,255,0.95)', borderRadius: '20px',
+          padding: '3rem', textAlign: 'center'
+        }}>
+          <div style={{
+            width: '50px', height: '50px',
+            border: '4px solid #f3f4f6', borderTop: '4px solid #ff6b6b',
+            borderRadius: '50%', animation: 'spin 1s linear infinite', margin: '0 auto 1rem'
+          }} />
+          <p style={{ color: '#666', margin: 0 }}>Loading profile...</p>
+        </div>
+        <style jsx>{`
+          @keyframes gradientShift { 0%{background-position:0% 50%} 50%{background-position:100% 50%} 100%{background-position:0% 50%} }
+          @keyframes spin { 0%{transform:rotate(0deg)} 100%{transform:rotate(360deg)} }
+        `}</style>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{
+      minHeight: '100vh',
+      background: 'linear-gradient(135deg, #ff6b6b 0%, #ee5a24 25%, #ff9ff3 50%, #54a0ff 75%, #5f27cd 100%)',
+      backgroundSize: '400% 400%',
+      animation: 'gradientShift 15s ease infinite',
+      padding: '2rem'
+    }}>
+
+      {/* Toast */}
+      {toast && (
+        <div style={{
+          position: 'fixed', top: '2rem', right: '2rem', zIndex: 9999,
+          background: toast.type === 'success' ? '#10b981' : '#ef4444',
+          color: 'white', borderRadius: '14px', padding: '1rem 1.5rem',
+          boxShadow: '0 10px 40px rgba(0,0,0,0.2)',
+          display: 'flex', alignItems: 'center', gap: '0.75rem',
+          animation: 'slideInRight 0.3s ease-out', fontSize: '0.95rem', fontWeight: '600'
+        }}>
+          <span>{toast.type === 'success' ? '✓' : '✕'}</span>
+          <span>{toast.message}</span>
+        </div>
+      )}
+
+      {/* Header */}
+      <div style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        marginBottom: '2rem',
+        background: 'rgba(255,255,255,0.15)', backdropFilter: 'blur(10px)',
+        borderRadius: '16px', padding: '1rem 2rem',
+        border: '1px solid rgba(255,255,255,0.2)'
+      }}>
+        <button
+          onClick={() => router.push('/home')}
+          style={{
+            display: 'flex', alignItems: 'center', gap: '0.5rem',
+            background: 'rgba(255,255,255,0.2)', border: 'none',
+            borderRadius: '12px', padding: '0.75rem 1rem',
+            color: 'white', cursor: 'pointer', fontSize: '1rem', fontWeight: '500'
+          }}
+          onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.3)'; }}
+          onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.2)'; }}
+        >
+          ← Back
+        </button>
+        <h1 style={{ color: 'white', fontSize: '1.8rem', fontWeight: '600', margin: 0 }}>
+          My Profile
+        </h1>
+        <div style={{ width: '100px' }} />
+      </div>
+
+      <div style={{ maxWidth: '600px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+
+        {/* Avatar + Name Card */}
+        <div style={{
+          background: 'rgba(255,255,255,0.97)', borderRadius: '20px',
+          padding: '2rem', boxShadow: '0 8px 32px rgba(0,0,0,0.1)',
+          textAlign: 'center'
+        }}>
+          {/* Avatar */}
+          <div style={{
+            width: '90px', height: '90px', borderRadius: '50%',
+            background: 'linear-gradient(135deg, #ff6b6b, #5f27cd)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            margin: '0 auto 1rem',
+            fontSize: '2rem', fontWeight: '700', color: 'white',
+            boxShadow: '0 8px 24px rgba(255,107,107,0.4)'
+          }}>
+            {profile ? getInitials(profile.name) : '?'}
+          </div>
+
+          {/* Name */}
+          {isEditingName ? (
+            <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center', alignItems: 'center' }}>
+              <input
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleSaveName()}
+                autoFocus
+                style={{
+                  padding: '0.6rem 1rem', borderRadius: '10px',
+                  border: '2px solid #ff6b6b', fontSize: '1.1rem',
+                  outline: 'none', textAlign: 'center', width: '200px'
+                }}
+              />
+              <button
+                onClick={handleSaveName}
+                disabled={isSavingName}
+                style={{
+                  padding: '0.6rem 1.2rem', borderRadius: '10px', border: 'none',
+                  background: 'linear-gradient(135deg, #10b981, #059669)',
+                  color: 'white', fontWeight: '600', cursor: 'pointer', fontSize: '0.9rem'
+                }}
+              >
+                {isSavingName ? '...' : 'Save'}
+              </button>
+              <button
+                onClick={() => { setIsEditingName(false); setNewName(profile?.name || ''); }}
+                style={{
+                  padding: '0.6rem 1rem', borderRadius: '10px',
+                  border: '2px solid #e5e7eb', background: 'white',
+                  color: '#666', cursor: 'pointer', fontSize: '0.9rem'
+                }}
+              >
+                Cancel
+              </button>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.75rem' }}>
+              <h2 style={{ fontSize: '1.5rem', fontWeight: '700', color: '#1f2937', margin: 0 }}>
+                {profile?.name}
+              </h2>
+              <button
+                onClick={() => setIsEditingName(true)}
+                style={{
+                  background: 'rgba(255,107,107,0.1)', border: 'none',
+                  borderRadius: '8px', padding: '0.4rem 0.75rem',
+                  color: '#ff6b6b', cursor: 'pointer', fontSize: '0.85rem', fontWeight: '600'
+                }}
+              >
+                ✏️ Edit
+              </button>
+            </div>
+          )}
+
+          <p style={{ color: '#6b7280', margin: '0.5rem 0 0', fontSize: '0.95rem' }}>
+            {profile?.email}
+          </p>
+          {profile?.is_verified && (
+            <span style={{
+              display: 'inline-flex', alignItems: 'center', gap: '0.3rem',
+              background: '#d1fae5', color: '#059669',
+              padding: '0.3rem 0.75rem', borderRadius: '20px',
+              fontSize: '0.8rem', fontWeight: '600', marginTop: '0.75rem'
+            }}>
+              ✓ Verified Account
+            </span>
+          )}
+        </div>
+
+        {/* Account Info Card */}
+        <div style={{
+          background: 'rgba(255,255,255,0.97)', borderRadius: '20px',
+          padding: '1.75rem', boxShadow: '0 8px 32px rgba(0,0,0,0.1)'
+        }}>
+          <h3 style={{ fontSize: '1.1rem', fontWeight: '700', color: '#1f2937', margin: '0 0 1.25rem' }}>
+            Account Details
+          </h3>
+          {[
+            { label: 'Email', value: profile?.email, icon: '📧' },
+            { label: 'Member Since', value: formatDate(profile?.created_at || ''), icon: '📅' },
+            { label: 'Last Login', value: formatDate(profile?.last_login || ''), icon: '🕐' },
+          ].map((item) => (
+            <div key={item.label} style={{
+              display: 'flex', alignItems: 'center', gap: '1rem',
+              padding: '0.875rem 0',
+              borderBottom: '1px solid #f1f5f9'
+            }}>
+              <span style={{ fontSize: '1.2rem' }}>{item.icon}</span>
+              <div style={{ flex: 1 }}>
+                <p style={{ margin: 0, fontSize: '0.8rem', color: '#9ca3af', fontWeight: '500' }}>{item.label}</p>
+                <p style={{ margin: 0, fontSize: '0.95rem', color: '#1f2937', fontWeight: '600' }}>{item.value}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Contact & Address Card */}
+        <div style={{
+          background: 'rgba(255,255,255,0.97)', borderRadius: '20px',
+          padding: '1.75rem', boxShadow: '0 8px 32px rgba(0,0,0,0.1)'
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
+            <h3 style={{ fontSize: '1.1rem', fontWeight: '700', color: '#1f2937', margin: 0 }}>
+              📋 Contact & Address
+            </h3>
+            {!isEditingContact && (
+              <button
+                onClick={() => setIsEditingContact(true)}
+                style={{
+                  padding: '0.5rem 1rem', borderRadius: '10px', border: 'none',
+                  background: 'linear-gradient(135deg, #ff6b6b, #ee5a24)',
+                  color: 'white', cursor: 'pointer', fontSize: '0.85rem', fontWeight: '600'
+                }}
+              >
+                Edit
+              </button>
+            )}
+          </div>
+
+          {isEditingContact ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <div>
+                <label style={{ fontSize: '0.85rem', fontWeight: '600', color: '#374151', display: 'block', marginBottom: '0.4rem' }}>
+                  📞 Phone Number
+                </label>
+                <input
+                  type="tel"
+                  value={newPhone}
+                  onChange={(e) => setNewPhone(e.target.value)}
+                  placeholder="+91 98765 43210"
+                  style={{
+                    width: '100%', padding: '0.75rem 1rem', borderRadius: '10px',
+                    border: '2px solid #e5e7eb', fontSize: '0.95rem', outline: 'none',
+                    boxSizing: 'border-box'
+                  }}
+                  onFocus={(e) => { e.currentTarget.style.borderColor = '#ff6b6b'; }}
+                  onBlur={(e) => { e.currentTarget.style.borderColor = '#e5e7eb'; }}
+                />
+              </div>
+              <div>
+                <label style={{ fontSize: '0.85rem', fontWeight: '600', color: '#374151', display: 'block', marginBottom: '0.4rem' }}>
+                  📍 Delivery Address
+                </label>
+                <textarea
+                  value={newAddress}
+                  onChange={(e) => setNewAddress(e.target.value)}
+                  placeholder="Enter your delivery address..."
+                  rows={3}
+                  style={{
+                    width: '100%', padding: '0.75rem 1rem', borderRadius: '10px',
+                    border: '2px solid #e5e7eb', fontSize: '0.95rem', outline: 'none',
+                    boxSizing: 'border-box', resize: 'vertical', fontFamily: 'inherit'
+                  }}
+                  onFocus={(e) => { e.currentTarget.style.borderColor = '#ff6b6b'; }}
+                  onBlur={(e) => { e.currentTarget.style.borderColor = '#e5e7eb'; }}
+                />
+              </div>
+              {/* Find by Map - coming soon */}
+              <div style={{
+                display: 'flex', alignItems: 'center', gap: '0.75rem',
+                padding: '0.875rem 1rem', borderRadius: '12px',
+                background: 'linear-gradient(135deg, rgba(255,107,107,0.06), rgba(95,39,205,0.06))',
+                border: '1.5px dashed rgba(255,107,107,0.35)',
+                cursor: 'not-allowed'
+              }}>
+                <span style={{ fontSize: '1.3rem' }}>🗺️</span>
+                <div>
+                  <p style={{ margin: 0, fontSize: '0.9rem', fontWeight: '600', color: '#374151' }}>Find by Map</p>
+                  <p style={{ margin: 0, fontSize: '0.75rem', color: '#9ca3af' }}>Coming soon — pin your location on the map</p>
+                </div>
+                <span style={{
+                  marginLeft: 'auto', fontSize: '0.7rem', fontWeight: '700',
+                  background: 'linear-gradient(135deg, #ff6b6b, #5f27cd)',
+                  color: 'white', padding: '0.2rem 0.6rem', borderRadius: '20px'
+                }}>Soon</span>
+              </div>
+              <div style={{ display: 'flex', gap: '0.75rem' }}>
+                <button
+                  onClick={handleSaveContact}
+                  disabled={isSavingContact}
+                  style={{
+                    flex: 1, padding: '0.875rem', borderRadius: '12px', border: 'none',
+                    background: isSavingContact ? '#9ca3af' : 'linear-gradient(135deg, #ff6b6b, #ee5a24)',
+                    color: 'white', fontSize: '1rem', fontWeight: '600',
+                    cursor: isSavingContact ? 'not-allowed' : 'pointer'
+                  }}
+                >
+                  {isSavingContact ? 'Saving...' : 'Save'}
+                </button>
+                <button
+                  onClick={() => { setIsEditingContact(false); setNewPhone(profile?.phone || ''); setNewAddress(profile?.address || ''); }}
+                  style={{
+                    padding: '0.875rem 1.5rem', borderRadius: '12px',
+                    border: '2px solid #e5e7eb', background: 'white',
+                    color: '#666', cursor: 'pointer', fontSize: '1rem', fontWeight: '600'
+                  }}
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div>
+              {[
+                { label: 'Phone', value: profile?.phone || 'Not added', icon: '📞' },
+                { label: 'Address', value: profile?.address || 'Not added', icon: '📍' },
+              ].map((item, i) => (
+                <div key={item.label} style={{
+                  display: 'flex', alignItems: 'flex-start', gap: '1rem',
+                  padding: '0.875rem 0',
+                  borderBottom: i === 0 ? '1px solid #f1f5f9' : 'none'
+                }}>
+                  <span style={{ fontSize: '1.2rem', marginTop: '2px' }}>{item.icon}</span>
+                  <div style={{ flex: 1 }}>
+                    <p style={{ margin: 0, fontSize: '0.8rem', color: '#9ca3af', fontWeight: '500' }}>{item.label}</p>
+                    <p style={{
+                      margin: 0, fontSize: '0.95rem', fontWeight: '600',
+                      color: item.value === 'Not added' ? '#d1d5db' : '#1f2937',
+                      fontStyle: item.value === 'Not added' ? 'italic' : 'normal'
+                    }}>{item.value}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Change Password Card */}
+        <div style={{
+          background: 'rgba(255,255,255,0.97)', borderRadius: '20px',
+          padding: '1.75rem', boxShadow: '0 8px 32px rgba(0,0,0,0.1)'
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: showPasswordForm ? '1.25rem' : 0 }}>
+            <h3 style={{ fontSize: '1.1rem', fontWeight: '700', color: '#1f2937', margin: 0 }}>
+              🔒 Change Password
+            </h3>
+            <button
+              onClick={() => setShowPasswordForm(!showPasswordForm)}
+              style={{
+                padding: '0.5rem 1rem', borderRadius: '10px', border: 'none',
+                background: showPasswordForm ? '#f3f4f6' : 'linear-gradient(135deg, #ff6b6b, #ee5a24)',
+                color: showPasswordForm ? '#666' : 'white',
+                cursor: 'pointer', fontSize: '0.85rem', fontWeight: '600'
+              }}
+            >
+              {showPasswordForm ? 'Cancel' : 'Change'}
+            </button>
+          </div>
+
+          {showPasswordForm && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              {[
+                { label: 'Current Password', value: currentPassword, setter: setCurrentPassword },
+                { label: 'New Password', value: newPassword, setter: setNewPassword },
+                { label: 'Confirm New Password', value: confirmPassword, setter: setConfirmPassword },
+              ].map((field) => (
+                <div key={field.label}>
+                  <label style={{ fontSize: '0.85rem', fontWeight: '600', color: '#374151', display: 'block', marginBottom: '0.4rem' }}>
+                    {field.label}
+                  </label>
+                  <input
+                    type="password"
+                    value={field.value}
+                    onChange={(e) => field.setter(e.target.value)}
+                    style={{
+                      width: '100%', padding: '0.75rem 1rem',
+                      borderRadius: '10px', border: '2px solid #e5e7eb',
+                      fontSize: '0.95rem', outline: 'none', boxSizing: 'border-box',
+                      transition: 'border-color 0.2s'
+                    }}
+                    onFocus={(e) => { e.currentTarget.style.borderColor = '#ff6b6b'; }}
+                    onBlur={(e) => { e.currentTarget.style.borderColor = '#e5e7eb'; }}
+                  />
+                </div>
+              ))}
+              <button
+                onClick={handleChangePassword}
+                disabled={isSavingPassword}
+                style={{
+                  padding: '0.875rem', borderRadius: '12px', border: 'none',
+                  background: isSavingPassword ? '#9ca3af' : 'linear-gradient(135deg, #ff6b6b, #ee5a24)',
+                  color: 'white', fontSize: '1rem', fontWeight: '600',
+                  cursor: isSavingPassword ? 'not-allowed' : 'pointer'
+                }}
+              >
+                {isSavingPassword ? 'Saving...' : 'Update Password'}
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Quick Links */}
+        <div style={{
+          background: 'rgba(255,255,255,0.97)', borderRadius: '20px',
+          padding: '1.75rem', boxShadow: '0 8px 32px rgba(0,0,0,0.1)'
+        }}>
+          <h3 style={{ fontSize: '1.1rem', fontWeight: '700', color: '#1f2937', margin: '0 0 1.25rem' }}>
+            Quick Links
+          </h3>
+          <div style={{ display: 'flex', gap: '1rem' }}>
+            <button
+              onClick={() => router.push('/orders')}
+              style={{
+                flex: 1, padding: '1rem', borderRadius: '12px',
+                border: '2px solid #e5e7eb', background: 'white',
+                cursor: 'pointer', textAlign: 'center', transition: 'all 0.2s'
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#ff6b6b'; e.currentTarget.style.background = '#fff5f5'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.borderColor = '#e5e7eb'; e.currentTarget.style.background = 'white'; }}
+            >
+              <div style={{ fontSize: '1.5rem', marginBottom: '0.4rem' }}>📦</div>
+              <div style={{ fontSize: '0.85rem', fontWeight: '600', color: '#374151' }}>My Orders</div>
+            </button>
+            <button
+              onClick={() => router.push('/home')}
+              style={{
+                flex: 1, padding: '1rem', borderRadius: '12px',
+                border: '2px solid #e5e7eb', background: 'white',
+                cursor: 'pointer', textAlign: 'center', transition: 'all 0.2s'
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#ff6b6b'; e.currentTarget.style.background = '#fff5f5'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.borderColor = '#e5e7eb'; e.currentTarget.style.background = 'white'; }}
+            >
+              <div style={{ fontSize: '1.5rem', marginBottom: '0.4rem' }}>🏠</div>
+              <div style={{ fontSize: '0.85rem', fontWeight: '600', color: '#374151' }}>Home</div>
+            </button>
+          </div>
+        </div>
+
+      </div>
+
+      <style jsx>{`
+        @keyframes gradientShift {
+          0% { background-position: 0% 50%; }
+          50% { background-position: 100% 50%; }
+          100% { background-position: 0% 50%; }
+        }
+        @keyframes spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+        @keyframes slideInRight {
+          from { transform: translateX(100%); opacity: 0; }
+          to { transform: translateX(0); opacity: 1; }
+        }
+      `}</style>
+    </div>
+  );
+}

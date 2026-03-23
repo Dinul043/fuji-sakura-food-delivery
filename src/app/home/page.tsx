@@ -42,6 +42,7 @@ interface RealCategory {
 
 export default function HomePage() {
   const [userName, setUserName] = useState('');
+  const [userAddress, setUserAddress] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
   const [restaurants, setRestaurants] = useState<RealRestaurant[]>([]);
@@ -119,6 +120,17 @@ export default function HomePage() {
   useEffect(() => {
     const storedName = localStorage.getItem('userName') || 'Guest';
     setUserName(storedName);
+
+    // Fetch user address from profile
+    const token = localStorage.getItem('token');
+    if (token) {
+      fetch(`${API_BASE_URL}/api/auth/me`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+        .then(r => r.ok ? r.json() : null)
+        .then(profile => { if (profile?.address) setUserAddress(profile.address); })
+        .catch(() => {});
+    }
     
     // Fetch data from backend
     fetchRestaurants();
@@ -418,14 +430,16 @@ export default function HomePage() {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
-        position: 'relative',
-        zIndex: 10,
-        background: 'rgba(255, 255, 255, 0.1)',
-        backdropFilter: 'blur(15px)',
-        borderBottom: '1px solid rgba(255, 255, 255, 0.2)',
+        position: 'sticky',
+        top: 0,
+        zIndex: 100,
+        background: 'rgba(20, 10, 40, 0.55)',
+        backdropFilter: 'blur(20px)',
+        WebkitBackdropFilter: 'blur(20px)',
+        borderBottom: '1px solid rgba(255, 255, 255, 0.15)',
         borderRadius: '0 0 24px 24px',
         margin: '0 1rem',
-        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)'
+        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)'
       }}>
         {/* Logo & Location */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '2rem' }}>
@@ -444,20 +458,59 @@ export default function HomePage() {
             🌸 Fuji Sakura
           </h1>
           
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.5rem',
-            background: 'rgba(255, 255, 255, 0.15)',
-            backdropFilter: 'blur(10px)',
-            borderRadius: '20px',
-            padding: '0.5rem 1rem',
-            border: '1px solid rgba(255, 255, 255, 0.2)'
-          }}>
-            <Icon name="delivery/location" size={18} style={{ filter: 'brightness(0) invert(1)' }} />
-            <span style={{ color: 'white', fontSize: '0.9rem', fontWeight: '500' }}>Delivering to</span>
-            <span style={{ color: 'white', fontSize: '0.9rem', fontWeight: 'bold' }}>Tokyo, Shibuya</span>
-            <span style={{ color: 'white', fontSize: '0.8rem' }}>🔽</span>
+          <div
+            onClick={() => !userAddress && router.push('/profile')}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.5rem',
+              background: userAddress ? 'rgba(255, 255, 255, 0.15)' : 'rgba(255, 255, 255, 0.08)',
+              backdropFilter: 'blur(10px)',
+              borderRadius: '20px',
+              padding: '0.5rem 1rem',
+              border: userAddress
+                ? '1px solid rgba(255, 255, 255, 0.2)'
+                : '1px dashed rgba(255, 255, 255, 0.4)',
+              cursor: userAddress ? 'default' : 'pointer',
+              transition: 'all 0.2s ease'
+            }}
+            onMouseEnter={(e) => {
+              if (!userAddress) e.currentTarget.style.background = 'rgba(255,255,255,0.15)';
+            }}
+            onMouseLeave={(e) => {
+              if (!userAddress) e.currentTarget.style.background = 'rgba(255,255,255,0.08)';
+            }}
+          >
+            <Icon name="delivery/location" size={18} style={{ filter: 'brightness(0) invert(1)', flexShrink: 0 }} />
+            {userAddress ? (
+              <>
+                <span style={{ color: 'rgba(255,255,255,0.75)', fontSize: '0.8rem', fontWeight: '400' }}>Delivering to</span>
+                <span
+                  style={{
+                    color: 'white', fontSize: '0.9rem', fontWeight: '700',
+                    maxWidth: '150px', overflow: 'hidden', textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap'
+                  }}
+                  title={userAddress}
+                >
+                  {userAddress}
+                </span>
+              </>
+            ) : (
+              <>
+                <span style={{ color: 'rgba(255,255,255,0.6)', fontSize: '0.85rem', fontWeight: '400', fontStyle: 'italic' }}>
+                  No address added
+                </span>
+                <span style={{
+                  background: 'rgba(255,255,255,0.2)',
+                  color: 'white', fontSize: '0.7rem', fontWeight: '700',
+                  padding: '0.15rem 0.5rem', borderRadius: '10px',
+                  letterSpacing: '0.03em'
+                }}>
+                  + Add
+                </span>
+              </>
+            )}
           </div>
         </div>
 
@@ -780,6 +833,7 @@ export default function HomePage() {
           onClick={() => router.push('/cart')}
           style={{
             position: 'relative',
+             marginLeft: '5px',
             padding: '0.75rem',
             background: 'rgba(255, 255, 255, 0.15)',
             backdropFilter: 'blur(10px)',
@@ -836,8 +890,7 @@ export default function HomePage() {
             
             {/* Orders Button */}
             <button
-              onClick={() => router.push('/orders')}
-              style={{
+              onClick={() => router.push('/orders')}              style={{
                 padding: '0.5rem 1rem',
                 background: 'rgba(255, 255, 255, 0.2)',
                 border: '1px solid rgba(255, 255, 255, 0.3)',
@@ -870,6 +923,42 @@ export default function HomePage() {
               <span>Orders</span>
             </button>
             
+            {/* Profile Button */}
+            <button
+              onClick={() => router.push('/profile')}
+              style={{
+                padding: '0.5rem 1rem',
+                background: 'rgba(255, 255, 255, 0.2)',
+                border: '1px solid rgba(255, 255, 255, 0.3)',
+                borderRadius: '15px',
+                color: 'white',
+                fontSize: '0.8rem',
+                fontWeight: '500',
+                cursor: 'pointer',
+                transition: 'all 0.3s ease',
+                transform: 'scale(1)',
+                boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = 'linear-gradient(135deg, #8b5cf6, #5f27cd)';
+                e.currentTarget.style.transform = 'scale(1.1)';
+                e.currentTarget.style.boxShadow = '0 4px 15px rgba(139, 92, 246, 0.4)';
+                e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.6)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = 'rgba(255, 255, 255, 0.2)';
+                e.currentTarget.style.transform = 'scale(1)';
+                e.currentTarget.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.1)';
+                e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.3)';
+              }}
+            >
+              <Image src="/icons/navigation/user.svg" alt="Profile" width={20} height={20} />
+              <span>Profile</span>
+            </button>
+
             <button
               onClick={handleLogout}
               style={{

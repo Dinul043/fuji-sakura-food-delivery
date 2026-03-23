@@ -38,12 +38,31 @@ export default function CheckoutPage() {
       return;
     }
 
-    // Pre-fill address if available
-    const savedAddress = localStorage.getItem('deliveryAddress');
-    if (savedAddress) {
-      setDeliveryAddress(JSON.parse(savedAddress));
+    // Fetch profile from DB and pre-fill address/phone
+    const token = localStorage.getItem('token');
+    const storedName = localStorage.getItem('userName') || '';
+
+    if (token) {
+      fetch('http://localhost:8000/api/auth/me', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+        .then(r => r.ok ? r.json() : null)
+        .then(profile => {
+          if (profile) {
+            setDeliveryAddress(prev => ({
+              ...prev,
+              fullName: profile.name || storedName,
+              phone: profile.phone ? profile.phone.replace(/\D/g, '').slice(-10) : prev.phone,
+              address: profile.address || prev.address,
+            }));
+          } else {
+            setDeliveryAddress(prev => ({ ...prev, fullName: storedName }));
+          }
+        })
+        .catch(() => {
+          setDeliveryAddress(prev => ({ ...prev, fullName: storedName }));
+        });
     } else {
-      const storedName = localStorage.getItem('userName') || 'Guest';
       setDeliveryAddress(prev => ({ ...prev, fullName: storedName }));
     }
   }, []);
@@ -144,8 +163,14 @@ export default function CheckoutPage() {
     setIsLoading(true);
     
     try {
-      // Save address for future use
-      localStorage.setItem('deliveryAddress', JSON.stringify(deliveryAddress));
+      // Sync phone & address back to user profile in DB
+      const authToken = localStorage.getItem('token');
+      const userName = localStorage.getItem('userName') || deliveryAddress.fullName;
+      fetch('http://localhost:8000/api/auth/me', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authToken}` },
+        body: JSON.stringify({ name: userName, phone: deliveryAddress.phone, address: deliveryAddress.address })
+      }).catch(() => {}); // fire-and-forget, don't block order placement
       
       // Get cart item IDs for the order (use cart_id which is the database ID)
       const cartItemIds = checkoutItems
