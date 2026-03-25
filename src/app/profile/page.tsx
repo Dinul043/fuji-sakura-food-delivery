@@ -11,6 +11,7 @@ interface UserProfile {
   email: string;
   phone: string | null;
   address: string | null;
+  profile_image: string | null;
   is_verified: boolean;
   created_at: string;
   last_login: string;
@@ -29,6 +30,7 @@ export default function ProfilePage() {
   const [newPhone, setNewPhone] = useState('');
   const [newAddress, setNewAddress] = useState('');
   const [isSavingContact, setIsSavingContact] = useState(false);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
 
   // Change password state
   const [showPasswordForm, setShowPasswordForm] = useState(false);
@@ -158,6 +160,37 @@ export default function ProfilePage() {
     }
   };
 
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const allowed = ['image/jpeg', 'image/png', 'image/jpg', 'image/webp'];
+    if (!allowed.includes(file.type)) { showToast('error', 'Only JPEG, PNG, WebP allowed'); return; }
+    setIsUploadingImage(true);
+    try {
+      const token = localStorage.getItem('token');
+      const formData = new FormData();
+      formData.append('file', file);
+      const res = await fetch(`${API_BASE_URL}/api/auth/me/upload-image`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` },
+        body: formData
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setProfile(prev => prev ? { ...prev, profile_image: data.profile_image } : null);
+        localStorage.setItem('userProfileImage', data.profile_image);
+        showToast('success', 'Profile photo updated!');
+      } else {
+        showToast('error', 'Failed to upload image');
+      }
+    } catch {
+      showToast('error', 'Network error. Please try again.');
+    } finally {
+      setIsUploadingImage(false);
+      e.target.value = '';
+    }
+  };
+
   const formatDate = (dateStr: string) => {
     if (!dateStr) return 'N/A';
     return new Date(dateStr).toLocaleDateString('en-US', {
@@ -225,27 +258,32 @@ export default function ProfilePage() {
       <div style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         marginBottom: '2rem',
-        background: 'rgba(255,255,255,0.15)', backdropFilter: 'blur(10px)',
-        borderRadius: '16px', padding: '1rem 2rem',
-        border: '1px solid rgba(255,255,255,0.2)'
+        background: 'rgba(20, 10, 40, 0.55)', backdropFilter: 'blur(20px)',
+        WebkitBackdropFilter: 'blur(20px)',
+        borderRadius: '0 0 24px 24px',
+        padding: '1rem 2rem',
+        border: '1px solid rgba(255,255,255,0.15)',
+        boxShadow: '0 8px 32px rgba(0,0,0,0.3)',
+        position: 'sticky', top: 0, zIndex: 100,
+        margin: '-2rem -2rem 2rem -2rem'
       }}>
         <button
           onClick={() => router.push('/home')}
           style={{
             display: 'flex', alignItems: 'center', gap: '0.5rem',
-            background: 'rgba(255,255,255,0.2)', border: 'none',
-            borderRadius: '12px', padding: '0.75rem 1rem',
-            color: 'white', cursor: 'pointer', fontSize: '1rem', fontWeight: '500'
+            background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.2)',
+            borderRadius: '12px', padding: '0.6rem 1rem',
+            color: 'white', cursor: 'pointer', fontSize: '0.95rem', fontWeight: '500'
           }}
-          onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.3)'; }}
-          onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.2)'; }}
+          onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.25)'; }}
+          onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.15)'; }}
         >
           ← Back
         </button>
-        <h1 style={{ color: 'white', fontSize: '1.8rem', fontWeight: '600', margin: 0 }}>
-          My Profile
+        <h1 style={{ color: 'white', fontSize: '1.5rem', fontWeight: '600', margin: 0, textShadow: '0 2px 4px rgba(0,0,0,0.2)' }}>
+          🌸 My Profile
         </h1>
-        <div style={{ width: '100px' }} />
+        <div style={{ width: '80px' }} />
       </div>
 
       <div style={{ maxWidth: '600px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
@@ -256,16 +294,43 @@ export default function ProfilePage() {
           padding: '2rem', boxShadow: '0 8px 32px rgba(0,0,0,0.1)',
           textAlign: 'center'
         }}>
-          {/* Avatar */}
-          <div style={{
-            width: '90px', height: '90px', borderRadius: '50%',
-            background: 'linear-gradient(135deg, #ff6b6b, #5f27cd)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            margin: '0 auto 1rem',
-            fontSize: '2rem', fontWeight: '700', color: 'white',
-            boxShadow: '0 8px 24px rgba(255,107,107,0.4)'
-          }}>
-            {profile ? getInitials(profile.name) : '?'}
+          {/* Avatar - click to upload */}
+          <div style={{ position: 'relative', width: '90px', margin: '0 auto 1rem', cursor: 'pointer' }}
+            onClick={() => document.getElementById('avatarInput')?.click()}
+          >
+            <div style={{
+              width: '90px', height: '90px', borderRadius: '50%',
+              background: 'linear-gradient(135deg, #ff6b6b, #5f27cd)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: '2rem', fontWeight: '700', color: 'white',
+              boxShadow: '0 8px 24px rgba(255,107,107,0.4)',
+              overflow: 'hidden'
+            }}>
+              {profile?.profile_image ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={`${API_BASE_URL}${profile.profile_image}`}
+                  alt="Profile"
+                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                />
+              ) : (
+                profile ? getInitials(profile.name) : '?'
+              )}
+            </div>
+            {/* Camera badge */}
+            <div style={{
+              position: 'absolute', bottom: 2, right: 2,
+              width: '26px', height: '26px', borderRadius: '50%',
+              background: 'linear-gradient(135deg, #ff6b6b, #5f27cd)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: '0.7rem', border: '2px solid white'
+            }}>
+              {isUploadingImage ? '⏳' : '📷'}
+            </div>
+            <input
+              id="avatarInput" type="file" accept="image/jpeg,image/png,image/webp"
+              style={{ display: 'none' }} onChange={handleImageUpload}
+            />
           </div>
 
           {/* Name */}
@@ -398,7 +463,7 @@ export default function ProfilePage() {
                   value={newPhone}
                   onChange={(e) => setNewPhone(e.target.value)}
                   placeholder="+91 98765 43210"
-                  style={{
+                  style={{  
                     width: '100%', padding: '0.75rem 1rem', borderRadius: '10px',
                     border: '2px solid #e5e7eb', fontSize: '0.95rem', outline: 'none',
                     boxSizing: 'border-box'
@@ -408,7 +473,7 @@ export default function ProfilePage() {
                 />
               </div>
               <div>
-                <label style={{ fontSize: '0.85rem', fontWeight: '600', color: '#374151', display: 'block', marginBottom: '0.4rem' }}>
+                <label style={{ fontSize:  '0.85rem', fontWeight: '600', color: '#374151', display: 'block', marginBottom: '0.4rem' }}>
                   📍 Delivery Address
                 </label>
                 <textarea
@@ -559,43 +624,7 @@ export default function ProfilePage() {
           )}
         </div>
 
-        {/* Quick Links */}
-        <div style={{
-          background: 'rgba(255,255,255,0.97)', borderRadius: '20px',
-          padding: '1.75rem', boxShadow: '0 8px 32px rgba(0,0,0,0.1)'
-        }}>
-          <h3 style={{ fontSize: '1.1rem', fontWeight: '700', color: '#1f2937', margin: '0 0 1.25rem' }}>
-            Quick Links
-          </h3>
-          <div style={{ display: 'flex', gap: '1rem' }}>
-            <button
-              onClick={() => router.push('/orders')}
-              style={{
-                flex: 1, padding: '1rem', borderRadius: '12px',
-                border: '2px solid #e5e7eb', background: 'white',
-                cursor: 'pointer', textAlign: 'center', transition: 'all 0.2s'
-              }}
-              onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#ff6b6b'; e.currentTarget.style.background = '#fff5f5'; }}
-              onMouseLeave={(e) => { e.currentTarget.style.borderColor = '#e5e7eb'; e.currentTarget.style.background = 'white'; }}
-            >
-              <div style={{ fontSize: '1.5rem', marginBottom: '0.4rem' }}>📦</div>
-              <div style={{ fontSize: '0.85rem', fontWeight: '600', color: '#374151' }}>My Orders</div>
-            </button>
-            <button
-              onClick={() => router.push('/home')}
-              style={{
-                flex: 1, padding: '1rem', borderRadius: '12px',
-                border: '2px solid #e5e7eb', background: 'white',
-                cursor: 'pointer', textAlign: 'center', transition: 'all 0.2s'
-              }}
-              onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#ff6b6b'; e.currentTarget.style.background = '#fff5f5'; }}
-              onMouseLeave={(e) => { e.currentTarget.style.borderColor = '#e5e7eb'; e.currentTarget.style.background = 'white'; }}
-            >
-              <div style={{ fontSize: '1.5rem', marginBottom: '0.4rem' }}>🏠</div>
-              <div style={{ fontSize: '0.85rem', fontWeight: '600', color: '#374151' }}>Home</div>
-            </button>
-          </div>
-        </div>
+        {/* Quick Links removed - back button handles home, orders in main nav */}
 
       </div>
 

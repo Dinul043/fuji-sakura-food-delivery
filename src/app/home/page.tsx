@@ -43,6 +43,7 @@ interface RealCategory {
 export default function HomePage() {
   const [userName, setUserName] = useState('');
   const [userAddress, setUserAddress] = useState<string | null>(null);
+  const [userProfileImage, setUserProfileImage] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
   const [restaurants, setRestaurants] = useState<RealRestaurant[]>([]);
@@ -128,7 +129,10 @@ export default function HomePage() {
         headers: { 'Authorization': `Bearer ${token}` }
       })
         .then(r => r.ok ? r.json() : null)
-        .then(profile => { if (profile?.address) setUserAddress(profile.address); })
+        .then(profile => {
+          if (profile?.address) setUserAddress(profile.address);
+          if (profile?.profile_image) setUserProfileImage(profile.profile_image);
+        })
         .catch(() => {});
     }
     
@@ -955,7 +959,16 @@ export default function HomePage() {
                 e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.3)';
               }}
             >
-              <Image src="/icons/navigation/user.svg" alt="Profile" width={20} height={20} />
+              {userProfileImage ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={`${API_BASE_URL}${userProfileImage}`}
+                  alt="Profile"
+                  style={{ width: '22px', height: '22px', borderRadius: '50%', objectFit: 'cover', border: '1.5px solid rgba(255,255,255,0.6)' }}
+                />
+              ) : (
+                <Image src="/icons/navigation/user.svg" alt="Profile" width={20} height={20} />
+              )}
               <span>Profile</span>
             </button>
 
