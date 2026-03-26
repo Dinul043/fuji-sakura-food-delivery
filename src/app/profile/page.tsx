@@ -103,13 +103,18 @@ export default function ProfilePage() {
   };
 
   const handleSaveContact = async () => {
+    if (!profile) return;
     setIsSavingContact(true);
     try {
       const token = localStorage.getItem('token');
       const res = await fetch(`${API_BASE_URL}/api/auth/me`, {
         method: 'PUT',
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: profile?.name, phone: newPhone.trim(), address: newAddress.trim() })
+        body: JSON.stringify({ 
+          name: profile.name || newName.trim() || 'User',
+          phone: newPhone.trim() || null, 
+          address: newAddress.trim() || null 
+        })
       });
 
       if (res.ok) {

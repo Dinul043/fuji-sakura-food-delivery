@@ -466,12 +466,28 @@ export default function LoginPage() {
         });
         
         if (response.ok) {
-          localStorage.setItem('userName', formData.firstName + ' ' + formData.lastName);
+          // Auto-login to get the token after registration
+          try {
+            const loginResponse = await fetch(`${API_BASE_URL}/api/auth/login`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                email: formData.email.trim().toLowerCase(),
+                password: formData.password.trim()
+              })
+            });
+            if (loginResponse.ok) {
+              const loginData = await loginResponse.json();
+              localStorage.setItem('token', loginData.access_token);
+              localStorage.setItem('userName', loginData.user.name);
+            } else {
+              localStorage.setItem('userName', formData.firstName + ' ' + formData.lastName);
+            }
+          } catch {
+            localStorage.setItem('userName', formData.firstName + ' ' + formData.lastName);
+          }
           localStorage.setItem('isGuest', 'false');
-          
-          // Dispatch custom event to notify CartContext of token change
           window.dispatchEvent(new Event('tokenChanged'));
-          
           router.push('/home');
         } else {
           const error = await response.json();
