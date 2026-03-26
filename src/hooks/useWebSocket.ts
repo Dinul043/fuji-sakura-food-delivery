@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 
 interface WebSocketMessage {
   type: string;
@@ -8,7 +8,10 @@ interface WebSocketMessage {
 export function useWebSocket(url: string, onMessage?: (data: WebSocketMessage) => void) {
   const [isConnected, setIsConnected] = useState(false);
   const wsRef = useRef<WebSocket | null>(null);
-  const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout>| null>(null);
+  const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Keep latest onMessage in a ref so the effect doesn't re-run when it changes
+  const onMessageRef = useRef(onMessage);
+  useEffect(() => { onMessageRef.current = onMessage; }, [onMessage]);
 
   useEffect(() => {
     let isMounted = true;
@@ -19,58 +22,43 @@ export function useWebSocket(url: string, onMessage?: (data: WebSocketMessage) =
         wsRef.current = ws;
 
         ws.onopen = () => {
-          if (isMounted) {
-            setIsConnected(true);
-            // Silent connection - no console logs
-          }
+          if (isMounted) setIsConnected(true);
         };
 
         ws.onmessage = (event) => {
           try {
             const data = JSON.parse(event.data);
-            if (onMessage && isMounted) {
-              onMessage(data);
+            if (onMessageRef.current && isMounted) {
+              onMessageRef.current(data);
             }
-          } catch (error) {
-            // Silent error handling
+          } catch {
+            // non-JSON message (e.g. plain "pong") — ignore silently
           }
         };
 
-        ws.onerror = (error) => {
-          // Silent error handling - connection will retry automatically
-        };
+        ws.onerror = () => {};
 
         ws.onclose = () => {
           if (isMounted) {
             setIsConnected(false);
-            // Silent reconnection - no console logs
-            
-            // Reconnect after 3 seconds
             reconnectTimeoutRef.current = setTimeout(() => {
-              if (isMounted) {
-                connect();
-              }
+              if (isMounted) connect();
             }, 3000);
           }
         };
-      } catch (error) {
-        // Silent error handling - will retry connection
+      } catch {
+        // retry
       }
     };
 
     connect();
 
-    // Cleanup
     return () => {
       isMounted = false;
-      if (reconnectTimeoutRef.current) {
-        clearTimeout(reconnectTimeoutRef.current);
-      }
-      if (wsRef.current) {
-        wsRef.current.close();
-      }
+      if (reconnectTimeoutRef.current) clearTimeout(reconnectTimeoutRef.current);
+      if (wsRef.current) wsRef.current.close();
     };
-  }, [url, onMessage]);
+  }, [url]); // only re-run if URL changes, NOT onMessage
 
   const sendMessage = (message: any) => {
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
