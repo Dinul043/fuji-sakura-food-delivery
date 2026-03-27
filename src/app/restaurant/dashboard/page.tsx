@@ -286,7 +286,6 @@ export default function RestaurantDashboard() {
     } catch (error) {
       // Network error - keep existing stats, will retry on next interval
     }
-    }
   };
 
   const connectWebSocket = (restaurantId: number) => {
