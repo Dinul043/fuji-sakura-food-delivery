@@ -51,6 +51,12 @@ export default function RestaurantPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Reviews state
+  const [reviews, setReviews] = useState<{ id: number; user_name: string; rating: number; comment: string | null; created_at: string }[]>([]);
+  const [avgRating, setAvgRating] = useState(0);
+  const [reviewCount, setReviewCount] = useState(0);
+  const [showAllReviews, setShowAllReviews] = useState(false);
+
   // WebSocket for real-time menu updates
   const { isConnected } = useWebSocket(
     `ws://localhost:8000/ws/restaurant/${restaurantId}`,
@@ -202,6 +208,17 @@ export default function RestaurantPage() {
   useEffect(() => {
     if (params.id) {
       fetchRestaurant();
+      // Fetch reviews (public, no auth needed)
+      fetch(`${API_BASE_URL}/api/reviews/restaurant/${params.id}`)
+        .then(r => r.ok ? r.json() : null)
+        .then(data => {
+          if (data) {
+            setReviews(data.reviews || []);
+            setAvgRating(data.average_rating || 0);
+            setReviewCount(data.total || 0);
+          }
+        })
+        .catch(() => {});
     }
   }, [params.id]);
 
@@ -1010,6 +1027,99 @@ export default function RestaurantPage() {
           </div>
         )}
       </div>
+
+      {/* Reviews Section */}
+      {reviewCount > 0 && (
+        <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 2rem 3rem' }}>
+          <div style={{
+            background: 'rgba(255,255,255,0.95)', backdropFilter: 'blur(10px)',
+            borderRadius: '20px', padding: '2rem',
+            border: '1px solid rgba(255,255,255,0.3)',
+            boxShadow: '0 8px 32px rgba(0,0,0,0.1)'
+          }}>
+            {/* Header */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.5rem' }}>
+              <h2 style={{ margin: 0, fontSize: '1.4rem', fontWeight: '700', color: '#1f2937' }}>
+                ⭐ Customer Reviews
+              </h2>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <span style={{ fontSize: '2rem', fontWeight: '800', color: '#f59e0b' }}>
+                  {avgRating > 0 ? avgRating.toFixed(1) : '—'}
+                </span>
+                <div>
+                  <div style={{ display: 'flex', gap: '2px' }}>
+                    {[1,2,3,4,5].map(s => (
+                      <span key={s} style={{ fontSize: '1rem', color: s <= Math.round(avgRating) ? '#f59e0b' : '#e5e7eb' }}>★</span>
+                    ))}
+                  </div>
+                  <div style={{ fontSize: '0.78rem', color: '#9ca3af' }}>{reviewCount} review{reviewCount !== 1 ? 's' : ''}</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Reviews grid */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1rem' }}>
+              {(showAllReviews ? reviews : reviews.slice(0, 6)).map(review => (
+                <div key={review.id} style={{
+                  background: '#fafafa', borderRadius: '14px', padding: '1.25rem',
+                  border: '1px solid #f1f5f9',
+                  borderLeft: `4px solid ${review.rating >= 4 ? '#10b981' : review.rating === 3 ? '#f59e0b' : '#ef4444'}`
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.75rem' }}>
+                    <div style={{
+                      width: '36px', height: '36px', borderRadius: '50%', flexShrink: 0,
+                      background: `linear-gradient(135deg, ${review.rating >= 4 ? '#10b981' : review.rating === 3 ? '#f59e0b' : '#ef4444'}, #6366f1)`,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      color: 'white', fontWeight: '700', fontSize: '0.9rem'
+                    }}>
+                      {review.user_name.charAt(0).toUpperCase()}
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontWeight: '600', color: '#111827', fontSize: '0.9rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {review.user_name}
+                      </div>
+                      <div style={{ display: 'flex', gap: '1px' }}>
+                        {[1,2,3,4,5].map(s => (
+                          <span key={s} style={{ fontSize: '0.8rem', color: s <= review.rating ? '#f59e0b' : '#e5e7eb' }}>★</span>
+                        ))}
+                      </div>
+                    </div>
+                    <span style={{ fontSize: '0.72rem', color: '#9ca3af', whiteSpace: 'nowrap' }}>
+                      {new Date(review.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                    </span>
+                  </div>
+                  {review.comment ? (
+                    <p style={{ margin: 0, color: '#374151', fontSize: '0.88rem', lineHeight: '1.5', fontStyle: 'italic' }}>
+                      "{review.comment}"
+                    </p>
+                  ) : (
+                    <p style={{ margin: 0, color: '#d1d5db', fontSize: '0.82rem', fontStyle: 'italic' }}>No comment</p>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            {/* See all / collapse toggle */}
+            {reviews.length > 6 && (
+              <div style={{ textAlign: 'center', marginTop: '1.5rem' }}>
+                <button
+                  onClick={() => setShowAllReviews(prev => !prev)}
+                  style={{
+                    padding: '0.75rem 2rem', borderRadius: '25px', border: 'none',
+                    background: 'linear-gradient(135deg, #ff6b6b, #ee5a24)',
+                    color: 'white', fontWeight: '600', fontSize: '0.95rem',
+                    cursor: 'pointer', transition: 'all 0.2s'
+                  }}
+                  onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 8px 20px rgba(255,107,107,0.35)'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = 'none'; }}
+                >
+                  {showAllReviews ? `Show less ↑` : `See all ${reviews.length} reviews ↓`}
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Auth Popup for Guest Users */}
       <AuthPopup 

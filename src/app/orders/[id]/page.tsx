@@ -46,6 +46,14 @@ export default function OrderTrackingPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [currentStep, setCurrentStep] = useState(0);
 
+  // Review state
+  const [review, setReview] = useState<{ rating: number; comment: string; created_at: string } | null>(null);
+  const [reviewRating, setReviewRating] = useState(0);
+  const [reviewHover, setReviewHover] = useState(0);
+  const [reviewComment, setReviewComment] = useState('');
+  const [isSubmittingReview, setIsSubmittingReview] = useState(false);
+  const [reviewToast, setReviewToast] = useState<string | null>(null);
+
   // WebSocket connection for real-time updates
   const { isConnected } = useWebSocket(
     `ws://localhost:8000/ws/orders/${orderId}`,
@@ -170,7 +178,47 @@ export default function OrderTrackingPage() {
     };
 
     fetchOrder();
+
+    // Fetch existing review for this order
+    const token = localStorage.getItem('token');
+    if (token) {
+      fetch(`http://localhost:8000/api/reviews/order/${orderId}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+        .then(r => r.ok ? r.json() : null)
+        .then(data => { if (data?.review) setReview(data.review); })
+        .catch(() => {});
+    }
   }, [orderId]);
+
+  // Submit review
+  const handleSubmitReview = async () => {
+    if (!reviewRating) return;
+    setIsSubmittingReview(true);
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch('http://localhost:8000/api/reviews', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ order_id: orderId, rating: reviewRating, comment: reviewComment.trim() || null })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setReview(data.review);
+        setReviewToast('Review submitted! Thank you 🎉');
+        setTimeout(() => setReviewToast(null), 4000);
+      } else {
+        const err = await res.json();
+        setReviewToast(err.detail || 'Failed to submit review');
+        setTimeout(() => setReviewToast(null), 4000);
+      }
+    } catch {
+      setReviewToast('Network error. Please try again.');
+      setTimeout(() => setReviewToast(null), 4000);
+    } finally {
+      setIsSubmittingReview(false);
+    }
+  };
 
   // Get restaurant info for an order
   const getRestaurantInfo = (order: Order) => {
@@ -1015,6 +1063,118 @@ export default function OrderTrackingPage() {
             </div>
           </div>
         </div>
+
+        {/* Review Section - only for delivered orders */}
+        {order.status === 'delivered' && (
+          <div style={{
+            background: 'rgba(255,255,255,0.95)', backdropFilter: 'blur(10px)',
+            borderRadius: '20px', padding: '2.5rem',
+            border: '1px solid rgba(255,255,255,0.3)',
+            boxShadow: '0 8px 32px rgba(0,0,0,0.1)', marginTop: '2rem'
+          }}>
+            {/* Toast */}
+            {reviewToast && (
+              <div style={{
+                position: 'fixed', top: '2rem', right: '2rem', zIndex: 9999,
+                background: reviewToast.includes('Thank') ? '#10b981' : '#ef4444',
+                color: 'white', borderRadius: '14px', padding: '1rem 1.5rem',
+                boxShadow: '0 10px 40px rgba(0,0,0,0.2)', fontWeight: '600', fontSize: '0.95rem'
+              }}>
+                {reviewToast}
+              </div>
+            )}
+
+            <h2 style={{
+              fontSize: '1.4rem', fontWeight: '700', color: '#333',
+              marginTop: 0, marginLeft: 0, marginRight: 0, marginBottom: '1.5rem',
+              display: 'flex', alignItems: 'center', gap: '0.75rem',
+              paddingBottom: '1rem', borderBottom: '2px solid #f1f5f9'
+            }}>
+              <span style={{ fontSize: '1.5rem' }}>⭐</span>
+              Rate Your Experience
+            </h2>
+
+            {review ? (
+              // Already reviewed
+              <div style={{
+                background: '#f0fdf4', borderRadius: '16px', padding: '1.5rem',
+                border: '1px solid #bbf7d0'
+              }}>
+                <p style={{ margin: '0 0 0.75rem', fontWeight: '700', color: '#166534', fontSize: '1rem' }}>
+                  ✅ Your Review
+                </p>
+                <div style={{ display: 'flex', gap: '4px', marginBottom: '0.75rem' }}>
+                  {[1,2,3,4,5].map(s => (
+                    <span key={s} style={{ fontSize: '1.5rem', color: s <= review.rating ? '#f59e0b' : '#d1d5db' }}>★</span>
+                  ))}
+                </div>
+                {review.comment && (
+                  <p style={{ margin: '0 0 0.5rem', color: '#374151', fontStyle: 'italic' }}>"{review.comment}"</p>
+                )}
+                <p style={{ margin: 0, fontSize: '0.8rem', color: '#9ca3af' }}>
+                  Submitted on {new Date(review.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
+                </p>
+              </div>
+            ) : (
+              // Review form
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+                {/* Stars */}
+                <div>
+                  <p style={{ margin: '0 0 0.75rem', fontWeight: '600', color: '#374151' }}>Your Rating</p>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    {[1,2,3,4,5].map(s => (
+                      <span
+                        key={s}
+                        onClick={() => setReviewRating(s)}
+                        onMouseEnter={() => setReviewHover(s)}
+                        onMouseLeave={() => setReviewHover(0)}
+                        style={{
+                          fontSize: '2.2rem', cursor: 'pointer', transition: 'transform 0.1s',
+                          color: s <= (reviewHover || reviewRating) ? '#f59e0b' : '#d1d5db',
+                          transform: s <= (reviewHover || reviewRating) ? 'scale(1.2)' : 'scale(1)'
+                        }}
+                      >★</span>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Comment */}
+                <div>
+                  <p style={{ margin: '0 0 0.5rem', fontWeight: '600', color: '#374151' }}>Comment (optional)</p>
+                  <textarea
+                    value={reviewComment}
+                    onChange={(e) => setReviewComment(e.target.value)}
+                    placeholder="How was your experience? Tell us about the food, delivery..."
+                    rows={3}
+                    style={{
+                      width: '100%', padding: '0.875rem 1rem', borderRadius: '12px',
+                      border: '2px solid #e5e7eb', fontSize: '0.95rem', outline: 'none',
+                      resize: 'vertical', fontFamily: 'inherit', boxSizing: 'border-box'
+                    }}
+                    onFocus={(e) => { e.currentTarget.style.borderColor = '#ff6b6b'; }}
+                    onBlur={(e) => { e.currentTarget.style.borderColor = '#e5e7eb'; }}
+                  />
+                </div>
+
+                <button
+                  onClick={handleSubmitReview}
+                  disabled={!reviewRating || isSubmittingReview}
+                  style={{
+                    padding: '0.875rem', borderRadius: '12px', border: 'none',
+                    background: !reviewRating || isSubmittingReview
+                      ? '#d1d5db'
+                      : 'linear-gradient(135deg, #ff6b6b, #ee5a24)',
+                    color: 'white', fontSize: '1rem', fontWeight: '600',
+                    cursor: !reviewRating || isSubmittingReview ? 'not-allowed' : 'pointer',
+                    transition: 'all 0.2s'
+                  }}
+                >
+                  {isSubmittingReview ? 'Submitting...' : 'Submit Review'}
+                </button>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

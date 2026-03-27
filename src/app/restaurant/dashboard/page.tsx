@@ -25,6 +25,7 @@ interface DashboardStats {
   todayRevenue: number;
   menuItems: number;
   avgRating: number;
+  reviewCount: number;
   pendingOrders?: number;
 }
 
@@ -38,6 +39,7 @@ export default function RestaurantDashboard() {
     todayRevenue: 0,
     menuItems: 0,
     avgRating: 0,
+    reviewCount: 0,
     pendingOrders: 0
   });
   const [isLoading, setIsLoading] = useState(true);
@@ -793,7 +795,7 @@ export default function RestaurantDashboard() {
                 {stats.avgRating} ⭐
               </h3>
               <p style={{ margin: 0, fontSize: '0.85rem', opacity: 0.8 }}>
-                📊 From 89 reviews
+                📊 {stats.reviewCount} review{stats.reviewCount !== 1 ? 's' : ''}
               </p>
             </div>
             <div style={{ 
@@ -951,6 +953,33 @@ export default function RestaurantDashboard() {
               </h4>
               <p style={{ margin: 0, color: '#666', fontSize: '0.85rem' }}>
                 View sales and performance
+              </p>
+            </button>
+
+            <button
+              onClick={() => router.push('/restaurant/reviews')}
+              style={{
+                padding: '1.5rem', borderRadius: '10px',
+                border: '2px solid #e0e0e0', background: 'white',
+                cursor: 'pointer', transition: 'all 0.2s ease', textAlign: 'left'
+              }}
+              onMouseOver={(e) => {
+                e.currentTarget.style.borderColor = '#f59e0b';
+                e.currentTarget.style.transform = 'translateY(-2px)';
+                e.currentTarget.style.boxShadow = '0 8px 25px rgba(245,158,11,0.15)';
+              }}
+              onMouseOut={(e) => {
+                e.currentTarget.style.borderColor = '#e0e0e0';
+                e.currentTarget.style.transform = 'translateY(0)';
+                e.currentTarget.style.boxShadow = 'none';
+              }}
+            >
+              <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>⭐</div>
+              <h4 style={{ margin: '0 0 0.25rem 0', color: '#333', fontSize: '1.1rem' }}>
+                Reviews
+              </h4>
+              <p style={{ margin: 0, color: '#666', fontSize: '0.85rem' }}>
+                {stats.reviewCount > 0 ? `${stats.reviewCount} customer review${stats.reviewCount !== 1 ? 's' : ''}` : 'No reviews yet'}
               </p>
             </button>
           </div>

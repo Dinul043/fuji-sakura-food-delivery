@@ -886,6 +886,37 @@ export default function OrdersPage() {
                     <span>🔄</span>
                     <span>Reorder</span>
                   </button>
+
+                  {order.status === 'delivered' && (
+                    <button
+                      onClick={() => router.push(`/orders/${order.id}`)}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.5rem',
+                        background: 'linear-gradient(135deg, #f59e0b, #d97706)',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '12px',
+                        padding: '0.75rem 1.5rem',
+                        fontSize: '0.9rem',
+                        fontWeight: '600',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s ease'
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.background = 'linear-gradient(135deg, #d97706, #b45309)';
+                        e.currentTarget.style.transform = 'translateY(-2px)';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.background = 'linear-gradient(135deg, #f59e0b, #d97706)';
+                        e.currentTarget.style.transform = 'translateY(0)';
+                      }}
+                    >
+                      <span>⭐</span>
+                      <span>Review</span>
+                    </button>
+                  )}
                 </div>
               </div>
             );
