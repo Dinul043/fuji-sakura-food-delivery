@@ -276,29 +276,16 @@ export default function RestaurantDashboard() {
         if (restaurantData?.id) {
           connectWebSocket(restaurantData.id);
         }
-      } else {
-        // Fallback to mock data if API fails
-        console.log('Failed to fetch stats, using fallback data');
-        setStats({
-          totalOrders: 0,
-          todayOrders: 0,
-          totalRevenue: 0,
-          todayRevenue: 0,
-          menuItems: 0,
-          avgRating: 4.3
-        });
+      } else if (response.status === 401) {
+        // Session expired - redirect to login
+        localStorage.removeItem('restaurantToken');
+        localStorage.removeItem('restaurantInfo');
+        router.push('/restaurant/login');
       }
+      // On other errors, keep existing stats (don't zero out)
     } catch (error) {
-      // Fallback to mock data on error
-      console.log('Error fetching stats, using fallback data');
-      setStats({
-        totalOrders: 0,
-        todayOrders: 0,
-        totalRevenue: 0,
-        todayRevenue: 0,
-        menuItems: 0,
-        avgRating: 4.3
-      });
+      // Network error - keep existing stats, will retry on next interval
+    }
     }
   };
 
