@@ -13,7 +13,7 @@ interface MenuItem {
   description: string;
   price: number;
   image_url?: string;
-  category: string;
+  category: string;       
   is_available: boolean;  // Add availability status
   isVeg?: boolean;
   rating?: number;
@@ -1057,8 +1057,8 @@ export default function RestaurantPage() {
               </div>
             </div>
 
-            {/* Reviews grid */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1rem' }}>
+            {/* Reviews list - one per row */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
               {(showAllReviews ? reviews : reviews.slice(0, 6)).map(review => (
                 <div key={review.id} style={{
                   background: '#fafafa', borderRadius: '14px', padding: '1.25rem',
