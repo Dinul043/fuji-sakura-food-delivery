@@ -114,7 +114,7 @@ export default function RestaurantLogin() {
           }
         } else if (response.status === 409) {
           // Session conflict - already logged in elsewhere
-          errorMessage = 'Account is already logged in on another device. Please logout from the other device first or wait for the session to expire (8 hours).';
+          errorMessage = 'Account is already active on another device. It will automatically expire after 5 minutes of inactivity, or ask the other user to logout.';
         } else if (error.detail) {
           errorMessage = error.detail;
         }
