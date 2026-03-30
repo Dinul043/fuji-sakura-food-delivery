@@ -93,7 +93,7 @@ export default function RestaurantProfile() {
 
     setIsUploadingImage(true);
     try {
-      const token = localStorage.getItem('restaurantToken');
+      const token = sessionStorage.getItem('restaurantToken');
       if (!token) {
         router.push('/restaurant/login');
         return;
@@ -139,7 +139,7 @@ export default function RestaurantProfile() {
 
   const fetchProfile = async () => {
     try {
-      const token = localStorage.getItem('restaurantToken');
+      const token = sessionStorage.getItem('restaurantToken');
       
       if (!token) {
         router.push('/restaurant/login');
@@ -180,7 +180,7 @@ export default function RestaurantProfile() {
   const handleSave = async () => {
     try {
       setIsSaving(true);
-      const token = localStorage.getItem('restaurantToken');
+      const token = sessionStorage.getItem('restaurantToken');
 
       const response = await fetch(`${API_BASE_URL}/api/restaurant/profile`, {
         method: 'PUT',
@@ -199,7 +199,7 @@ export default function RestaurantProfile() {
         
         // Update localStorage with new data
         const updatedProfile = { ...profile, ...result.profile };
-        localStorage.setItem('restaurantInfo', JSON.stringify(updatedProfile));
+        sessionStorage.setItem('restaurantInfo', JSON.stringify(updatedProfile));
       } else {
         const error = await response.json();
         showNotification('error', error.detail || 'Failed to update profile');

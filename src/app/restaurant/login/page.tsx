@@ -25,7 +25,7 @@ export default function RestaurantLogin() {
 
     // Clear any stale restaurant tokens when landing on login page
     // This prevents session conflicts when users navigate away without proper logout
-    const existingToken = localStorage.getItem('restaurantToken');
+    const existingToken = sessionStorage.getItem('restaurantToken');
     if (existingToken) {
       // Try to logout from backend (best effort)
       fetch(`${API_BASE_URL}/api/restaurant/logout`, {
@@ -39,8 +39,8 @@ export default function RestaurantLogin() {
       });
       
       // Clear local storage
-      localStorage.removeItem('restaurantToken');
-      localStorage.removeItem('restaurantInfo');
+      sessionStorage.removeItem('restaurantToken');
+      sessionStorage.removeItem('restaurantInfo');
       localStorage.removeItem('restaurantName');
       localStorage.removeItem('restaurantEmail');
       localStorage.removeItem('restaurantOwner');
@@ -88,8 +88,8 @@ export default function RestaurantLogin() {
         const data = await response.json();
         
         // Store restaurant info
-        localStorage.setItem('restaurantInfo', JSON.stringify(data.restaurant));
-        localStorage.setItem('restaurantToken', data.access_token);
+        sessionStorage.setItem('restaurantInfo', JSON.stringify(data.restaurant));
+        sessionStorage.setItem('restaurantToken', data.access_token);
         localStorage.setItem('restaurantName', data.restaurant.business_name);
         localStorage.setItem('restaurantEmail', data.restaurant.email);
         localStorage.setItem('restaurantOwner', data.restaurant.owner_name);
@@ -112,9 +112,6 @@ export default function RestaurantLogin() {
           } else {
             errorMessage = 'Account access denied. Please contact support.';
           }
-        } else if (response.status === 409) {
-          // Session conflict - already logged in elsewhere
-          errorMessage = 'Account is already active on another device. It will automatically expire after 5 minutes of inactivity, or ask the other user to logout.';
         } else if (error.detail) {
           errorMessage = error.detail;
         }

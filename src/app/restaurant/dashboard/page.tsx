@@ -44,10 +44,7 @@ export default function RestaurantDashboard() {
   });
   const [isLoading, setIsLoading] = useState(true);
   const [isOnline, setIsOnline] = useState(true);
-  const [showExitConfirm, setShowExitConfirm] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
-  const [pendingNavigation, setPendingNavigation] = useState<string | null>(null);
-  const [sessionValid, setSessionValid] = useState(true);
   const [statusNotification, setStatusNotification] = useState<{show: boolean; message: string; type: 'success' | 'error'}>({
     show: false,
     message: '',
@@ -59,122 +56,15 @@ export default function RestaurantDashboard() {
 
   useEffect(() => {
     checkAuthAndLoadData();
-    
-    // Set up session validation heartbeat every 30 seconds
-    const heartbeatInterval = setInterval(validateSession, 30000);
-    
     return () => {
-      clearInterval(heartbeatInterval);
-      // Close WebSocket on unmount
-      if (wsRef.current) {
-        wsRef.current.close();
-      }
-    };
-  }, []);
-
-  // Handle browser close/navigation away - ask user if they want to logout
-  useEffect(() => {
-    let isNavigatingAway = false;
-
-    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      // Show browser's default confirmation dialog
-      e.preventDefault();
-      e.returnValue = 'Are you sure you want to leave? You will remain logged in unless you logout properly.';
-      isNavigatingAway = true;
-      return e.returnValue;
-    };
-
-    const handleUnload = async () => {
-      // Try to logout when user actually leaves (best effort)
-      if (isNavigatingAway) {
-        const token = localStorage.getItem('restaurantToken');
-        if (token) {
-          // Use sendBeacon for reliable logout on page unload
-          try {
-            const logoutData = JSON.stringify({});
-            const blob = new Blob([logoutData], { type: 'application/json' });
-            
-            // Try sendBeacon first
-            if (navigator.sendBeacon) {
-              navigator.sendBeacon(`${API_BASE_URL}/api/restaurant/logout`, blob);
-            } else {
-              // Fallback for browsers that don't support sendBeacon
-              fetch(`${API_BASE_URL}/api/restaurant/logout`, {
-                method: 'POST',
-                headers: {
-                  'Authorization': `Bearer ${token}`,
-                  'Content-Type': 'application/json'
-                },
-                body: logoutData,
-                keepalive: true
-              }).catch(() => {
-                // Ignore errors during unload
-              });
-            }
-          } catch (error) {
-            // Silently ignore errors during unload
-          }
-        }
-      }
-    };
-
-    const handleVisibilityChange = () => {
-      // When page becomes hidden (user switches tabs, minimizes, etc.)
-      if (document.hidden) {
-        // Page is now hidden - user might be leaving
-      } else {
-        // Page is now visible - validate session
-        validateSession();
-      }
-    };
-
-    // Custom navigation handler for internal links
-    const handleNavigation = (e: PopStateEvent) => {
-      // This handles browser back/forward buttons
-      const currentPath = window.location.pathname;
-      if (currentPath !== '/restaurant/dashboard') {
-        // User is navigating away from dashboard
-        setShowExitConfirm(true);
-        setPendingNavigation(currentPath);
-        // Prevent navigation temporarily
-        window.history.pushState(null, '', '/restaurant/dashboard');
-      }
-    };
-
-    // Override link clicks to show confirmation
-    const handleLinkClick = (e: MouseEvent) => {
-      const target = e.target as HTMLElement;
-      const link = target.closest('a');
-      
-      if (link && link.href && !link.href.includes('/restaurant/dashboard')) {
-        // User clicked a link that goes away from dashboard
-        e.preventDefault();
-        setShowExitConfirm(true);
-        setPendingNavigation(link.href);
-      }
-    };
-
-    // Add event listeners
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    window.addEventListener('unload', handleUnload);
-    window.addEventListener('popstate', handleNavigation);
-    window.addEventListener('visibilitychange', handleVisibilityChange);
-    document.addEventListener('click', handleLinkClick);
-
-    // Cleanup
-    return () => {
-      window.removeEventListener('beforeunload', handleBeforeUnload);
-      window.removeEventListener('unload', handleUnload);
-      window.removeEventListener('popstate', handleNavigation);
-      window.removeEventListener('visibilitychange', handleVisibilityChange);
-      document.removeEventListener('click', handleLinkClick);
+      if (wsRef.current) wsRef.current.close();
     };
   }, []);
 
   const checkAuthAndLoadData = async () => {
     try {
       // Check if restaurant is logged in
-      const token = localStorage.getItem('restaurantToken');
+      const token = sessionStorage.getItem('restaurantToken');
       
       if (!token) {
         router.push('/restaurant/login');
@@ -193,20 +83,19 @@ export default function RestaurantDashboard() {
       if (response.ok) {
         const profileData = await response.json();
         setRestaurantData(profileData);
-        setSessionValid(true);
-        
+
         // Set initial online status from profile data
         if (profileData.is_online !== undefined) {
           setIsOnline(profileData.is_online);
         }
         
         // Update localStorage with fresh data
-        localStorage.setItem('restaurantInfo', JSON.stringify(profileData));
+        sessionStorage.setItem('restaurantInfo', JSON.stringify(profileData));
       } else {
         // If profile fetch fails, redirect to login
         // Silent fallback - no console errors
-        localStorage.removeItem('restaurantToken');
-        localStorage.removeItem('restaurantInfo');
+        sessionStorage.removeItem('restaurantToken');
+        sessionStorage.removeItem('restaurantInfo');
         router.push('/restaurant/login');
         return;
       }
@@ -216,50 +105,17 @@ export default function RestaurantDashboard() {
       
     } catch (error) {
       // Silent fallback - no console errors
-      localStorage.removeItem('restaurantToken');
-      localStorage.removeItem('restaurantInfo');
+      sessionStorage.removeItem('restaurantToken');
+      sessionStorage.removeItem('restaurantInfo');
       router.push('/restaurant/login');
     } finally {
       setIsLoading(false);
     }
   };
 
-  const validateSession = async () => {
-    try {
-      const token = localStorage.getItem('restaurantToken');
-      
-      if (!token) {
-        setSessionValid(false);
-        router.push('/restaurant/login');
-        return;
-      }
-
-      // Call a lightweight endpoint to validate session
-      const response = await fetch(`${API_BASE_URL}/api/restaurant/profile`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      if (!response.ok) {
-        setSessionValid(false);
-        localStorage.removeItem('restaurantToken');
-        localStorage.removeItem('restaurantInfo');
-        router.push('/restaurant/login');
-      } else {
-        setSessionValid(true);
-      }
-    } catch (error) {
-      // Silent fallback - no console errors
-      // Don't redirect on network errors, just log
-    }
-  };
-
   const loadDashboardStats = async () => {
     try {
-      const token = localStorage.getItem('restaurantToken');
+      const token = sessionStorage.getItem('restaurantToken');
       if (!token) return;
 
       const response = await fetch(`${API_BASE_URL}/api/restaurant/stats`, {
@@ -280,8 +136,8 @@ export default function RestaurantDashboard() {
         }
       } else if (response.status === 401) {
         // Session expired - redirect to login
-        localStorage.removeItem('restaurantToken');
-        localStorage.removeItem('restaurantInfo');
+        sessionStorage.removeItem('restaurantToken');
+        sessionStorage.removeItem('restaurantInfo');
         router.push('/restaurant/login');
       }
       // On other errors, keep existing stats (don't zero out)
@@ -398,7 +254,7 @@ export default function RestaurantDashboard() {
 
   const confirmLogout = async () => {
     try {
-      const token = localStorage.getItem('restaurantToken');
+      const token = sessionStorage.getItem('restaurantToken');
       
       if (token) {
         // Call backend logout API to clear session
@@ -415,8 +271,8 @@ export default function RestaurantDashboard() {
       // Continue with logout even if API call fails
     } finally {
       // Always clear local storage and redirect
-      localStorage.removeItem('restaurantToken');
-      localStorage.removeItem('restaurantInfo');
+      sessionStorage.removeItem('restaurantToken');
+      sessionStorage.removeItem('restaurantInfo');
       setShowLogoutConfirm(false);
       router.push('/restaurant/login');
     }
@@ -426,28 +282,9 @@ export default function RestaurantDashboard() {
     setShowLogoutConfirm(false);
   };
 
-  const handleExitConfirm = (shouldLogout: boolean) => {
-    if (shouldLogout) {
-      // Logout and then navigate
-      confirmLogout();
-    } else {
-      // Just navigate without logout
-      if (pendingNavigation) {
-        window.location.href = pendingNavigation;
-      }
-    }
-    setShowExitConfirm(false);
-    setPendingNavigation(null);
-  };
-
-  const cancelExit = () => {
-    setShowExitConfirm(false);
-    setPendingNavigation(null);
-  };
-
   const toggleOnlineStatus = async () => {
     try {
-      const token = localStorage.getItem('restaurantToken');
+      const token = sessionStorage.getItem('restaurantToken');
       if (!token) {
         router.push('/restaurant/login');
         return;
@@ -1225,143 +1062,6 @@ export default function RestaurantDashboard() {
                 }}
               >
                 Yes, Logout
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Exit Confirmation Modal */}
-      {showExitConfirm && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          background: 'rgba(0, 0, 0, 0.5)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 1000
-        }}>
-          <div style={{
-            background: 'white',
-            borderRadius: '16px',
-            padding: '2rem',
-            maxWidth: '450px',
-            width: '90%',
-            boxShadow: '0 25px 50px rgba(0, 0, 0, 0.25)',
-            textAlign: 'center'
-          }}>
-            <div style={{
-              width: '60px',
-              height: '60px',
-              background: 'linear-gradient(135deg, #f093fb, #f5576c)',
-              borderRadius: '50%',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              margin: '0 auto 1.5rem auto',
-              fontSize: '1.5rem'
-            }}>
-              ⚠️
-            </div>
-            
-            <h3 style={{
-              margin: '0 0 1rem 0',
-              fontSize: '1.5rem',
-              fontWeight: '600',
-              color: '#333'
-            }}>
-              You're Leaving the Dashboard
-            </h3>
-            
-            <p style={{
-              margin: '0 0 2rem 0',
-              color: '#666',
-              fontSize: '1rem',
-              lineHeight: '1.5'
-            }}>
-              You're about to leave the restaurant dashboard. Would you like to logout to secure your account, or stay logged in?
-            </p>
-            
-            <div style={{
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '1rem'
-            }}>
-              <button
-                onClick={() => handleExitConfirm(true)}
-                style={{
-                  padding: '0.75rem 1.5rem',
-                  borderRadius: '12px',
-                  border: 'none',
-                  background: 'linear-gradient(135deg, #FF5722, #FF7043)',
-                  color: 'white',
-                  fontSize: '1rem',
-                  fontWeight: '500',
-                  cursor: 'pointer',
-                  transition: 'all 0.2s ease',
-                  boxShadow: '0 4px 15px rgba(255, 87, 34, 0.3)'
-                }}
-                onMouseOver={(e) => {
-                  e.currentTarget.style.transform = 'translateY(-2px)';
-                  e.currentTarget.style.boxShadow = '0 8px 25px rgba(255, 87, 34, 0.4)';
-                }}
-                onMouseOut={(e) => {
-                  e.currentTarget.style.transform = 'translateY(0)';
-                  e.currentTarget.style.boxShadow = '0 4px 15px rgba(255, 87, 34, 0.3)';
-                }}
-              >
-                🔒 Logout & Leave (Recommended)
-              </button>
-              
-              <button
-                onClick={() => handleExitConfirm(false)}
-                style={{
-                  padding: '0.75rem 1.5rem',
-                  borderRadius: '12px',
-                  border: '2px solid #e0e0e0',
-                  background: 'white',
-                  color: '#666',
-                  fontSize: '1rem',
-                  fontWeight: '500',
-                  cursor: 'pointer',
-                  transition: 'all 0.2s ease'
-                }}
-                onMouseOver={(e) => {
-                  e.currentTarget.style.borderColor = '#ccc';
-                  e.currentTarget.style.background = '#f5f5f5';
-                }}
-                onMouseOut={(e) => {
-                  e.currentTarget.style.borderColor = '#e0e0e0';
-                  e.currentTarget.style.background = 'white';
-                }}
-              >
-                Stay Logged In & Leave
-              </button>
-              
-              <button
-                onClick={cancelExit}
-                style={{
-                  padding: '0.5rem 1rem',
-                  borderRadius: '8px',
-                  border: 'none',
-                  background: 'transparent',
-                  color: '#999',
-                  fontSize: '0.9rem',
-                  cursor: 'pointer',
-                  transition: 'all 0.2s ease'
-                }}
-                onMouseOver={(e) => {
-                  e.currentTarget.style.color = '#666';
-                }}
-                onMouseOut={(e) => {
-                  e.currentTarget.style.color = '#999';
-                }}
-              >
-                Cancel
               </button>
             </div>
           </div>
