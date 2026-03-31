@@ -11,8 +11,8 @@ interface OrderItem {
 }
 
 interface Order {
-  id: number;  // Database ID
-  order_id: number;  // Same as id, for convenience
+  id: number;
+  order_id: number;
   order_number: string;
   customer_name: string;
   customer_email: string;
@@ -24,6 +24,7 @@ interface Order {
   items: OrderItem[];
   created_at: string;
   status: string;
+  special_instructions?: string;
 }
 
 interface ToastNotification {
@@ -49,17 +50,23 @@ export default function RestaurantOrders() {
   const router = useRouter();
 
   useEffect(() => {
-    const storedRestaurantId = localStorage.getItem('restaurantId');
-    if (!storedRestaurantId) {
-      const defaultRestaurantId = 7;
-      localStorage.setItem('restaurantId', defaultRestaurantId.toString());
-      setRestaurantId(defaultRestaurantId);
-      fetchOrders(defaultRestaurantId);
-      return;
+    // Get restaurant ID from sessionStorage (restaurantInfo set during login)
+    const token = sessionStorage.getItem('restaurantToken');
+    if (!token) { router.push('/restaurant/login'); return; }
+
+    const info = sessionStorage.getItem('restaurantInfo');
+    if (info) {
+      try {
+        const parsed = JSON.parse(info);
+        const id = parsed.id;
+        setRestaurantId(id);
+        fetchOrders(id);
+      } catch {
+        router.push('/restaurant/login');
+      }
+    } else {
+      router.push('/restaurant/login');
     }
-    
-    setRestaurantId(parseInt(storedRestaurantId));
-    fetchOrders(parseInt(storedRestaurantId));
   }, []);
 
   const showToast = (type: 'success' | 'error' | 'info', message: string, details?: string) => {
@@ -584,6 +591,23 @@ export default function RestaurantOrders() {
                     }}>
                       {formatDate(order.created_at)}
                     </p>
+                    {order.special_instructions && (
+                      <div style={{
+                        marginTop: '0.75rem',
+                        padding: '0.6rem 0.875rem',
+                        background: '#fffbeb',
+                        borderRadius: '10px',
+                        border: '1px solid #fde68a',
+                        display: 'flex',
+                        alignItems: 'flex-start',
+                        gap: '0.4rem'
+                      }}>
+                        <span style={{ fontSize: '0.9rem', flexShrink: 0 }}>📝</span>
+                        <span style={{ fontSize: '0.82rem', color: '#92400e', fontStyle: 'italic', lineHeight: '1.4' }}>
+                          {order.special_instructions}
+                        </span>
+                      </div>
+                    )}
                   </div>
                   
                   <div style={{
