@@ -73,15 +73,15 @@ export default function HomePage() {
     try {
       setLoading(true);
       setError(null);
-      
+
       const response = await fetch(`${API_BASE_URL}/api/restaurant/public/restaurants`, {
         signal: AbortSignal.timeout(5000) // 5 second timeout
       });
-      
+
       if (!response.ok) {
         throw new Error('Backend not available');
       }
-      
+
       const data = await response.json();
       setRestaurants(data.restaurants || []);
       setFilteredRestaurants(data.restaurants || []);
@@ -101,11 +101,11 @@ export default function HomePage() {
       const response = await fetch(`${API_BASE_URL}/api/restaurant/public/categories`, {
         signal: AbortSignal.timeout(5000) // 5 second timeout
       });
-      
+
       if (!response.ok) {
         throw new Error('Backend not available');
       }
-      
+
       const data = await response.json();
       setCategories(data.categories || []);
     } catch (err) {
@@ -133,9 +133,9 @@ export default function HomePage() {
           if (profile?.address) setUserAddress(profile.address);
           if (profile?.profile_image) setUserProfileImage(profile.profile_image);
         })
-        .catch(() => {});
+        .catch(() => { });
     }
-    
+
     // Fetch data from backend
     fetchRestaurants();
     fetchCategories();
@@ -150,19 +150,19 @@ export default function HomePage() {
     // Create WebSocket connection for each restaurant
     restaurants.forEach((restaurant) => {
       const ws = new WebSocket(`ws://localhost:8000/ws/restaurant/${restaurant.id}`);
-      
+
       ws.onmessage = (event) => {
         try {
           const data = JSON.parse(event.data);
           if (data.type === 'restaurant_status_update') {
             // Update restaurant status in state
-            setRestaurants(prev => prev.map(r => 
-              r.id === data.restaurant_id 
+            setRestaurants(prev => prev.map(r =>
+              r.id === data.restaurant_id
                 ? { ...r, is_online: data.is_online }
                 : r
             ));
-            setFilteredRestaurants(prev => prev.map(r => 
-              r.id === data.restaurant_id 
+            setFilteredRestaurants(prev => prev.map(r =>
+              r.id === data.restaurant_id
                 ? { ...r, is_online: data.is_online }
                 : r
             ));
@@ -198,7 +198,7 @@ export default function HomePage() {
 
     // Then filter by category (only if no search query)
     if (selectedCategory && !searchQuery.trim()) {
-      filtered = filtered.filter(restaurant => 
+      filtered = filtered.filter(restaurant =>
         restaurant.cuisine.toLowerCase().replace(' ', '_') === selectedCategory ||
         restaurant.category === selectedCategory
       );
@@ -239,14 +239,14 @@ export default function HomePage() {
     localStorage.removeItem('token');
     localStorage.removeItem('isGuest');
     localStorage.removeItem('rememberMe');
-    
+
     // Redirect to login
     router.push('/login');
   };
 
   const handleCategoryClick = (categoryId: string) => {
     setSelectedCategory(categoryId === selectedCategory ? '' : categoryId);
-    
+
     // Fast, smooth scroll to restaurants section
     setTimeout(() => {
       if (restaurantsRef.current) {
@@ -266,12 +266,12 @@ export default function HomePage() {
           if (start === null) start = currentTime;
           const timeElapsed = currentTime - start;
           const progress = Math.min(timeElapsed / duration, 1);
-          
+
           const easedProgress = easeOutCubic(progress);
           const currentPosition = startPosition + (distance * easedProgress);
-          
+
           window.scrollTo(0, currentPosition);
-          
+
           if (progress < 1) {
             requestAnimationFrame(animation);
           }
@@ -322,15 +322,15 @@ export default function HomePage() {
   const handleSuggestionClick = (suggestion: string) => {
     // Immediately hide suggestions to prevent multiple clicks
     setShowSuggestions(false);
-    
+
     // Update search query
     setSearchQuery(suggestion);
-    
+
     // Clear any existing timeout
     if (searchTimeout) {
       clearTimeout(searchTimeout);
     }
-    
+
     // Force scroll after state updates with longer delay
     setTimeout(() => {
       scrollToRestaurants();
@@ -346,7 +346,7 @@ export default function HomePage() {
       setSortBy(sortType);
       setSortOrder('high');
     }
-    
+
     // Force scroll after state update
     setTimeout(() => {
       scrollToRestaurants();
@@ -372,12 +372,12 @@ export default function HomePage() {
         if (start === null) start = currentTime;
         const timeElapsed = currentTime - start;
         const progress = Math.min(timeElapsed / duration, 1);
-        
+
         const easedProgress = easeOutCubic(progress);
         const currentPosition = startPosition + (distance * easedProgress);
-        
+
         window.scrollTo(0, currentPosition);
-        
+
         if (progress < 1) {
           requestAnimationFrame(animation);
         }
@@ -395,7 +395,7 @@ export default function HomePage() {
   const getCategoryImage = (categoryId: string): string => {
     const imageMap: { [key: string]: string } = {
       'italian': '/images/auth/category-italian.png',
-      'japanese': '/images/auth/category-japanese.png', 
+      'japanese': '/images/auth/category-japanese.png',
       'indian': '/images/auth/category-indian.png',
       'chinese': '/images/auth/Rectangle 1684 .png',
       'american': '/images/auth/Rectangle 1681 .png',
@@ -407,7 +407,7 @@ export default function HomePage() {
       'beverages': '/images/auth/Rectangle 1683 .png',
       'vegetarian': '/images/auth/Rectangle 1684 .png'
     };
-    
+
     return imageMap[categoryId] || '/images/auth/category-all.png';
   };
 
@@ -442,8 +442,10 @@ export default function HomePage() {
         WebkitBackdropFilter: 'blur(20px)',
         borderBottom: '1px solid rgba(255, 255, 255, 0.15)',
         borderRadius: '0 0 24px 24px',
-        margin: '0 1rem',
-        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)'
+        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)',
+        width: '100%',
+        maxWidth: '1600px',
+        margin: '0 auto'
       }}>
         {/* Logo & Location */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '2rem' }}>
@@ -456,12 +458,12 @@ export default function HomePage() {
             cursor: 'pointer',
             transition: 'transform 0.2s ease'
           }}
-          onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
-          onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
+            onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
+            onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
           >
             🌸 Fuji Sakura
           </h1>
-          
+
           <div
             onClick={() => !userAddress && router.push('/profile')}
             style={{
@@ -471,7 +473,7 @@ export default function HomePage() {
               background: userAddress ? 'rgba(255, 255, 255, 0.15)' : 'rgba(255, 255, 255, 0.08)',
               backdropFilter: 'blur(10px)',
               borderRadius: '20px',
-              padding: '0.5rem 1rem',
+              padding: '10px',
               border: userAddress
                 ? '1px solid rgba(255, 255, 255, 0.2)'
                 : '1px dashed rgba(255, 255, 255, 0.4)',
@@ -485,36 +487,45 @@ export default function HomePage() {
               if (!userAddress) e.currentTarget.style.background = 'rgba(255,255,255,0.08)';
             }}
           >
-            <Icon name="delivery/location" size={18} style={{ filter: 'brightness(0) invert(1)', flexShrink: 0 }} />
-            {userAddress ? (
-              <>
-                <span style={{ color: 'rgba(255,255,255,0.75)', fontSize: '0.8rem', fontWeight: '400' }}>Delivering to</span>
-                <span
-                  style={{
-                    color: 'white', fontSize: '0.9rem', fontWeight: '700',
-                    maxWidth: '150px', overflow: 'hidden', textOverflow: 'ellipsis',
-                    whiteSpace: 'nowrap'
-                  }}
-                  title={userAddress}
-                >
-                  {userAddress}
-                </span>
-              </>
-            ) : (
-              <>
-                <span style={{ color: 'rgba(255,255,255,0.6)', fontSize: '0.85rem', fontWeight: '400', fontStyle: 'italic' }}>
-                  No address added
-                </span>
-                <span style={{
-                  background: 'rgba(255,255,255,0.2)',
-                  color: 'white', fontSize: '0.7rem', fontWeight: '700',
-                  padding: '0.15rem 0.5rem', borderRadius: '10px',
-                  letterSpacing: '0.03em'
-                }}>
-                  + Add
-                </span>
-              </>
-            )}
+            <div style={{
+              display: 'flex',
+              justifyContent: 'center',
+              alignItems: 'center',
+              marginTop: '1px',
+              gap: '10px'
+
+            }}>
+              <Icon name="delivery/location" size={18} style={{ filter: 'brightness(0) invert(1)', flexShrink: 0 }} />
+              {userAddress ? (
+                <>
+                  <span style={{ color: 'rgba(255,255,255,0.75)', fontSize: '0.8rem', fontWeight: '400' }}>Delivering to</span>
+                  <span
+                    style={{
+                      color: 'white', fontSize: '0.9rem', fontWeight: '700',
+                      maxWidth: '150px', overflow: 'hidden', textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap'
+                    }}
+                    title={userAddress}
+                  >
+                    {userAddress}
+                  </span>
+                </>
+              ) : (
+                <>
+                  <span style={{ color: 'rgba(255,255,255,0.6)', fontSize: '0.85rem', fontWeight: '400', fontStyle: 'italic' }}>
+                    No address added
+                  </span>
+                  <span style={{
+                    background: 'rgba(255,255,255,0.2)',
+                    color: 'white', fontSize: '0.7rem', fontWeight: '700',
+                    padding: '0.15rem 0.5rem', borderRadius: '10px',
+                    letterSpacing: '0.03em'
+                  }}>
+                    + Add
+                  </span>
+                </>
+              )}
+            </div>
           </div>
         </div>
 
@@ -722,7 +733,7 @@ export default function HomePage() {
               }}>
                 Sort By
               </div>
-              
+
               {[
                 { id: 'rating', label: 'Rating', icon: '/icons/status/star.svg', desc: 'High to Low' },
                 { id: 'distance', label: 'Distance', icon: '/icons/delivery/location.svg', desc: 'Nearest First' },
@@ -833,28 +844,28 @@ export default function HomePage() {
 
         {/* Cart & Profile */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <button 
-          onClick={() => router.push('/cart')}
-          style={{
-            position: 'relative',
-             marginLeft: '5px',
-            padding: '0.75rem',
-            background: 'rgba(255, 255, 255, 0.15)',
-            backdropFilter: 'blur(10px)',
-            border: '1px solid rgba(255, 255, 255, 0.2)',
-            borderRadius: '50%',
-            color: 'white',
-            cursor: 'pointer',
-            transition: 'all 0.2s ease'
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.background = 'rgba(255, 255, 255, 0.25)';
-            e.currentTarget.style.transform = 'scale(1.05)';
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.background = 'rgba(255, 255, 255, 0.15)';
-            e.currentTarget.style.transform = 'scale(1)';
-          }}
+          <button
+            onClick={() => router.push('/cart')}
+            style={{
+              position: 'relative',
+              marginLeft: '5px',
+              padding: '0.75rem',
+              background: 'rgba(255, 255, 255, 0.15)',
+              backdropFilter: 'blur(10px)',
+              border: '1px solid rgba(255, 255, 255, 0.2)',
+              borderRadius: '50%',
+              color: 'white',
+              cursor: 'pointer',
+              transition: 'all 0.2s ease'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = 'rgba(255, 255, 255, 0.25)';
+              e.currentTarget.style.transform = 'scale(1.05)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = 'rgba(255, 255, 255, 0.15)';
+              e.currentTarget.style.transform = 'scale(1)';
+            }}
           >
             <Image src="/icons/navigation/cart.svg" alt="Cart" width={24} height={24} />
             {getTotalItems() > 0 && (
@@ -876,7 +887,7 @@ export default function HomePage() {
               }}>{getTotalItems()}</span>
             )}
           </button>
-          
+
           <div style={{
             display: 'flex',
             alignItems: 'center',
@@ -891,10 +902,10 @@ export default function HomePage() {
               <div style={{ fontWeight: '500' }}>Hi, {userName}!</div>
               <div style={{ fontSize: '0.75rem', opacity: 0.8 }}>Welcome back</div>
             </div>
-            
+
             {/* Orders Button */}
             <button
-              onClick={() => router.push('/orders')}              style={{
+              onClick={() => router.push('/orders')} style={{
                 padding: '0.5rem 1rem',
                 background: 'rgba(255, 255, 255, 0.2)',
                 border: '1px solid rgba(255, 255, 255, 0.3)',
@@ -926,7 +937,7 @@ export default function HomePage() {
               <Image src="/icons/navigation/orders.svg" alt="Orders" width={20} height={20} />
               <span>Orders</span>
             </button>
-            
+
             {/* Profile Button */}
             <button
               onClick={() => router.push('/profile')}
@@ -1059,8 +1070,8 @@ export default function HomePage() {
             <button
               onClick={() => handleCategoryClick('')}
               style={{
-                background: selectedCategory === '' 
-                  ? 'linear-gradient(135deg, #ff6b6b, #ee5a24)' 
+                background: selectedCategory === ''
+                  ? 'linear-gradient(135deg, #ff6b6b, #ee5a24)'
                   : 'rgba(255, 255, 255, 0.9)',
                 backdropFilter: 'blur(10px)',
                 border: '1px solid rgba(255, 255, 255, 0.3)',
@@ -1069,8 +1080,8 @@ export default function HomePage() {
                 cursor: 'pointer',
                 transition: 'all 0.3s ease',
                 transform: selectedCategory === '' ? 'scale(1.05)' : 'scale(1)',
-                boxShadow: selectedCategory === '' 
-                  ? '0 12px 35px rgba(255, 107, 107, 0.4)' 
+                boxShadow: selectedCategory === ''
+                  ? '0 12px 35px rgba(255, 107, 107, 0.4)'
                   : '0 8px 25px rgba(0, 0, 0, 0.1)',
                 position: 'relative',
                 overflow: 'hidden'
@@ -1109,12 +1120,12 @@ export default function HomePage() {
                 left: 0,
                 right: 0,
                 bottom: 0,
-                background: selectedCategory === '' 
-                  ? 'radial-gradient(circle at 30% 20%, rgba(255, 255, 255, 0.2) 0%, transparent 50%)' 
+                background: selectedCategory === ''
+                  ? 'radial-gradient(circle at 30% 20%, rgba(255, 255, 255, 0.2) 0%, transparent 50%)'
                   : 'radial-gradient(circle at 30% 20%, rgba(255, 107, 107, 0.1) 0%, transparent 50%)',
                 pointerEvents: 'none'
               }}></div>
-              
+
               <div style={{
                 textAlign: 'center',
                 position: 'relative',
@@ -1128,8 +1139,8 @@ export default function HomePage() {
                   alignItems: 'center',
                   justifyContent: 'center',
                   margin: '0 auto 1rem auto',
-                  background: selectedCategory === '' 
-                    ? 'rgba(255, 255, 255, 0.2)' 
+                  background: selectedCategory === ''
+                    ? 'rgba(255, 255, 255, 0.2)'
                     : 'linear-gradient(135deg, #ff6b6b, #ee5a24)',
                   borderRadius: '20px',
                   boxShadow: '0 8px 20px rgba(0, 0, 0, 0.1)',
@@ -1137,7 +1148,7 @@ export default function HomePage() {
                   position: 'relative',
                   overflow: 'hidden'
                 }}>
-                  <Image 
+                  <Image
                     src="/images/auth/category-all.png"
                     alt="All Categories"
                     width={60}
@@ -1170,8 +1181,8 @@ export default function HomePage() {
                 key={category.id}
                 onClick={() => handleCategoryClick(category.id)}
                 style={{
-                  background: selectedCategory === category.id 
-                    ? 'linear-gradient(135deg, #ff6b6b, #ee5a24)' 
+                  background: selectedCategory === category.id
+                    ? 'linear-gradient(135deg, #ff6b6b, #ee5a24)'
                     : 'rgba(255, 255, 255, 0.9)',
                   backdropFilter: 'blur(10px)',
                   border: '1px solid rgba(255, 255, 255, 0.3)',
@@ -1180,8 +1191,8 @@ export default function HomePage() {
                   cursor: 'pointer',
                   transition: 'all 0.3s ease',
                   transform: selectedCategory === category.id ? 'scale(1.05)' : 'scale(1)',
-                  boxShadow: selectedCategory === category.id 
-                    ? '0 12px 35px rgba(255, 107, 107, 0.4)' 
+                  boxShadow: selectedCategory === category.id
+                    ? '0 12px 35px rgba(255, 107, 107, 0.4)'
                     : '0 8px 25px rgba(0, 0, 0, 0.1)',
                   position: 'relative',
                   overflow: 'hidden'
@@ -1220,12 +1231,12 @@ export default function HomePage() {
                   left: 0,
                   right: 0,
                   bottom: 0,
-                  background: selectedCategory === category.id 
-                    ? 'radial-gradient(circle at 30% 20%, rgba(255, 255, 255, 0.2) 0%, transparent 50%)' 
+                  background: selectedCategory === category.id
+                    ? 'radial-gradient(circle at 30% 20%, rgba(255, 255, 255, 0.2) 0%, transparent 50%)'
                     : 'radial-gradient(circle at 30% 20%, rgba(255, 107, 107, 0.1) 0%, transparent 50%)',
                   pointerEvents: 'none'
                 }}></div>
-                
+
                 <div style={{
                   textAlign: 'center',
                   position: 'relative',
@@ -1239,8 +1250,8 @@ export default function HomePage() {
                     alignItems: 'center',
                     justifyContent: 'center',
                     margin: '0 auto 1rem auto',
-                    background: selectedCategory === category.id 
-                      ? 'rgba(255, 255, 255, 0.2)' 
+                    background: selectedCategory === category.id
+                      ? 'rgba(255, 255, 255, 0.2)'
                       : 'linear-gradient(135deg, #ff6b6b, #ee5a24)',
                     borderRadius: '20px',
                     boxShadow: '0 8px 20px rgba(0, 0, 0, 0.1)',
@@ -1248,7 +1259,7 @@ export default function HomePage() {
                     position: 'relative',
                     overflow: 'hidden'
                   }}>
-                    <Image 
+                    <Image
                       src={getCategoryImage(category.id)}
                       alt={category.name}
                       width={60}
@@ -1314,7 +1325,7 @@ export default function HomePage() {
       </section>
 
       {/* SECTION 4: RESTAURANT CARDS GRID */}
-      <section 
+      <section
         ref={restaurantsRef}
         style={{
           paddingTop: '2rem',
@@ -1530,8 +1541,8 @@ export default function HomePage() {
           {/* Restaurant Cards */}
           {!loading && !error && filteredRestaurants.length > 0 && (
             <div style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(3, 1fr)',
+              display: 'flex',
+             justifyContent:'center',
               gap: '1.5rem'
             }}>
               {filteredRestaurants.map((restaurant, index) => (
@@ -1549,11 +1560,12 @@ export default function HomePage() {
                     transition: 'all 0.3s ease',
                     transform: (hoveredCard === restaurant.id && restaurant.is_online) ? 'translateY(-8px) scale(1.02)' : 'translateY(0) scale(1)',
                     boxShadow: (hoveredCard === restaurant.id && restaurant.is_online)
-                      ? '0 20px 40px rgba(0, 0, 0, 0.15)' 
+                      ? '0 20px 40px rgba(0, 0, 0, 0.15)'
                       : '0 8px 25px rgba(0, 0, 0, 0.1)',
                     border: '1px solid rgba(255, 255, 255, 0.3)',
                     opacity: restaurant.is_online ? 1 : 0.7,
-                    position: 'relative'
+                    position: 'relative',
+                    width:'361.01px',
                   }}
                 >
                   {/* Restaurant Image with Overlay Rating */}
@@ -1563,14 +1575,14 @@ export default function HomePage() {
                     alignItems: 'center',
                     justifyContent: 'center',
                     transition: 'all 0.3s ease',
-                    background: hoveredCard === restaurant.id 
+                    background: hoveredCard === restaurant.id
                       ? getHoverGradient()
                       : 'linear-gradient(135deg, #f8fafc, #e2e8f0)',
                     overflow: 'hidden',
                     position: 'relative'
                   }}>
                     {getFullImageUrl(restaurant.restaurant_image).startsWith('http') ? (
-                      <img 
+                      <img
                         src={getFullImageUrl(restaurant.restaurant_image)}
                         alt={restaurant.name}
                         style={{
@@ -1599,17 +1611,17 @@ export default function HomePage() {
                         }}
                       />
                     ) : (
-                      <div style={{ 
-                        display: 'flex', 
-                        alignItems: 'center', 
-                        justifyContent: 'center', 
-                        height: '100%', 
-                        fontSize: '4rem' 
+                      <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        height: '100%',
+                        fontSize: '4rem'
                       }}>
                         {getFullImageUrl(restaurant.restaurant_image)}
                       </div>
                     )}
-                    
+
                     {/* Rating Overlay */}
                     <div style={{
                       position: 'absolute',
@@ -1634,7 +1646,7 @@ export default function HomePage() {
                         {restaurant.rating}
                       </span>
                     </div>
-                    
+
                     {/* Offline Badge */}
                     {!restaurant.is_online && (
                       <div style={{
@@ -1769,8 +1781,8 @@ export default function HomePage() {
                       style={{
                         width: '100%',
                         padding: '0.75rem',
-                        background: restaurant.is_online 
-                          ? 'linear-gradient(135deg, #ff6b6b, #ee5a24)' 
+                        background: restaurant.is_online
+                          ? 'linear-gradient(135deg, #ff6b6b, #ee5a24)'
                           : 'linear-gradient(135deg, #9ca3af, #6b7280)',
                         color: 'white',
                         border: 'none',
@@ -1811,7 +1823,10 @@ export default function HomePage() {
         backdropFilter: 'blur(15px)',
         borderTop: '1px solid rgba(255, 255, 255, 0.3)',
         padding: '2rem',
-        textAlign: 'center'
+        textAlign: 'center',
+        width: '100%',
+        maxWidth: '1600px',
+        margin: '0 auto',
       }}>
         <div style={{
           maxWidth: '1200px',
