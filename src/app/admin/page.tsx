@@ -2,13 +2,12 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import Image from 'next/image';
 
-// API Configuration
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
+type AdminStep = 'login' | 'forgot-password' | 'reset-code' | 'new-password' | 'password-success';
+
 export default function AdminLoginPage() {
-  // Load Anuphan font
   useEffect(() => {
     const link = document.createElement('link');
     link.href = 'https://fonts.googleapis.com/css2?family=Anuphan:wght@400;500;600;700&display=swap';
@@ -16,33 +15,55 @@ export default function AdminLoginPage() {
     document.head.appendChild(link);
   }, []);
 
+  const [step, setStep] = useState<AdminStep>('login');
   const [showPassword, setShowPassword] = useState(false);
-  const [formData, setFormData] = useState({
-    email: '',
-    password: ''
-  });
-  
-  const [errors, setErrors] = useState({
-    email: '',
-    password: ''
-  });
-  
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [otp, setOtp] = useState(['', '', '', '']);
+  const [focusedOtpIndex, setFocusedOtpIndex] = useState(-1);
+  const [formData, setFormData] = useState({ email: '', password: '', newPassword: '' });
+  const [errors, setErrors] = useState({ email: '', password: '', newPassword: '', otp: '' });
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
 
-  const validateEmail = (email: string) => {
-    const cleanEmail = email.trim();
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return emailRegex.test(cleanEmail) && cleanEmail.includes('@') && cleanEmail.split('@').length === 2;
+  // Auto redirect after success
+  useEffect(() => {
+    if (step === 'password-success') {
+      const t = setTimeout(() => setStep('login'), 3000);
+      return () => clearTimeout(t);
+    }
+  }, [step]);
+
+  const changeStep = (s: AdminStep) => {
+    setStep(s);
+    setErrors({ email: '', password: '', newPassword: '', otp: '' });
+    if (!['reset-code', 'new-password', 'password-success'].includes(s)) {
+      setOtp(['', '', '', '']);
+    }
+    if (!['forgot-password', 'reset-code', 'new-password', 'password-success'].includes(s)) {
+      setFormData({ email: '', password: '', newPassword: '' });
+    }
   };
+
+  const validateEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    const cleanValue = name === 'email' ? value.trim() : value;
-    setFormData(prev => ({ ...prev, [name]: cleanValue }));
-    if (errors[name as keyof typeof errors]) {
-      setErrors(prev => ({ ...prev, [name]: '' }));
-    }
+    setFormData(prev => ({ ...prev, [name]: name === 'email' ? value.trim() : value }));
+    if (errors[name as keyof typeof errors]) setErrors(prev => ({ ...prev, [name]: '' }));
+  };
+
+  const handleOtpChange = (index: number, value: string) => {
+    if (value.length > 1) value = value[0];
+    if (!/^\d*$/.test(value)) return;
+    const newOtp = [...otp];
+    newOtp[index] = value;
+    setOtp(newOtp);
+    if (value && index < 3) { document.getElementById(`admin-otp-${index + 1}`)?.focus(); setFocusedOtpIndex(index + 1); }
+    if (errors.otp) setErrors(prev => ({ ...prev, otp: '' }));
+  };
+
+  const handleOtpKeyDown = (index: number, e: React.KeyboardEvent) => {
+    if (e.key === 'Backspace' && !otp[index] && index > 0) { document.getElementById(`admin-otp-${index - 1}`)?.focus(); setFocusedOtpIndex(index - 1); }
   };
 
   const handleAdminLogin = async (e: React.FormEvent) => {
@@ -140,6 +161,70 @@ export default function AdminLoginPage() {
         setIsLoading(false);
       }
     }
+  };
+
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!validateEmail(formData.email)) { setErrors(prev => ({ ...prev, email: 'Please enter a valid email' })); return; }
+    try {
+      setIsLoading(true);
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
+      const res = await fetch(`${API_BASE_URL}/api/admin/forgot-password`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: formData.email.toLowerCase() }),
+        signal: controller.signal
+      });
+      clearTimeout(timeoutId);
+      if (res.ok) {
+        changeStep('reset-code');
+      } else {
+        const err = await res.json();
+        setErrors(prev => ({ ...prev, email: err.detail || 'Failed to send reset code. Please try again.' }));
+      }
+    } catch (error) {
+      if (error instanceof Error && error.name === 'AbortError') {
+        setErrors(prev => ({ ...prev, email: 'Request timed out. Please check your connection.' }));
+      } else {
+        setErrors(prev => ({ ...prev, email: 'Unable to connect to server. Please try again.' }));
+      }
+    } finally { setIsLoading(false); }
+  };
+
+  const handleVerifyResetCode = async () => {
+    const code = otp.join('');
+    if (code.length !== 4) { setErrors(prev => ({ ...prev, otp: 'Please enter the complete code' })); return; }
+    changeStep('new-password');
+  };
+
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formData.newPassword || formData.newPassword.length < 8) {
+      setErrors(prev => ({ ...prev, newPassword: 'Password must be at least 8 characters' })); return;
+    }
+    try {
+      setIsLoading(true);
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
+      const res = await fetch(`${API_BASE_URL}/api/admin/reset-password`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: formData.email.toLowerCase(), token: otp.join(''), new_password: formData.newPassword }),
+        signal: controller.signal
+      });
+      clearTimeout(timeoutId);
+      if (res.ok) {
+        changeStep('password-success');
+      } else {
+        const err = await res.json();
+        setErrors(prev => ({ ...prev, newPassword: err.detail || 'Failed to reset password. Please try again.' }));
+      }
+    } catch (error) {
+      if (error instanceof Error && error.name === 'AbortError') {
+        setErrors(prev => ({ ...prev, newPassword: 'Request timed out. Please check your connection.' }));
+      } else {
+        setErrors(prev => ({ ...prev, newPassword: 'Unable to connect to server. Please try again.' }));
+      }
+    } finally { setIsLoading(false); }
   };
 
   return (
@@ -379,7 +464,7 @@ export default function AdminLoginPage() {
               🔐 Enter your credentials to access the admin dashboard
             </p>
             
-            <form onSubmit={handleAdminLogin} style={{ marginTop: '1.5rem' }}>
+            <form onSubmit={handleAdminLogin} style={{ marginTop: '1.5rem', display: step === 'login' ? 'block' : 'none' }}>
               <div style={{ marginBottom: '1.5rem' }}>
                 <label style={{ 
                   display: 'block', 
@@ -532,8 +617,19 @@ export default function AdminLoginPage() {
               >
                 {isLoading ? 'Authenticating...' : 'Access Admin Dashboard'}
               </button>
+
+              {/* Forgot Password Link */}
+              <div style={{ textAlign: 'center', marginTop: '0.75rem' }}>
+                <button
+                  type="button"
+                  onClick={() => { setFormData(prev => ({ ...prev, password: '', newPassword: '' })); changeStep('forgot-password'); }}
+                  style={{ background: 'none', border: 'none', color: '#FF5722', fontSize: '0.9rem', fontFamily: 'Anuphan, system-ui, sans-serif', fontWeight: '600', cursor: 'pointer', textDecoration: 'underline' }}
+                >
+                  Forgot Password?
+                </button>
+              </div>
               
-              <div style={{ textAlign: 'center', marginTop: '1.5rem' }}>
+              <div style={{ textAlign: 'center', marginTop: '1rem' }}>
                 <a 
                   href="/login" 
                   style={{ 
@@ -549,19 +645,97 @@ export default function AdminLoginPage() {
                     borderRadius: '8px',
                     transition: 'all 0.2s ease'
                   }}
-                  onMouseOver={(e) => {
-                    e.currentTarget.style.backgroundColor = '#FFF5F2';
-                    e.currentTarget.style.transform = 'translateX(-2px)';
-                  }}
-                  onMouseOut={(e) => {
-                    e.currentTarget.style.backgroundColor = 'transparent';
-                    e.currentTarget.style.transform = 'translateX(0)';
-                  }}
+                  onMouseOver={(e) => { e.currentTarget.style.backgroundColor = '#FFF5F2'; e.currentTarget.style.transform = 'translateX(-2px)'; }}
+                  onMouseOut={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.transform = 'translateX(0)'; }}
                 >
                   <span>←</span> Back to Customer Login
                 </a>
               </div>
             </form>
+
+          {/* Forgot Password Step */}
+          {step === 'forgot-password' && (
+            <form onSubmit={handleForgotPassword} style={{ marginTop: '1rem' }}>
+              <h3 style={{ fontFamily: 'Anuphan, system-ui, sans-serif', fontSize: '1.3rem', fontWeight: '700', color: '#1e293b', marginBottom: '0.5rem', textAlign: 'center' }}>Reset Password</h3>
+              <p style={{ fontFamily: 'Anuphan, system-ui, sans-serif', fontSize: '0.9rem', color: '#64748b', textAlign: 'center', marginBottom: '1.5rem' }}>Enter your admin email to receive a reset code</p>
+              <div style={{ marginBottom: '1.25rem' }}>
+                <label style={{ display: 'block', marginBottom: '0.5rem', color: '#374151', fontWeight: '500', fontSize: '0.95rem', fontFamily: 'Anuphan, system-ui, sans-serif' }}>Admin Email</label>
+                <input type="text" name="email" value={formData.email} onChange={handleInputChange} placeholder="admin@fujifood.com"
+                  style={{ width: '100%', padding: '0.875rem', border: `2px solid ${errors.email ? '#ef4444' : '#e2e8f0'}`, borderRadius: '12px', fontSize: '0.95rem', outline: 'none', fontFamily: 'Anuphan, system-ui, sans-serif', backgroundColor: '#fafafa' }}
+                  onFocus={(e) => { e.target.style.borderColor = '#FF5722'; }} onBlur={(e) => { if (!errors.email) e.target.style.borderColor = '#e2e8f0'; }}
+                />
+                {errors.email && <p style={{ color: '#ef4444', fontSize: '0.85rem', marginTop: '0.4rem' }}>{errors.email}</p>}
+              </div>
+              <button type="submit" disabled={isLoading} style={{ width: '100%', padding: '1rem', background: 'linear-gradient(135deg, #FF5722 0%, #FF7043 100%)', color: 'white', border: 'none', borderRadius: '12px', fontSize: '1rem', fontWeight: '600', cursor: 'pointer', fontFamily: 'Anuphan, system-ui, sans-serif', marginBottom: '1rem' }}>
+                {isLoading ? 'Sending...' : 'Send Reset Code'}
+              </button>
+              <div style={{ textAlign: 'center' }}>
+                <button type="button" onClick={() => changeStep('login')} style={{ background: 'none', border: 'none', color: '#FF5722', fontSize: '0.9rem', fontFamily: 'Anuphan, system-ui, sans-serif', fontWeight: '600', cursor: 'pointer' }}>← Back to Login</button>
+              </div>
+            </form>
+          )}
+
+          {/* Reset Code Step */}
+          {step === 'reset-code' && (
+            <div style={{ marginTop: '1rem' }}>
+              <h3 style={{ fontFamily: 'Anuphan, system-ui, sans-serif', fontSize: '1.3rem', fontWeight: '700', color: '#1e293b', marginBottom: '0.5rem', textAlign: 'center' }}>Enter Reset Code</h3>
+              <p style={{ fontFamily: 'Anuphan, system-ui, sans-serif', fontSize: '0.9rem', color: '#64748b', textAlign: 'center', marginBottom: '1.5rem' }}>We sent a 4-digit code to <strong>{formData.email}</strong></p>
+              <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center', marginBottom: '1.5rem' }}>
+                {otp.map((digit, index) => (
+                  <input key={index} id={`admin-otp-${index}`} type="text" inputMode="numeric" maxLength={1} value={digit}
+                    onChange={(e) => handleOtpChange(index, e.target.value)}
+                    onKeyDown={(e) => handleOtpKeyDown(index, e)}
+                    onFocus={() => setFocusedOtpIndex(index)} onBlur={() => setFocusedOtpIndex(-1)}
+                    style={{ width: '56px', height: '56px', textAlign: 'center', fontSize: '1.5rem', fontWeight: '700', border: `2px solid ${focusedOtpIndex === index ? '#FF5722' : '#e2e8f0'}`, borderRadius: '12px', outline: 'none', fontFamily: 'Anuphan, system-ui, sans-serif' }}
+                  />
+                ))}
+              </div>
+              {errors.otp && <p style={{ color: '#ef4444', fontSize: '0.85rem', textAlign: 'center', marginBottom: '1rem' }}>{errors.otp}</p>}
+              <button onClick={handleVerifyResetCode} style={{ width: '100%', padding: '1rem', background: 'linear-gradient(135deg, #FF5722 0%, #FF7043 100%)', color: 'white', border: 'none', borderRadius: '12px', fontSize: '1rem', fontWeight: '600', cursor: 'pointer', fontFamily: 'Anuphan, system-ui, sans-serif', marginBottom: '1rem' }}>
+                Verify Code
+              </button>
+              <div style={{ textAlign: 'center' }}>
+                <button type="button" onClick={() => changeStep('forgot-password')} style={{ background: 'none', border: 'none', color: '#FF5722', fontSize: '0.9rem', fontFamily: 'Anuphan, system-ui, sans-serif', fontWeight: '600', cursor: 'pointer' }}>← Back</button>
+              </div>
+            </div>
+          )}
+
+          {/* New Password Step */}
+          {step === 'new-password' && (
+            <form onSubmit={handleResetPassword} style={{ marginTop: '1rem' }}>
+              <h3 style={{ fontFamily: 'Anuphan, system-ui, sans-serif', fontSize: '1.3rem', fontWeight: '700', color: '#1e293b', marginBottom: '0.5rem', textAlign: 'center' }}>Set New Password</h3>
+              <p style={{ fontFamily: 'Anuphan, system-ui, sans-serif', fontSize: '0.9rem', color: '#64748b', textAlign: 'center', marginBottom: '1.5rem' }}>Enter your new admin password</p>
+              <div style={{ marginBottom: '1.25rem', position: 'relative' }}>
+                <label style={{ display: 'block', marginBottom: '0.5rem', color: '#374151', fontWeight: '500', fontSize: '0.95rem', fontFamily: 'Anuphan, system-ui, sans-serif' }}>New Password</label>
+                <input type={showNewPassword ? 'text' : 'password'} name="newPassword" value={formData.newPassword} onChange={handleInputChange} placeholder="Min. 8 characters"
+                  style={{ width: '100%', padding: '0.875rem', border: `2px solid ${errors.newPassword ? '#ef4444' : '#e2e8f0'}`, borderRadius: '12px', fontSize: '0.95rem', outline: 'none', fontFamily: 'Anuphan, system-ui, sans-serif', backgroundColor: '#fafafa' }}
+                  onFocus={(e) => { e.target.style.borderColor = '#FF5722'; }} onBlur={(e) => { if (!errors.newPassword) e.target.style.borderColor = '#e2e8f0'; }}
+                />
+                <button type="button" onClick={() => setShowNewPassword(!showNewPassword)} style={{ position: 'absolute', right: '1rem', top: '2.5rem', background: 'none', border: 'none', cursor: 'pointer', color: '#FF5722' }}>
+                  {showNewPassword ? '🙈' : '👁️'}
+                </button>
+                {errors.newPassword && <p style={{ color: '#ef4444', fontSize: '0.85rem', marginTop: '0.4rem' }}>{errors.newPassword}</p>}
+              </div>
+              <button type="submit" disabled={isLoading} style={{ width: '100%', padding: '1rem', background: 'linear-gradient(135deg, #FF5722 0%, #FF7043 100%)', color: 'white', border: 'none', borderRadius: '12px', fontSize: '1rem', fontWeight: '600', cursor: 'pointer', fontFamily: 'Anuphan, system-ui, sans-serif', marginBottom: '1rem' }}>
+                {isLoading ? 'Resetting...' : 'Reset Password'}
+              </button>
+              <div style={{ textAlign: 'center' }}>
+                <button type="button" onClick={() => changeStep('reset-code')} style={{ background: 'none', border: 'none', color: '#FF5722', fontSize: '0.9rem', fontFamily: 'Anuphan, system-ui, sans-serif', fontWeight: '600', cursor: 'pointer' }}>← Back</button>
+              </div>
+            </form>
+          )}
+
+          {/* Success Step */}
+          {step === 'password-success' && (
+            <div style={{ textAlign: 'center', padding: '1rem 0' }}>
+              <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>✅</div>
+              <h3 style={{ fontFamily: 'Anuphan, system-ui, sans-serif', fontSize: '1.3rem', fontWeight: '700', color: '#1e293b', marginBottom: '0.5rem' }}>Password Reset!</h3>
+              <p style={{ fontFamily: 'Anuphan, system-ui, sans-serif', fontSize: '0.9rem', color: '#64748b', marginBottom: '1.5rem' }}>Your password has been updated. Redirecting to login...</p>
+              <button onClick={() => changeStep('login')} style={{ padding: '0.75rem 2rem', background: 'linear-gradient(135deg, #FF5722 0%, #FF7043 100%)', color: 'white', border: 'none', borderRadius: '12px', fontSize: '1rem', fontWeight: '600', cursor: 'pointer', fontFamily: 'Anuphan, system-ui, sans-serif' }}>
+                Go to Login
+              </button>
+            </div>
+          )}
           </div>
         </div>
       </div>
