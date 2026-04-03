@@ -711,7 +711,7 @@ export default function LoginPage() {
             width: '100%', 
             backgroundColor: 'white', 
             borderRadius: '20px', 
-            padding: '2.5rem 2rem', 
+            padding: '1.75rem 1.5rem', 
             boxShadow: '0 10px 40px rgba(0, 0, 0, 0.08)'
           }}>
 
@@ -883,67 +883,6 @@ export default function LoginPage() {
               >
                 Continue as Guest
               </button>
-
-              {/* Restaurant Partner Section */}
-              <div style={{
-                textAlign: 'center',
-                padding: '1.5rem 0 1rem 0',
-                borderTop: '1px solid #F5D5C8',
-                marginTop: '0.5rem'
-              }}>
-                <p style={{
-                  fontFamily: 'Anuphan, system-ui, sans-serif',
-                  fontSize: '0.95rem',
-                  color: '#8B4513',
-                  margin: '0 0 1rem 0',
-                  fontWeight: '600'
-                }}>
-                  🏪 Own a restaurant?
-                </p>
-                
-                <a 
-                  href="/restaurant"
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '0.5rem',
-                    padding: '0.875rem 1.5rem',
-                    background: 'linear-gradient(135deg, #FF5722 0%, #FF7043 100%)',
-                    color: 'white',
-                    textDecoration: 'none',
-                    borderRadius: '8px',
-                    fontFamily: 'Anuphan, system-ui, sans-serif',
-                    fontSize: '0.95rem',
-                    fontWeight: '600',
-                    transition: 'all 0.2s ease',
-                    boxShadow: '0 4px 15px rgba(255, 87, 34, 0.3)',
-                    border: 'none'
-                  }}
-                  onMouseOver={(e) => {
-                    e.currentTarget.style.background = 'linear-gradient(135deg, #E64A19 0%, #FF5722 100%)';
-                    e.currentTarget.style.transform = 'translateY(-2px)';
-                    e.currentTarget.style.boxShadow = '0 6px 20px rgba(255, 87, 34, 0.4)';
-                  }}
-                  onMouseOut={(e) => {
-                    e.currentTarget.style.background = 'linear-gradient(135deg, #FF5722 0%, #FF7043 100%)';
-                    e.currentTarget.style.transform = 'translateY(0)';
-                    e.currentTarget.style.boxShadow = '0 4px 15px rgba(255, 87, 34, 0.3)';
-                  }}
-                >
-                  <span>🚀</span>
-                  Join as Restaurant Partner
-                </a>
-                
-                <p style={{
-                  fontFamily: 'Anuphan, system-ui, sans-serif',
-                  fontSize: '0.8rem',
-                  color: '#A0522D',
-                  margin: '0.75rem 0 0 0',
-                  lineHeight: '1.4'
-                }}>
-                  Grow your business with our platform
-                </p>
-              </div>
             </div>
           )}
 
@@ -1390,6 +1329,65 @@ export default function LoginPage() {
             </div>
           )}
 
+          </div>
+
+          {/* Partner with us - outside the card */}
+          <div style={{ width: '100%', marginTop: '1rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.6rem' }}>
+              <div style={{ flex: 1, height: '1px', backgroundColor: '#F5D5C8' }} />
+              <span style={{ fontFamily: 'Anuphan, system-ui, sans-serif', fontSize: '0.72rem', color: '#C4956A', fontWeight: '500', whiteSpace: 'nowrap' }}>Partner with us</span>
+              <div style={{ flex: 1, height: '1px', backgroundColor: '#F5D5C8' }} />
+            </div>
+            <div style={{ display: 'flex', gap: '0.5rem' }}>
+              <a
+                href="/restaurant"
+                style={{
+                  flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.3rem',
+                  padding: '0.5rem 0.4rem', background: 'transparent', color: '#FF5722',
+                  textDecoration: 'none', borderRadius: '7px', border: '1.5px solid #FF7043',
+                  fontFamily: 'Anuphan, system-ui, sans-serif', fontSize: '0.75rem', fontWeight: '600',
+                  transition: 'all 0.25s ease', boxShadow: 'none'
+                }}
+                onMouseOver={(e) => {
+                  e.currentTarget.style.background = '#FFF3EE';
+                  e.currentTarget.style.borderColor = '#FF5722';
+                  e.currentTarget.style.transform = 'translateY(-2px)';
+                  e.currentTarget.style.boxShadow = '0 4px 12px rgba(255, 87, 34, 0.2)';
+                }}
+                onMouseOut={(e) => {
+                  e.currentTarget.style.background = 'transparent';
+                  e.currentTarget.style.borderColor = '#FF7043';
+                  e.currentTarget.style.transform = 'translateY(0)';
+                  e.currentTarget.style.boxShadow = 'none';
+                }}
+              >
+                🏪 Restaurant Partner
+              </a>
+              <a
+                href="/delivery"
+                style={{
+                  flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.3rem',
+                  padding: '0.5rem 0.4rem', background: 'transparent', color: '#FF5722',
+                  textDecoration: 'none', borderRadius: '7px', border: '1.5px solid #FF7043',
+                  fontFamily: 'Anuphan, system-ui, sans-serif', fontSize: '0.75rem', fontWeight: '600',
+                  transition: 'all 0.25s ease', boxShadow: 'none'
+                }}
+                onMouseOver={(e) => {
+                  e.currentTarget.style.background = '#FFF3EE';
+                  e.currentTarget.style.borderColor = '#FF5722';
+                  e.currentTarget.style.transform = 'translateY(-2px)';
+                  e.currentTarget.style.boxShadow = '0 4px 12px rgba(255, 87, 34, 0.2)';
+                }}
+                onMouseOut={(e) => {
+                  e.currentTarget.style.background = 'transparent';
+                  e.currentTarget.style.borderColor = '#FF7043';
+                  e.currentTarget.style.transform = 'translateY(0)';
+                  e.currentTarget.style.boxShadow = 'none';
+                }}
+              >
+                🛵 Delivery Partner
+              </a>
+            </div>
           </div>
         </div>
       </div>
