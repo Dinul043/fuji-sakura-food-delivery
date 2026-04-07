@@ -1,3 +1,13 @@
+/*
+ * Admin Dashboard
+ * ✅ Phase 1: DB tables created — delivery_partners, delivery_tokens
+ * ✅ Phase 2: Delivery partner apply form + POST /api/delivery/apply
+ * ✅ Phase 3: Admin approval UI — Delivery Partners tab (approve/reject with notes)
+ * 🔜 Phase 4: Delivery partner login — /delivery/login + POST /api/delivery/login
+ * 🔜 Phase 5: Delivery dashboard — available orders, accept, complete
+ * 🔜 Phase 6: Order flow — out_for_delivery → delivered via partner
+ * 🔜 Phase 7: Earnings — fixed fee per delivery
+ */
 'use client';
 
 import { useState, useEffect } from 'react';

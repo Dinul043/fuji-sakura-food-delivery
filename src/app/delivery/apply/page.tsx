@@ -1,8 +1,10 @@
 /*
  * Delivery Partner Apply Page
- * Phase 1 completed: DB tables (delivery_partners, delivery_tokens)
- * Phase 2 completed: Application form + POST /api/delivery/apply
- * Theme: Matches restaurant side orange theme
+ * ✅ Phase 1: DB tables created — delivery_partners, delivery_tokens
+ * ✅ Phase 2: Application form + POST /api/delivery/apply (this page)
+ * ✅ Phase 3: Admin approval UI in admin dashboard
+ * 🔜 Phase 4: Login page — /delivery/login
+ * 🔜 Phase 5: Dashboard — available orders, accept, complete
  */
 
 'use client';
