@@ -16,6 +16,15 @@ export default function RestaurantLogin() {
   const [errors, setErrors] = useState<{[key: string]: string}>({});
   const [isLoading, setIsLoading] = useState(false);
 
+  // Forgot password state
+  const [step, setStep] = useState<'login' | 'forgot' | 'verify-code' | 'new-password' | 'success'>('login');
+  const [forgotEmail, setForgotEmail] = useState('');
+  const [resetCode, setResetCode] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [forgotError, setForgotError] = useState('');
+  const [forgotLoading, setForgotLoading] = useState(false);
+
   // Load Anuphan font
   useEffect(() => {
     const link = document.createElement('link');
@@ -134,7 +143,73 @@ export default function RestaurantLogin() {
     }
   };
 
+  const handleForgotPassword = async () => {
+    if (!forgotEmail.trim()) { setForgotError('Please enter your email'); return; }
+    setForgotLoading(true); setForgotError('');
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/restaurant/forgot-password`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: forgotEmail.trim().toLowerCase() })
+      });
+      if (res.ok) {
+        setStep('verify-code');
+      } else {
+        const d = await res.json();
+        setForgotError(d.detail || 'Failed to send reset code');
+      }
+    } catch {
+      setForgotError('Network error. Please check your connection and try again.');
+    } finally {
+      setForgotLoading(false);
+    }
+  };
+
+  const handleVerifyCode = async () => {
+    if (!resetCode.trim()) { setForgotError('Please enter the reset code'); return; }
+    setForgotLoading(true); setForgotError('');
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/restaurant/verify-reset-code`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: forgotEmail, token: resetCode, new_password: 'placeholder' })
+      });
+      if (res.ok) {
+        setStep('new-password');
+      } else {
+        const d = await res.json();
+        setForgotError(d.detail || 'Invalid or expired code. Please try again.');
+      }
+    } catch {
+      setForgotError('Network error. Please check your connection and try again.');
+    } finally {
+      setForgotLoading(false);
+    }
+  };
+
+  const handleResetPassword = async () => {
+    if (!newPassword.trim() || newPassword.length < 8) { setForgotError('Password must be at least 8 characters'); return; }
+    if (newPassword !== confirmPassword) { setForgotError('Passwords do not match'); return; }
+    setForgotLoading(true); setForgotError('');
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/restaurant/reset-password`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: forgotEmail, token: resetCode, new_password: newPassword })
+      });
+      if (res.ok) {
+        setStep('success');
+        setTimeout(() => setStep('login'), 3000);
+      } else {
+        const d = await res.json();
+        setForgotError(d.detail || 'Failed to reset password. Please try again.');
+      }
+    } catch {
+      setForgotError('Network error. Please check your connection and try again.');
+    } finally {
+      setForgotLoading(false);
+    }
+  };
+
   return (
+    <>
     <div style={{ 
       display: 'flex', 
       minHeight: '100vh', 
@@ -311,44 +386,46 @@ export default function RestaurantLogin() {
             {/* Header */}
             <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
               <div style={{
-                width: '60px',
-                height: '60px',
+                width: '60px', height: '60px',
                 background: 'linear-gradient(135deg, #FF5722, #FF7043)',
                 borderRadius: '50%',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
                 margin: '0 auto 1rem auto',
                 boxShadow: '0 8px 25px rgba(255, 87, 34, 0.3)'
               }}>
-                <span style={{ fontSize: '1.5rem', color: 'white' }}>
-                  <Image src="/icons/navigation/restaurant.svg" alt="Restaurant" width={24} height={24} style={{ filter: 'brightness(0) invert(1)' }} />
+                <span style={{ fontSize: '1.5rem' }}>
+                  {step === 'login' ? (
+                    <Image src="/icons/navigation/restaurant.svg" alt="Restaurant" width={24} height={24} style={{ filter: 'brightness(0) invert(1)' }} />
+                  ) : step === 'success' ? '✅' : '🔑'}
                 </span>
               </div>
-              
-              <h2 style={{ 
-                fontSize: '2rem', 
-                fontWeight: '800', 
+
+              <h2 style={{
+                fontSize: '2rem', fontWeight: '800',
                 background: 'linear-gradient(135deg, #FF5722 0%, #FF7043 100%)',
-                WebkitBackgroundClip: 'text',
-                WebkitTextFillColor: 'transparent',
-                margin: '0 0 0.5rem 0',
-                letterSpacing: '-0.02em'
+                WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
+                margin: '0 0 0.5rem 0', letterSpacing: '-0.02em'
               }}>
-                Welcome Back
+                {step === 'login' ? 'Welcome Back' : step === 'forgot' ? 'Forgot Password' : step === 'verify-code' ? 'Enter Reset Code' : step === 'new-password' ? 'Set New Password' : 'Password Reset!'}
               </h2>
-              <p style={{ 
-                fontSize: '1rem', 
-                color: '#64748b', 
-                margin: 0,
-                fontWeight: '500'
-              }}>
-                Sign in to your restaurant dashboard
+              <p style={{ fontSize: '0.95rem', color: '#64748b', margin: 0, fontWeight: '500' }}>
+                {step === 'login' ? 'Sign in to your restaurant dashboard'
+                  : step === 'forgot' ? 'Enter your registered restaurant email'
+                  : step === 'verify-code' ? `Code sent to ${forgotEmail} — expires in 10 mins`
+                  : step === 'new-password' ? 'Choose a strong new password'
+                  : 'Your password has been updated successfully'}
               </p>
             </div>
 
+            {/* Error message */}
+            {forgotError && step !== 'login' && (
+              <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '10px', padding: '0.75rem 1rem', marginBottom: '1.25rem', color: '#dc2626', fontSize: '0.875rem', fontWeight: '500' }}>
+                {forgotError}
+              </div>
+            )}
+
             {/* Login Form */}
-            <form onSubmit={handleLogin}>
+            {step === 'login' && <form onSubmit={handleLogin}>
               {/* Email Field */}
               <div style={{ marginBottom: '1.5rem' }}>
                 <label style={{ 
@@ -475,70 +552,120 @@ export default function RestaurantLogin() {
                   </>
                 )}
               </button>
-            </form>
+            </form>}
 
-            {/* Links */}
-            <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
-              {/* Forgot password removed for now - will be added later */}
-            </div>
+            {/* Forgot password steps — inline, same card */}
+            {step === 'forgot' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                <input type="email" value={forgotEmail} onChange={e => setForgotEmail(e.target.value)}
+                  placeholder="Restaurant email" style={{ width: '100%', padding: '0.875rem', borderRadius: '12px', border: '2px solid #e2e8f0', fontSize: '0.95rem', outline: 'none', boxSizing: 'border-box', backgroundColor: '#fafafa' }}
+                  onFocus={e => { e.currentTarget.style.borderColor = '#FF5722'; e.currentTarget.style.backgroundColor = '#fff'; }}
+                  onBlur={e => { e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.backgroundColor = '#fafafa'; }} />
+                <button onClick={handleForgotPassword} disabled={forgotLoading}
+                  style={{ width: '100%', padding: '0.875rem', borderRadius: '12px', border: 'none', background: 'linear-gradient(135deg, #FF5722, #FF7043)', color: 'white', fontWeight: '700', fontSize: '1rem', cursor: 'pointer' }}>
+                  {forgotLoading ? 'Sending...' : 'Send Reset Code'}
+                </button>
+                <button onClick={() => { setStep('login'); setForgotError(''); }}
+                  style={{ width: '100%', padding: '0.75rem', borderRadius: '12px', border: '2px solid #e2e8f0', background: 'white', color: '#666', fontWeight: '600', cursor: 'pointer', fontSize: '0.95rem' }}>
+                  ← Back to Login
+                </button>
+              </div>
+            )}
 
-            {/* New Partner Link */}
-            <div style={{
-              background: 'rgba(255, 87, 34, 0.05)',
-              borderRadius: '16px',
-              padding: '1.5rem',
-              textAlign: 'center',
-              border: '2px solid rgba(255, 87, 34, 0.1)',
-              marginBottom: '2rem'
-            }}>
-              <p style={{ 
-                fontSize: '1rem', 
-                color: '#64748b', 
-                margin: '0 0 1rem 0',
-                fontWeight: '500'
+            {step === 'verify-code' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                <input type="text" value={resetCode} onChange={e => setResetCode(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                  placeholder="4-digit code" maxLength={4}
+                  style={{ width: '100%', padding: '0.875rem', borderRadius: '12px', border: '2px solid #e2e8f0', fontSize: '2rem', outline: 'none', boxSizing: 'border-box', textAlign: 'center', letterSpacing: '0.75rem', backgroundColor: '#fafafa' }}
+                  onFocus={e => { e.currentTarget.style.borderColor = '#FF5722'; e.currentTarget.style.backgroundColor = '#fff'; }}
+                  onBlur={e => { e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.backgroundColor = '#fafafa'; }} />
+                <button onClick={handleVerifyCode} disabled={forgotLoading}
+                  style={{ width: '100%', padding: '0.875rem', borderRadius: '12px', border: 'none', background: 'linear-gradient(135deg, #FF5722, #FF7043)', color: 'white', fontWeight: '700', fontSize: '1rem', cursor: 'pointer' }}>
+                  {forgotLoading ? 'Verifying...' : 'Verify Code'}
+                </button>
+                <button onClick={() => { setStep('forgot'); setForgotError(''); setResetCode(''); }}
+                  style={{ width: '100%', padding: '0.75rem', borderRadius: '12px', border: '2px solid #e2e8f0', background: 'white', color: '#666', fontWeight: '600', cursor: 'pointer', fontSize: '0.95rem' }}>
+                  ← Back
+                </button>
+              </div>
+            )}
+
+            {step === 'new-password' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                {[
+                  { label: 'New Password', value: newPassword, setter: setNewPassword },
+                  { label: 'Confirm Password', value: confirmPassword, setter: setConfirmPassword }
+                ].map(field => (
+                  <div key={field.label}>
+                    <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '600', color: '#374151', marginBottom: '0.4rem' }}>{field.label}</label>
+                    <input type="password" value={field.value} onChange={e => field.setter(e.target.value)}
+                      style={{ width: '100%', padding: '0.875rem', borderRadius: '12px', border: '2px solid #e2e8f0', fontSize: '0.95rem', outline: 'none', boxSizing: 'border-box', backgroundColor: '#fafafa' }}
+                      onFocus={e => { e.currentTarget.style.borderColor = '#FF5722'; e.currentTarget.style.backgroundColor = '#fff'; }}
+                      onBlur={e => { e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.backgroundColor = '#fafafa'; }} />
+                  </div>
+                ))}
+                <button onClick={handleResetPassword} disabled={forgotLoading}
+                  style={{ width: '100%', padding: '0.875rem', borderRadius: '12px', border: 'none', background: 'linear-gradient(135deg, #FF5722, #FF7043)', color: 'white', fontWeight: '700', fontSize: '1rem', cursor: 'pointer' }}>
+                  {forgotLoading ? 'Resetting...' : 'Reset Password'}
+                </button>
+              </div>
+            )}
+
+            {step === 'success' && (
+              <div style={{ textAlign: 'center', padding: '1rem 0' }}>
+                <p style={{ color: '#6b7280', fontSize: '0.95rem' }}>Your password has been updated. Redirecting to login...</p>
+              </div>
+            )}
+
+            {/* Links — only show on login step */}
+            {step === 'login' && (
+              <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
+                <button
+                  onClick={() => { setStep('forgot'); setForgotEmail(formData.email); setForgotError(''); }}
+                  style={{ background: 'none', border: 'none', color: '#FF5722', cursor: 'pointer', fontSize: '0.9rem', fontWeight: '500', textDecoration: 'underline' }}
+                >
+                  Forgot Password?
+                </button>
+              </div>
+            )}
+
+            {/* New Partner Link — only on login step */}
+            {step === 'login' && (
+              <div style={{
+                background: 'rgba(255, 87, 34, 0.05)',
+                borderRadius: '16px',
+                padding: '1.5rem',
+                textAlign: 'center',
+                border: '2px solid rgba(255, 87, 34, 0.1)',
+                marginBottom: '1.5rem'
               }}>
-                New to Fuji Sakura?
-              </p>
-              <button
-                onClick={() => router.push('/restaurant/apply')}
-                style={{
-                  background: 'linear-gradient(135deg, #FF5722 0%, #FF7043 100%)',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '12px',
-                  fontSize: '1rem',
-                  fontWeight: '600',
-                  cursor: 'pointer',
-                  padding: '0.75rem 1.5rem',
-                  transition: 'all 0.2s ease'
-                }}
-              >
-                🚀 Apply for Partnership
-              </button>
-            </div>
+                <p style={{ fontSize: '1rem', color: '#64748b', margin: '0 0 1rem 0', fontWeight: '500' }}>
+                  New to Fuji Sakura?
+                </p>
+                <button
+                  onClick={() => router.push('/restaurant/apply')}
+                  style={{ background: 'linear-gradient(135deg, #FF5722 0%, #FF7043 100%)', color: 'white', border: 'none', borderRadius: '12px', fontSize: '1rem', fontWeight: '600', cursor: 'pointer', padding: '0.75rem 1.5rem', transition: 'all 0.2s ease' }}
+                >
+                  🚀 Apply for Partnership
+                </button>
+              </div>
+            )}
 
-            {/* Back to Portal */}
+            {/* Back to Portal — only on login step */}
+            {step === 'login' && (
             <div style={{ textAlign: 'center' }}>
               <button
                 onClick={() => router.push('/restaurant')}
-                style={{
-                  background: 'none',
-                  border: '2px solid rgba(255, 87, 34, 0.3)',
-                  color: '#FF5722',
-                  fontSize: '1rem',
-                  fontWeight: '600',
-                  cursor: 'pointer',
-                  padding: '0.75rem 1.5rem',
-                  borderRadius: '12px',
-                  transition: 'all 0.2s ease'
-                }}
+                style={{ background: 'none', border: '2px solid rgba(255, 87, 34, 0.3)', color: '#FF5722', fontSize: '1rem', fontWeight: '600', cursor: 'pointer', padding: '0.75rem 1.5rem', borderRadius: '12px', transition: 'all 0.2s ease' }}
               >
                 ← Back to Restaurant Portal
               </button>
             </div>
+            )}
           </div>
         </div>
       </div>
     </div>
+    </>
   );
 }
