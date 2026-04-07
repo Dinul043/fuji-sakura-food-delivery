@@ -33,6 +33,14 @@ export default function AdminDashboard() {
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [selectedApplication, setSelectedApplication] = useState<Application | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+
+  // Tab + Delivery Partners state
+  const [activeTab, setActiveTab] = useState<'restaurants' | 'delivery'>('restaurants');
+  const [deliveryPartners, setDeliveryPartners] = useState<any[]>([]);
+  const [deliveryFilter, setDeliveryFilter] = useState('all');
+  const [deliveryNotes, setDeliveryNotes] = useState('');
+  const [selectedDelivery, setSelectedDelivery] = useState<any | null>(null);
+  const [isUpdatingDelivery, setIsUpdatingDelivery] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
   const [adminNotes, setAdminNotes] = useState('');
   const [sessionTimeLeft, setSessionTimeLeft] = useState<number>(10 * 60); // 10 minutes in seconds
@@ -249,6 +257,46 @@ export default function AdminDashboard() {
       setFilteredApplications(applications.filter(app => app.status === selectedStatus));
     }
   }, [selectedStatus, applications]);
+
+  // Fetch delivery partners when tab or filter changes
+  useEffect(() => {
+    if (activeTab === 'delivery') fetchDeliveryPartners(deliveryFilter);
+  }, [activeTab, deliveryFilter]);
+
+  const fetchDeliveryPartners = async (filter = 'all') => {
+    try {
+      const token = localStorage.getItem('adminToken');
+      const res = await fetch(`${API_BASE_URL}/api/admin/delivery-partners?status_filter=${filter}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setDeliveryPartners(data.partners || []);
+      }
+    } catch { showNotification('error', 'Error', 'Failed to fetch delivery partners'); }
+  };
+
+  const handleDeliveryAction = async (partnerId: number, action: 'approve' | 'reject') => {
+    setIsUpdatingDelivery(true);
+    try {
+      const token = localStorage.getItem('adminToken');
+      const res = await fetch(`${API_BASE_URL}/api/admin/delivery/${action}/${partnerId}`, {
+        method: 'PUT',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ notes: deliveryNotes })
+      });
+      if (res.ok) {
+        showNotification('success', 'Done', `Delivery partner ${action}d successfully`);
+        setSelectedDelivery(null);
+        setDeliveryNotes('');
+        fetchDeliveryPartners(deliveryFilter);
+      } else {
+        const d = await res.json();
+        showNotification('error', 'Error', d.detail || `Failed to ${action}`);
+      }
+    } catch { showNotification('error', 'Error', 'Network error'); }
+    finally { setIsUpdatingDelivery(false); }
+  };
 
   const handleStatusUpdate = async (applicationId: number, newStatus: string) => {
     try {
@@ -646,8 +694,28 @@ export default function AdminDashboard() {
           ))}
         </div>
 
-        {/* Filter Buttons */}
-        <div style={{ 
+        {/* Tab Switcher */}
+        <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1.5rem' }}>
+          {[
+            { key: 'restaurants', label: '🏪 Restaurant Applications', count: applications.length },
+            { key: 'delivery', label: '🛵 Delivery Partners', count: deliveryPartners.length }
+          ].map(tab => (
+            <button key={tab.key}
+              onClick={() => setActiveTab(tab.key as 'restaurants' | 'delivery')}
+              style={{
+                padding: '0.75rem 1.5rem', borderRadius: '12px', border: 'none', cursor: 'pointer',
+                fontWeight: '600', fontSize: '0.95rem', transition: 'all 0.2s',
+                background: activeTab === tab.key ? 'linear-gradient(135deg, #4CAF50, #45a049)' : 'white',
+                color: activeTab === tab.key ? 'white' : '#555',
+                boxShadow: activeTab === tab.key ? '0 4px 15px rgba(76,175,80,0.3)' : '0 2px 8px rgba(0,0,0,0.08)'
+              }}>
+              {tab.label} ({tab.count})
+            </button>
+          ))}
+        </div>
+
+        {/* Filter Buttons — restaurants tab only */}
+        {activeTab === 'restaurants' && (<div style={{ 
           background: 'white',
           borderRadius: '16px',
           padding: '2rem',
@@ -703,10 +771,10 @@ export default function AdminDashboard() {
               </button>
             ))}
           </div>
-        </div>
+        </div>)}
 
-        {/* Applications List */}
-        <div style={{
+        {/* Applications List — restaurants tab only */}
+        {activeTab === 'restaurants' && (<div style={{
           background: 'white',
           borderRadius: '16px',
           padding: '2rem',
@@ -844,7 +912,55 @@ export default function AdminDashboard() {
               ))}
             </div>
           )}
-        </div>
+        </div>)}
+
+        {/* Delivery Partners Tab */}
+        {activeTab === 'delivery' && (
+          <div style={{ background: 'white', borderRadius: '16px', padding: '2rem', boxShadow: '0 8px 32px rgba(0,0,0,0.1)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+              <h3 style={{ fontSize: '1.3rem', fontWeight: '700', color: '#333', margin: 0 }}>
+                🛵 Delivery Partner Applications ({deliveryPartners.length})
+              </h3>
+              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                {['all', 'pending', 'approved', 'rejected'].map(f => (
+                  <button key={f} onClick={() => setDeliveryFilter(f)}
+                    style={{ padding: '0.5rem 1rem', borderRadius: '8px', border: 'none', cursor: 'pointer', fontWeight: '600', fontSize: '0.85rem', background: deliveryFilter === f ? '#FF5722' : '#f3f4f6', color: deliveryFilter === f ? 'white' : '#555' }}>
+                    {f.charAt(0).toUpperCase() + f.slice(1)}
+                  </button>
+                ))}
+              </div>
+            </div>
+            {deliveryPartners.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '4rem 2rem', color: '#9ca3af' }}>
+                <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>🛵</div>
+                <p style={{ margin: 0 }}>No delivery partner applications found</p>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                {deliveryPartners.map((partner: any) => (
+                  <div key={partner.id} style={{ border: '1px solid #e5e7eb', borderRadius: '12px', padding: '1.25rem', borderLeft: `4px solid ${partner.status === 0 ? '#f59e0b' : partner.status === 1 ? '#10b981' : '#ef4444'}` }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                      <div>
+                        <div style={{ fontWeight: '700', color: '#111827' }}>{partner.name}</div>
+                        <div style={{ color: '#6b7280', fontSize: '0.875rem', marginTop: '0.25rem' }}>{partner.email} · {partner.phone}</div>
+                        <div style={{ color: '#6b7280', fontSize: '0.875rem' }}>{partner.vehicle_type} · {partner.vehicle_number} · {partner.city}</div>
+                        <span style={{ display: 'inline-block', marginTop: '0.5rem', padding: '0.2rem 0.75rem', borderRadius: '20px', fontSize: '0.78rem', fontWeight: '600', background: partner.status === 0 ? '#fef3c7' : partner.status === 1 ? '#d1fae5' : '#fee2e2', color: partner.status === 0 ? '#92400e' : partner.status === 1 ? '#065f46' : '#991b1b' }}>
+                          {partner.status === 0 ? 'Pending' : partner.status === 1 ? 'Approved' : 'Rejected'}
+                        </span>
+                      </div>
+                      {partner.status === 0 && (
+                        <button onClick={() => { setSelectedDelivery(partner); setDeliveryNotes(''); }}
+                          style={{ padding: '0.5rem 1rem', borderRadius: '8px', border: 'none', background: '#FF5722', color: 'white', fontWeight: '600', cursor: 'pointer' }}>
+                          Review
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Application Detail Modal */}
@@ -1099,6 +1215,40 @@ export default function AdminDashboard() {
                   </div>
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delivery Review Modal */}
+      {selectedDelivery && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1001, padding: '1rem' }}>
+          <div style={{ background: 'white', borderRadius: '20px', padding: '2rem', maxWidth: '480px', width: '100%', boxShadow: '0 25px 50px rgba(0,0,0,0.3)' }}>
+            <h3 style={{ margin: '0 0 1rem', fontSize: '1.3rem', fontWeight: '700', color: '#111827' }}>Review Delivery Partner</h3>
+            <div style={{ background: '#f9fafb', borderRadius: '10px', padding: '1rem', marginBottom: '1.25rem' }}>
+              <p style={{ margin: '0 0 0.4rem', fontWeight: '700', color: '#111827' }}>{selectedDelivery.name}</p>
+              <p style={{ margin: '0 0 0.25rem', color: '#6b7280', fontSize: '0.875rem' }}>{selectedDelivery.email} · {selectedDelivery.phone}</p>
+              <p style={{ margin: 0, color: '#6b7280', fontSize: '0.875rem' }}>{selectedDelivery.vehicle_type} · {selectedDelivery.vehicle_number} · {selectedDelivery.city}</p>
+            </div>
+            <div style={{ marginBottom: '1.25rem' }}>
+              <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '600', color: '#374151', marginBottom: '0.4rem' }}>Admin Notes (optional)</label>
+              <textarea value={deliveryNotes} onChange={e => setDeliveryNotes(e.target.value)}
+                rows={3} placeholder="Add notes..."
+                style={{ width: '100%', padding: '0.75rem', borderRadius: '10px', border: '2px solid #e5e7eb', fontSize: '0.9rem', outline: 'none', resize: 'vertical', fontFamily: 'inherit', boxSizing: 'border-box' }} />
+            </div>
+            <div style={{ display: 'flex', gap: '0.75rem' }}>
+              <button onClick={() => setSelectedDelivery(null)}
+                style={{ flex: 1, padding: '0.75rem', borderRadius: '10px', border: '2px solid #e5e7eb', background: 'white', color: '#555', fontWeight: '600', cursor: 'pointer' }}>
+                Cancel
+              </button>
+              <button onClick={() => handleDeliveryAction(selectedDelivery.id, 'reject')} disabled={isUpdatingDelivery}
+                style={{ flex: 1, padding: '0.75rem', borderRadius: '10px', border: 'none', background: '#ef4444', color: 'white', fontWeight: '600', cursor: isUpdatingDelivery ? 'not-allowed' : 'pointer' }}>
+                {isUpdatingDelivery ? '...' : 'Reject'}
+              </button>
+              <button onClick={() => handleDeliveryAction(selectedDelivery.id, 'approve')} disabled={isUpdatingDelivery}
+                style={{ flex: 1, padding: '0.75rem', borderRadius: '10px', border: 'none', background: '#10b981', color: 'white', fontWeight: '600', cursor: isUpdatingDelivery ? 'not-allowed' : 'pointer' }}>
+                {isUpdatingDelivery ? '...' : 'Approve'}
+              </button>
             </div>
           </div>
         </div>
