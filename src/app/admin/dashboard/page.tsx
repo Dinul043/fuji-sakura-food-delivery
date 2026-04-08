@@ -273,6 +273,23 @@ export default function AdminDashboard() {
     if (activeTab === 'delivery') fetchDeliveryPartners(deliveryFilter);
   }, [activeTab, deliveryFilter]);
 
+  // WebSocket — live delivery partner application notifications
+  useEffect(() => {
+    const ws = new WebSocket('ws://localhost:8000/ws/admin');
+    ws.onmessage = (e) => {
+      try {
+        const msg = JSON.parse(e.data);
+        if (msg.type === 'new_delivery_application') {
+          showNotification('success', '🛵 New Application', `${msg.partner.name} applied as delivery partner`);
+          // Refresh delivery partners list if on that tab
+          setDeliveryPartners(prev => [msg.partner, ...prev]);
+        }
+      } catch { /* ignore non-JSON */ }
+    };
+    ws.onclose = () => {};
+    return () => ws.close();
+  }, []);
+
   const fetchDeliveryPartners = async (filter = 'all') => {
     try {
       const token = localStorage.getItem('adminToken');
