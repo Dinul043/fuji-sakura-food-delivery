@@ -27,6 +27,8 @@ export default function RestaurantApplicationPage() {
     
     // Restaurant Details
     address: '',
+    city: '',
+    area: '',
     cuisineType: '',
     description: '',
     
@@ -148,6 +150,8 @@ export default function RestaurantApplicationPage() {
     } else if (currentStep === 2) {
       // Validate Step 2
       if (!formData.address.trim()) newErrors.address = 'Restaurant address is required';
+      if (!formData.city.trim()) newErrors.city = 'City is required';
+      if (!formData.area.trim()) newErrors.area = 'Area is required';
       if (!formData.cuisineType) newErrors.cuisineType = 'Please select cuisine type';
       if (!formData.description.trim()) newErrors.description = 'Restaurant description is required';
     }
@@ -299,6 +303,8 @@ export default function RestaurantApplicationPage() {
             password: formData.password,
             phone: formData.phone,
             address: formData.address,
+            city: formData.city,
+            area: formData.area,
             cuisineType: formData.cuisineType,
             description: formData.description,
             businessLicense: formData.businessLicense,
@@ -899,6 +905,36 @@ export default function RestaurantApplicationPage() {
                     }}
                   />
                   {errors.address && <p style={{ color: '#ef4444', fontSize: '0.875rem', marginTop: '0.5rem', fontFamily: 'Anuphan, system-ui, sans-serif' }}>{errors.address}</p>}
+                </div>
+
+                {/* City and Area */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1.5rem' }}>
+                  <div>
+                    <label style={{ display: 'block', marginBottom: '0.5rem', color: '#374151', fontWeight: '500', fontSize: '0.95rem', fontFamily: 'Anuphan, system-ui, sans-serif' }}>
+                      City *
+                    </label>
+                    <input
+                      name="city" value={formData.city} onChange={handleInputChange}
+                      placeholder="e.g. Chennai"
+                      style={{ width: '100%', padding: '0.875rem', border: `2px solid ${errors.city ? '#ef4444' : '#e2e8f0'}`, borderRadius: '12px', fontSize: '0.95rem', outline: 'none', fontFamily: 'Anuphan, system-ui, sans-serif', backgroundColor: '#fafafa', boxSizing: 'border-box' }}
+                      onFocus={e => { e.target.style.borderColor = '#FF5722'; e.target.style.backgroundColor = '#fff'; }}
+                      onBlur={e => { e.target.style.borderColor = errors.city ? '#ef4444' : '#e2e8f0'; e.target.style.backgroundColor = '#fafafa'; }}
+                    />
+                    {errors.city && <p style={{ color: '#ef4444', fontSize: '0.875rem', marginTop: '0.5rem' }}>{errors.city}</p>}
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', marginBottom: '0.5rem', color: '#374151', fontWeight: '500', fontSize: '0.95rem', fontFamily: 'Anuphan, system-ui, sans-serif' }}>
+                      Area / Locality *
+                    </label>
+                    <input
+                      name="area" value={formData.area} onChange={handleInputChange}
+                      placeholder="e.g. Karapakkam, T Nagar"
+                      style={{ width: '100%', padding: '0.875rem', border: `2px solid ${errors.area ? '#ef4444' : '#e2e8f0'}`, borderRadius: '12px', fontSize: '0.95rem', outline: 'none', fontFamily: 'Anuphan, system-ui, sans-serif', backgroundColor: '#fafafa', boxSizing: 'border-box' }}
+                      onFocus={e => { e.target.style.borderColor = '#FF5722'; e.target.style.backgroundColor = '#fff'; }}
+                      onBlur={e => { e.target.style.borderColor = errors.area ? '#ef4444' : '#e2e8f0'; e.target.style.backgroundColor = '#fafafa'; }}
+                    />
+                    {errors.area && <p style={{ color: '#ef4444', fontSize: '0.875rem', marginTop: '0.5rem' }}>{errors.area}</p>}
+                  </div>
                 </div>
 
                 <div style={{ marginBottom: '1.5rem' }}>
