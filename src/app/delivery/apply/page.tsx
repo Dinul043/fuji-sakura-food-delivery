@@ -18,7 +18,7 @@ export default function DeliveryApplyPage() {
   const router = useRouter();
   const [form, setForm] = useState({
     name: '', email: '', phone: '', password: '', confirmPassword: '',
-    vehicle_type: '', vehicle_number: '', city: ''
+    vehicle_type: '', vehicle_number: '', city: '', area: '', upi_id: ''
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(false);
@@ -54,7 +54,9 @@ export default function DeliveryApplyPage() {
           password: form.password.trim(),
           vehicle_type: form.vehicle_type,
           vehicle_number: form.vehicle_number.trim(),
-          city: form.city.trim()
+          city: form.city.trim(),
+          area: form.area.trim(),
+          upi_id: form.upi_id.trim()
         })
       });
       const data = await res.json();
@@ -212,6 +214,25 @@ export default function DeliveryApplyPage() {
               onFocus={e => { e.currentTarget.style.borderColor = '#FF5722'; e.currentTarget.style.backgroundColor = '#fff'; }}
               onBlur={e => { e.currentTarget.style.borderColor = errors.city ? '#ef4444' : '#e2e8f0'; e.currentTarget.style.backgroundColor = '#fafafa'; }} />
             {errors.city && <p style={{ color: '#ef4444', fontSize: '0.8rem', margin: '0.3rem 0 0' }}>{errors.city}</p>}
+          </div>
+
+          {/* Area */}
+          <div>
+            <label style={labelStyle}>Area / Locality (optional)</label>
+            <input value={form.area} onChange={e => setForm(p => ({ ...p, area: e.target.value }))}
+              placeholder="e.g. Velachery, OMR, T Nagar" style={inputStyle('area')}
+              onFocus={e => { e.currentTarget.style.borderColor = '#FF5722'; e.currentTarget.style.backgroundColor = '#fff'; }}
+              onBlur={e => { e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.backgroundColor = '#fafafa'; }} />
+            <p style={{ margin: '0.3rem 0 0', fontSize: '0.78rem', color: '#9ca3af' }}>Helps match you with nearby orders</p>
+          </div>
+
+          {/* UPI ID */}
+          <div>
+            <label style={labelStyle}>UPI ID (optional — required before taking orders)</label>
+            <input value={form.upi_id} onChange={e => setForm(p => ({ ...p, upi_id: e.target.value }))}
+              placeholder="e.g. yourname@upi" style={inputStyle('upi_id')}
+              onFocus={e => { e.currentTarget.style.borderColor = '#FF5722'; e.currentTarget.style.backgroundColor = '#fff'; }}
+              onBlur={e => { e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.backgroundColor = '#fafafa'; }} />
           </div>
 
           {/* Password */}

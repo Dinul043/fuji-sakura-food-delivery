@@ -37,7 +37,18 @@ interface Partner {
   phone: string;
   vehicle_type: string;
   city: string;
+  area?: string;
+  upi_id?: string;
   is_available: boolean;
+}
+
+interface Earnings {
+  today_deliveries: number;
+  today_earnings: number;
+  total_deliveries: number;
+  total_earnings: number;
+  pending_payout: number;
+  cod_to_submit: number;
 }
 
 export default function DeliveryDashboard() {
@@ -48,6 +59,7 @@ export default function DeliveryDashboard() {
   const [activeOrder, setActiveOrder] = useState<Order | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [toast, setToast] = useState<{ msg: string; type: 'success' | 'error' } | null>(null);
+  const [earnings, setEarnings] = useState<Earnings | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
 
   const showToast = (msg: string, type: 'success' | 'error' = 'success') => {
@@ -65,6 +77,7 @@ export default function DeliveryDashboard() {
     setPartner(p);
     setIsOnline(p.is_available);
     fetchAvailableOrders();
+    fetchEarnings();
     setIsLoading(false);
 
     // Replace history so browser back button doesn't go to login
@@ -94,6 +107,15 @@ export default function DeliveryDashboard() {
       window.removeEventListener('popstate', handlePopState);
     };
   }, []);
+
+  const fetchEarnings = async () => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/delivery/earnings`, {
+        headers: { 'Authorization': `Bearer ${getToken()}` }
+      });
+      if (res.ok) setEarnings(await res.json());
+    } catch {}
+  };
 
   const fetchAvailableOrders = async () => {
     try {
@@ -158,6 +180,7 @@ export default function DeliveryDashboard() {
         showToast('🎉 Order delivered successfully!');
         setActiveOrder(null);
         fetchAvailableOrders();
+        fetchEarnings();
       } else {
         const d = await res.json();
         showToast(d.detail || 'Failed to complete order', 'error');
@@ -213,6 +236,38 @@ export default function DeliveryDashboard() {
       </div>
 
       <div style={{ maxWidth: '700px', margin: '0 auto', padding: '1.5rem' }}>
+
+        {/* UPI Warning */}
+        {partner && !partner.upi_id && (
+          <div style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '12px', padding: '1rem 1.25rem', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            <span style={{ fontSize: '1.3rem' }}>⚠️</span>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontWeight: '700', color: '#92400e', fontSize: '0.9rem' }}>UPI ID required to take orders</div>
+              <div style={{ color: '#b45309', fontSize: '0.8rem' }}>Add your UPI ID in your profile to start accepting deliveries.</div>
+            </div>
+            <button onClick={() => router.push('/delivery/profile')}
+              style={{ padding: '0.4rem 0.875rem', borderRadius: '8px', border: 'none', background: '#f59e0b', color: 'white', fontWeight: '600', fontSize: '0.8rem', cursor: 'pointer' }}>
+              Add UPI
+            </button>
+          </div>
+        )}
+
+        {/* Earnings Summary */}
+        {earnings && (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.875rem', marginBottom: '1.5rem' }}>
+            {[
+              { label: "Today's Earnings", value: `₹${earnings.today_earnings}`, sub: `${earnings.today_deliveries} deliveries`, color: '#10b981' },
+              { label: 'Total Earnings', value: `₹${earnings.total_earnings}`, sub: `${earnings.total_deliveries} total`, color: '#3b82f6' },
+              { label: 'Pending Payout', value: `₹${earnings.pending_payout}`, sub: earnings.cod_to_submit > 0 ? `COD: ₹${earnings.cod_to_submit}` : 'No COD pending', color: '#f59e0b' }
+            ].map(card => (
+              <div key={card.label} style={{ background: 'white', borderRadius: '12px', padding: '1rem', boxShadow: '0 2px 8px rgba(0,0,0,0.06)', borderTop: `3px solid ${card.color}` }}>
+                <div style={{ fontSize: '0.72rem', color: '#9ca3af', fontWeight: '600', textTransform: 'uppercase', marginBottom: '0.25rem' }}>{card.label}</div>
+                <div style={{ fontSize: '1.3rem', fontWeight: '800', color: card.color }}>{card.value}</div>
+                <div style={{ fontSize: '0.75rem', color: '#9ca3af', marginTop: '0.2rem' }}>{card.sub}</div>
+              </div>
+            ))}
+          </div>
+        )}
 
         {/* Active Delivery Card */}
         {activeOrder && (
