@@ -970,7 +970,9 @@ export default function AdminDashboard() {
                       <div>
                         <div style={{ fontWeight: '700', color: '#111827' }}>{partner.name}</div>
                         <div style={{ color: '#6b7280', fontSize: '0.875rem', marginTop: '0.25rem' }}>{partner.email} · {partner.phone}</div>
-                        <div style={{ color: '#6b7280', fontSize: '0.875rem' }}>{partner.vehicle_type} · {partner.vehicle_number} · {partner.city}</div>
+                        <div style={{ color: '#6b7280', fontSize: '0.875rem' }}>{partner.vehicle_type} · {partner.vehicle_number} · {partner.city}{partner.area ? ` · ${partner.area}` : ''}</div>
+                        {partner.driving_license && <div style={{ color: '#6b7280', fontSize: '0.8rem' }}>🪪 License: {partner.driving_license}</div>}
+                        {partner.aadhar_number && <div style={{ color: '#6b7280', fontSize: '0.8rem' }}>🆔 Aadhar: {partner.aadhar_number}</div>}
                         <span style={{ display: 'inline-block', marginTop: '0.5rem', padding: '0.2rem 0.75rem', borderRadius: '20px', fontSize: '0.78rem', fontWeight: '600', background: partner.status === 0 ? '#fef3c7' : partner.status === 1 ? '#d1fae5' : '#fee2e2', color: partner.status === 0 ? '#92400e' : partner.status === 1 ? '#065f46' : '#991b1b' }}>
                           {partner.status === 0 ? 'Pending' : partner.status === 1 ? 'Approved' : 'Rejected'}
                         </span>
@@ -1255,7 +1257,9 @@ export default function AdminDashboard() {
             <div style={{ background: '#f9fafb', borderRadius: '10px', padding: '1rem', marginBottom: '1.25rem' }}>
               <p style={{ margin: '0 0 0.4rem', fontWeight: '700', color: '#111827' }}>{selectedDelivery.name}</p>
               <p style={{ margin: '0 0 0.25rem', color: '#6b7280', fontSize: '0.875rem' }}>{selectedDelivery.email} · {selectedDelivery.phone}</p>
-              <p style={{ margin: 0, color: '#6b7280', fontSize: '0.875rem' }}>{selectedDelivery.vehicle_type} · {selectedDelivery.vehicle_number} · {selectedDelivery.city}</p>
+              <p style={{ margin: '0 0 0.25rem', color: '#6b7280', fontSize: '0.875rem' }}>{selectedDelivery.vehicle_type} · {selectedDelivery.vehicle_number} · {selectedDelivery.city}{selectedDelivery.area ? ` · ${selectedDelivery.area}` : ''}</p>
+              {selectedDelivery.driving_license && <p style={{ margin: '0 0 0.25rem', color: '#374151', fontSize: '0.875rem' }}>🪪 License: <strong>{selectedDelivery.driving_license}</strong></p>}
+              {selectedDelivery.aadhar_number && <p style={{ margin: 0, color: '#374151', fontSize: '0.875rem' }}>🆔 Aadhar: <strong>{selectedDelivery.aadhar_number}</strong></p>}
             </div>
             <div style={{ marginBottom: '1.25rem' }}>
               <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '600', color: '#374151', marginBottom: '0.4rem' }}>Admin Notes (optional)</label>

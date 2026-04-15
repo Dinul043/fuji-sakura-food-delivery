@@ -18,7 +18,8 @@ export default function DeliveryApplyPage() {
   const router = useRouter();
   const [form, setForm] = useState({
     name: '', email: '', phone: '', password: '', confirmPassword: '',
-    vehicle_type: '', vehicle_number: '', city: '', area: '', upi_id: ''
+    vehicle_type: '', vehicle_number: '', driving_license: '', aadhar_number: '',
+    city: '', area: '', upi_id: ''
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(false);
@@ -34,7 +35,10 @@ export default function DeliveryApplyPage() {
     if (form.password !== form.confirmPassword) e.confirmPassword = 'Passwords do not match';
     if (!form.vehicle_type) e.vehicle_type = 'Select a vehicle type';
     if (!form.vehicle_number.trim()) e.vehicle_number = 'Vehicle number is required';
+    if (form.vehicle_type !== 'bicycle' && !form.driving_license.trim()) e.driving_license = 'Driving license is required for bike/scooter';
+    if (form.aadhar_number && !/^\d{12}$/.test(form.aadhar_number)) e.aadhar_number = 'Aadhar must be 12 digits';
     if (!form.city.trim()) e.city = 'City is required';
+    if (!form.area.trim()) e.area = 'Area / Locality is required';
     setErrors(e);
     return Object.keys(e).length === 0;
   };
@@ -54,6 +58,8 @@ export default function DeliveryApplyPage() {
           password: form.password.trim(),
           vehicle_type: form.vehicle_type,
           vehicle_number: form.vehicle_number.trim(),
+          driving_license: form.driving_license.trim(),
+          aadhar_number: form.aadhar_number.trim(),
           city: form.city.trim(),
           area: form.area.trim(),
           upi_id: form.upi_id.trim()
@@ -206,9 +212,32 @@ export default function DeliveryApplyPage() {
             </div>
           </div>
 
+          {/* Driving License — mandatory for bike/scooter */}
+          {form.vehicle_type && form.vehicle_type !== 'bicycle' && (
+            <div>
+              <label style={labelStyle}>Driving License Number *</label>
+              <input value={form.driving_license} onChange={e => setForm(p => ({ ...p, driving_license: e.target.value }))}
+                placeholder="e.g. TN0120230012345" style={inputStyle('driving_license')}
+                onFocus={e => { e.currentTarget.style.borderColor = '#FF5722'; e.currentTarget.style.backgroundColor = '#fff'; }}
+                onBlur={e => { e.currentTarget.style.borderColor = errors.driving_license ? '#ef4444' : '#e2e8f0'; e.currentTarget.style.backgroundColor = '#fafafa'; }} />
+              {errors.driving_license && <p style={{ color: '#ef4444', fontSize: '0.8rem', margin: '0.3rem 0 0' }}>{errors.driving_license}</p>}
+            </div>
+          )}
+
+          {/* Aadhar Number */}
+          <div>
+            <label style={labelStyle}>Aadhar Number (optional — for identity verification)</label>
+            <input type="tel" value={form.aadhar_number} onChange={e => setForm(p => ({ ...p, aadhar_number: e.target.value.replace(/\D/g, '').slice(0, 12) }))}
+              placeholder="12-digit Aadhar number" style={inputStyle('aadhar_number')}
+              onFocus={e => { e.currentTarget.style.borderColor = '#FF5722'; e.currentTarget.style.backgroundColor = '#fff'; }}
+              onBlur={e => { e.currentTarget.style.borderColor = errors.aadhar_number ? '#ef4444' : '#e2e8f0'; e.currentTarget.style.backgroundColor = '#fafafa'; }} />
+            {errors.aadhar_number && <p style={{ color: '#ef4444', fontSize: '0.8rem', margin: '0.3rem 0 0' }}>{errors.aadhar_number}</p>}
+            <p style={{ margin: '0.3rem 0 0', fontSize: '0.78rem', color: '#9ca3af' }}>Helps admin verify your identity before approval</p>
+          </div>
+
           {/* City */}
           <div>
-            <label style={labelStyle}>City / Delivery Area *</label>
+            <label style={labelStyle}>City *</label>
             <input value={form.city} onChange={e => setForm(p => ({ ...p, city: e.target.value }))}
               placeholder="e.g. Chennai, Coimbatore" style={inputStyle('city')}
               onFocus={e => { e.currentTarget.style.borderColor = '#FF5722'; e.currentTarget.style.backgroundColor = '#fff'; }}
@@ -216,14 +245,15 @@ export default function DeliveryApplyPage() {
             {errors.city && <p style={{ color: '#ef4444', fontSize: '0.8rem', margin: '0.3rem 0 0' }}>{errors.city}</p>}
           </div>
 
-          {/* Area */}
+          {/* Area — MANDATORY for filtering */}
           <div>
-            <label style={labelStyle}>Area / Locality (optional)</label>
+            <label style={labelStyle}>Area / Locality *</label>
             <input value={form.area} onChange={e => setForm(p => ({ ...p, area: e.target.value }))}
-              placeholder="e.g. Velachery, OMR, T Nagar" style={inputStyle('area')}
+              placeholder="e.g. Velachery, T. Nagar, Karapakkam" style={inputStyle('area')}
               onFocus={e => { e.currentTarget.style.borderColor = '#FF5722'; e.currentTarget.style.backgroundColor = '#fff'; }}
-              onBlur={e => { e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.backgroundColor = '#fafafa'; }} />
-            <p style={{ margin: '0.3rem 0 0', fontSize: '0.78rem', color: '#9ca3af' }}>Helps match you with nearby orders</p>
+              onBlur={e => { e.currentTarget.style.borderColor = errors.area ? '#ef4444' : '#e2e8f0'; e.currentTarget.style.backgroundColor = '#fafafa'; }} />
+            {errors.area && <p style={{ color: '#ef4444', fontSize: '0.8rem', margin: '0.3rem 0 0' }}>{errors.area}</p>}
+            <p style={{ margin: '0.3rem 0 0', fontSize: '0.78rem', color: '#9ca3af' }}>Used to match you with nearby orders — required</p>
           </div>
 
           {/* UPI ID */}

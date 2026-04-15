@@ -907,7 +907,7 @@ export default function RestaurantApplicationPage() {
                   {errors.address && <p style={{ color: '#ef4444', fontSize: '0.875rem', marginTop: '0.5rem', fontFamily: 'Anuphan, system-ui, sans-serif' }}>{errors.address}</p>}
                 </div>
 
-                {/* City and Area */}
+                {/* City and Area — both mandatory */}
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1.5rem' }}>
                   <div>
                     <label style={{ display: 'block', marginBottom: '0.5rem', color: '#374151', fontWeight: '500', fontSize: '0.95rem', fontFamily: 'Anuphan, system-ui, sans-serif' }}>
@@ -928,7 +928,7 @@ export default function RestaurantApplicationPage() {
                     </label>
                     <input
                       name="area" value={formData.area} onChange={handleInputChange}
-                      placeholder="e.g. Karapakkam, T Nagar"
+                      placeholder="e.g. Karapakkam, T. Nagar"
                       style={{ width: '100%', padding: '0.875rem', border: `2px solid ${errors.area ? '#ef4444' : '#e2e8f0'}`, borderRadius: '12px', fontSize: '0.95rem', outline: 'none', fontFamily: 'Anuphan, system-ui, sans-serif', backgroundColor: '#fafafa', boxSizing: 'border-box' }}
                       onFocus={e => { e.target.style.borderColor = '#FF5722'; e.target.style.backgroundColor = '#fff'; }}
                       onBlur={e => { e.target.style.borderColor = errors.area ? '#ef4444' : '#e2e8f0'; e.target.style.backgroundColor = '#fafafa'; }}

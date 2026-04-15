@@ -27,6 +27,7 @@ interface Order {
   special_instructions?: string;
   restaurant_name: string;
   status: string;
+  cod_collected?: boolean;
   items: { name: string; quantity: number; price: number }[];
 }
 
@@ -76,6 +77,17 @@ export default function DeliveryDashboard() {
     const p = JSON.parse(stored);
     setPartner(p);
     setIsOnline(p.is_available);
+
+    // Fetch fresh profile from API to get latest upi_id, area etc.
+    fetch(`${API_BASE_URL}/api/delivery/profile`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    }).then(r => r.ok ? r.json() : null).then(data => {
+      if (data) {
+        setPartner(data);
+        setIsOnline(data.is_available);
+        sessionStorage.setItem('deliveryPartner', JSON.stringify(data));
+      }
+    }).catch(() => {});
     fetchAvailableOrders();
     fetchEarnings();
     setIsLoading(false);
@@ -229,6 +241,10 @@ export default function DeliveryDashboard() {
           }}>
             {isOnline ? '🟢 Online' : '🔴 Offline'}
           </button>
+          <button onClick={() => router.push('/delivery/profile')}
+            style={{ background: 'rgba(255,255,255,0.2)', border: 'none', color: 'white', padding: '0.5rem 1rem', borderRadius: '8px', cursor: 'pointer', fontSize: '0.875rem', fontWeight: '600' }}>
+            👤 Profile
+          </button>
           <button onClick={handleLogout} style={{ background: 'rgba(255,255,255,0.2)', border: 'none', color: 'white', padding: '0.5rem 1rem', borderRadius: '8px', cursor: 'pointer', fontSize: '0.875rem', fontWeight: '600' }}>
             Logout
           </button>
@@ -289,6 +305,34 @@ export default function DeliveryDashboard() {
             {activeOrder.special_instructions && (
               <div style={{ background: '#fffbeb', borderRadius: '8px', padding: '0.75rem', marginBottom: '1rem', border: '1px solid #fde68a', fontSize: '0.85rem', color: '#92400e' }}>
                 📝 {activeOrder.special_instructions}
+              </div>
+            )}
+            {/* COD Collection button — only for COD orders */}
+            {activeOrder.payment_method?.toLowerCase() === 'cod' && !activeOrder.cod_collected && (
+              <div style={{ background: '#fef3c7', borderRadius: '10px', padding: '0.875rem 1rem', marginBottom: '0.875rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <div style={{ fontWeight: '700', color: '#92400e', fontSize: '0.875rem' }}>💵 COD Order — ₹{activeOrder.total_amount}</div>
+                  <div style={{ color: '#b45309', fontSize: '0.78rem' }}>Collect cash from customer</div>
+                </div>
+                <button onClick={async () => {
+                  try {
+                    const res = await fetch(`${API_BASE_URL}/api/delivery/mark-cod-collected/${activeOrder.id}`, {
+                      method: 'PUT', headers: { 'Authorization': `Bearer ${getToken()}` }
+                    });
+                    if (res.ok) {
+                      setActiveOrder(prev => prev ? { ...prev, cod_collected: true } : null);
+                      showToast('💵 Cash collected marked!');
+                    }
+                  } catch { showToast('Network error', 'error'); }
+                }}
+                  style={{ padding: '0.5rem 1rem', borderRadius: '8px', border: 'none', background: '#f59e0b', color: 'white', fontWeight: '700', cursor: 'pointer', fontSize: '0.8rem' }}>
+                  Mark Collected
+                </button>
+              </div>
+            )}
+            {activeOrder.payment_method?.toLowerCase() === 'cod' && activeOrder.cod_collected && (
+              <div style={{ background: '#d1fae5', borderRadius: '10px', padding: '0.75rem 1rem', marginBottom: '0.875rem', color: '#065f46', fontWeight: '600', fontSize: '0.875rem' }}>
+                ✅ Cash collected — ₹{activeOrder.total_amount}
               </div>
             )}
             <button onClick={completeOrder}
