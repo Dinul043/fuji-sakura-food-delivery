@@ -55,7 +55,6 @@ export default function AdminDashboard() {
   const [isUpdatingDelivery, setIsUpdatingDelivery] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
   const [adminNotes, setAdminNotes] = useState('');
-  const [sessionTimeLeft, setSessionTimeLeft] = useState<number>(10 * 60); // 10 minutes in seconds
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [showAddAdminModal, setShowAddAdminModal] = useState(false);
   const [showAdminListModal, setShowAdminListModal] = useState(false);
@@ -148,7 +147,7 @@ export default function AdminDashboard() {
           localStorage.removeItem('userRole');
           localStorage.removeItem('adminEmail');
           localStorage.removeItem('adminName');
-          localStorage.removeItem('adminLoginTime');
+          
           
           setIsAuthenticating(false);
           router.push('/admin');
@@ -170,67 +169,6 @@ export default function AdminDashboard() {
     
     authenticateAdmin();
   }, [router]);
-
-  // AUTO LOGOUT with 10-minute timer
-  useEffect(() => {
-    // Set login time
-    const loginTime = Date.now();
-    localStorage.setItem('adminLoginTime', loginTime.toString());
-    
-    // 10-minute auto-logout timer
-    const autoLogoutTimer = setTimeout(() => {
-      showNotification('error', 'Session Expired', 'Your admin session has expired after 10 minutes. Redirecting to login...');
-      
-      // Delay redirect to show notification
-      setTimeout(() => {
-        // Clear admin session
-        localStorage.removeItem('adminToken');
-        localStorage.removeItem('isAdmin');
-        localStorage.removeItem('userRole');
-        localStorage.removeItem('adminEmail');
-        localStorage.removeItem('adminName');
-        localStorage.removeItem('adminLoginTime');
-        
-        router.push('/admin');
-      }, 2000);
-    }, 10 * 60 * 1000); // 10 minutes in milliseconds
-    
-    // Cleanup
-    return () => {
-      clearTimeout(autoLogoutTimer);
-    };
-  }, [router]);
-
-  // Session timer - updates every second
-  useEffect(() => {
-    const sessionTimer = setInterval(() => {
-      const loginTime = localStorage.getItem('adminLoginTime');
-      if (loginTime) {
-        const elapsed = Math.floor((Date.now() - parseInt(loginTime)) / 1000);
-        const remaining = Math.max(0, (10 * 60) - elapsed); // 10 minutes - elapsed
-        setSessionTimeLeft(remaining);
-        
-        // Warning at 2 minutes left
-        if (remaining === 120) {
-          showNotification('warning', 'Session Expiring Soon', 'Your admin session will expire in 2 minutes. Please save any work.');
-        }
-        
-        // Warning at 30 seconds left
-        if (remaining === 30) {
-          showNotification('warning', 'Session Expiring!', 'Your admin session will expire in 30 seconds!');
-        }
-      }
-    }, 1000);
-    
-    return () => clearInterval(sessionTimer);
-  }, []);
-
-  // Format time for display
-  const formatSessionTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
-  };
 
   // Show notification function
   const showNotification = (type: 'success' | 'error' | 'warning', title: string, message: string) => {
@@ -398,7 +336,7 @@ export default function AdminDashboard() {
     localStorage.removeItem('userRole');
     localStorage.removeItem('adminEmail');
     localStorage.removeItem('adminName');
-    localStorage.removeItem('adminLoginTime');
+    
     
     showNotification('success', 'Logged Out', 'You have been logged out successfully');
     setTimeout(() => router.push('/admin'), 1000);
@@ -664,19 +602,6 @@ export default function AdminDashboard() {
               </button>
             )}
             
-            {/* Session Timer */}
-            <div style={{
-              background: 'rgba(255, 255, 255, 0.2)',
-              padding: '0.75rem 1.25rem',
-              borderRadius: '25px',
-              color: 'white',
-              fontSize: '1rem',
-              fontWeight: '600',
-              border: '1px solid rgba(255, 255, 255, 0.3)'
-            }}>
-              ⏱️ {formatSessionTime(sessionTimeLeft)}
-            </div>
-            
             {/* Logout Button */}
             <button
               onClick={handleLogout}
@@ -716,8 +641,8 @@ export default function AdminDashboard() {
           {[
             { label: 'Total Applications', value: applications.length, icon: '📋', color: '#4CAF50' },
             { label: 'Pending Review', value: applications.filter(app => app.status === 'pending').length, icon: '⏳', color: '#FF9800' },
-            { label: 'Approved', value: applications.filter(app => app.status === 'approved').length, icon: '✅', color: '#2196F3' },
-            { label: 'Rejected', value: applications.filter(app => app.status === 'rejected').length, icon: '❌', color: '#F44336' }
+            { label: 'Approved Restaurants', value: applications.filter(app => app.status === 'approved').length, icon: '✅', color: '#2196F3' },
+            { label: 'Delivery Partners', value: deliveryPartners.length, icon: '🛵', color: '#9c27b0' }
           ].map((stat, index) => (
             <div key={index} style={{
               background: 'white',
@@ -1021,6 +946,12 @@ export default function AdminDashboard() {
                           Review
                         </button>
                       )}
+                      {partner.status !== 0 && (
+                        <button onClick={() => { setSelectedDelivery(partner); setDeliveryNotes(''); }}
+                          style={{ padding: '0.5rem 1rem', borderRadius: '8px', border: '1px solid #e5e7eb', background: 'white', color: '#555', fontWeight: '600', cursor: 'pointer', fontSize: '0.875rem' }}>
+                          👁️ View
+                        </button>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -1289,7 +1220,7 @@ export default function AdminDashboard() {
 
         {/* Payouts Tab */}
         {activeTab === 'payouts' && (
-          <div style={{ background: 'white', borderRadius: '16px', padding: '2rem', boxShadow: '0 8px 32px rgba(0,0,0,0.1)' }}>
+          <div style={{ background: 'white', borderRadius: '16px', padding: '2rem', boxShadow: '0 8px 32px rgba(0,0,0,0.1)', maxWidth: '900px', margin: '0 auto', marginBottom: '2rem' }}>
             <h3 style={{ fontSize: '1.3rem', fontWeight: '700', color: '#333', margin: '0 0 1.5rem' }}>
               💸 Delivery Partner Payouts
             </h3>
@@ -1349,14 +1280,34 @@ export default function AdminDashboard() {
       {/* Delivery Review Modal */}
       {selectedDelivery && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1001, padding: '1rem' }}>
-          <div style={{ background: 'white', borderRadius: '20px', padding: '2rem', maxWidth: '480px', width: '100%', boxShadow: '0 25px 50px rgba(0,0,0,0.3)' }}>
-            <h3 style={{ margin: '0 0 1rem', fontSize: '1.3rem', fontWeight: '700', color: '#111827' }}>Review Delivery Partner</h3>
+          <div style={{ background: 'white', borderRadius: '20px', padding: '2rem', maxWidth: '480px', width: '100%', boxShadow: '0 25px 50px rgba(0,0,0,0.3)', maxHeight: '85vh', overflowY: 'auto' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+              <h3 style={{ margin: 0, fontSize: '1.3rem', fontWeight: '700', color: '#111827' }}>
+                {selectedDelivery.status === 0 ? 'Review Application' : 'Delivery Partner Profile'}
+              </h3>
+              <button onClick={() => setSelectedDelivery(null)} style={{ background: 'none', border: 'none', fontSize: '1.2rem', cursor: 'pointer', color: '#9ca3af' }}>✕</button>
+            </div>
             <div style={{ background: '#f9fafb', borderRadius: '10px', padding: '1rem', marginBottom: '1.25rem' }}>
-              <p style={{ margin: '0 0 0.4rem', fontWeight: '700', color: '#111827' }}>{selectedDelivery.name}</p>
-              <p style={{ margin: '0 0 0.25rem', color: '#6b7280', fontSize: '0.875rem' }}>{selectedDelivery.email} · {selectedDelivery.phone}</p>
-              <p style={{ margin: '0 0 0.25rem', color: '#6b7280', fontSize: '0.875rem' }}>{selectedDelivery.vehicle_type} · {selectedDelivery.vehicle_number} · {selectedDelivery.city}{selectedDelivery.area ? ` · ${selectedDelivery.area}` : ''}</p>
-              {selectedDelivery.driving_license && <p style={{ margin: '0 0 0.25rem', color: '#374151', fontSize: '0.875rem' }}>🪪 License: <strong>{selectedDelivery.driving_license}</strong></p>}
-              {selectedDelivery.aadhar_number && <p style={{ margin: 0, color: '#374151', fontSize: '0.875rem' }}>🆔 Aadhar: <strong>{selectedDelivery.aadhar_number}</strong></p>}
+              {[
+                { label: 'Name', value: selectedDelivery.name },
+                { label: 'Email', value: selectedDelivery.email },
+                { label: 'Phone', value: selectedDelivery.phone },
+                { label: 'Vehicle', value: `${selectedDelivery.vehicle_type} · ${selectedDelivery.vehicle_number}` },
+                { label: 'Location', value: `${selectedDelivery.city}${selectedDelivery.area ? ` · ${selectedDelivery.area}` : ''}` },
+                selectedDelivery.driving_license && { label: '🪪 License', value: selectedDelivery.driving_license },
+                selectedDelivery.aadhar_number && { label: '🆔 Aadhar', value: selectedDelivery.aadhar_number },
+                selectedDelivery.upi_id && { label: '💳 UPI', value: selectedDelivery.upi_id },
+              ].filter(Boolean).map((f: any) => (
+                <div key={f.label} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.4rem 0', borderBottom: '1px solid #e5e7eb' }}>
+                  <span style={{ color: '#9ca3af', fontSize: '0.82rem', fontWeight: '600' }}>{f.label}</span>
+                  <span style={{ color: '#111827', fontSize: '0.875rem', fontWeight: '600' }}>{f.value}</span>
+                </div>
+              ))}
+              {selectedDelivery.admin_notes && (
+                <div style={{ marginTop: '0.75rem', padding: '0.5rem', background: '#fef3c7', borderRadius: '6px', fontSize: '0.82rem', color: '#92400e' }}>
+                  📝 {selectedDelivery.admin_notes}
+                </div>
+              )}
             </div>
             <div style={{ marginBottom: '1.25rem' }}>
               <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '600', color: '#374151', marginBottom: '0.4rem' }}>Admin Notes (optional)</label>
@@ -1367,8 +1318,9 @@ export default function AdminDashboard() {
             <div style={{ display: 'flex', gap: '0.75rem' }}>
               <button onClick={() => setSelectedDelivery(null)}
                 style={{ flex: 1, padding: '0.75rem', borderRadius: '10px', border: '2px solid #e5e7eb', background: 'white', color: '#555', fontWeight: '600', cursor: 'pointer' }}>
-                Cancel
+                Close
               </button>
+              {selectedDelivery.status === 0 && (<>
               <button onClick={() => handleDeliveryAction(selectedDelivery.id, 'reject')} disabled={isUpdatingDelivery}
                 style={{ flex: 1, padding: '0.75rem', borderRadius: '10px', border: 'none', background: '#ef4444', color: 'white', fontWeight: '600', cursor: isUpdatingDelivery ? 'not-allowed' : 'pointer' }}>
                 {isUpdatingDelivery ? '...' : 'Reject'}
@@ -1377,6 +1329,7 @@ export default function AdminDashboard() {
                 style={{ flex: 1, padding: '0.75rem', borderRadius: '10px', border: 'none', background: '#10b981', color: 'white', fontWeight: '600', cursor: isUpdatingDelivery ? 'not-allowed' : 'pointer' }}>
                 {isUpdatingDelivery ? '...' : 'Approve'}
               </button>
+              </>)}
             </div>
           </div>
         </div>
