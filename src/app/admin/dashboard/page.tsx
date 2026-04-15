@@ -45,11 +45,13 @@ export default function AdminDashboard() {
   const [isLoading, setIsLoading] = useState(false);
 
   // Tab + Delivery Partners state
-  const [activeTab, setActiveTab] = useState<'restaurants' | 'delivery'>('restaurants');
+  const [activeTab, setActiveTab] = useState<'restaurants' | 'delivery' | 'payouts'>('restaurants');
   const [deliveryPartners, setDeliveryPartners] = useState<any[]>([]);
   const [deliveryFilter, setDeliveryFilter] = useState('all');
   const [deliveryNotes, setDeliveryNotes] = useState('');
   const [selectedDelivery, setSelectedDelivery] = useState<any | null>(null);
+  const [payouts, setPayouts] = useState<any[]>([]);
+  const [isMarkingPaid, setIsMarkingPaid] = useState<number | null>(null);
   const [isUpdatingDelivery, setIsUpdatingDelivery] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
   const [adminNotes, setAdminNotes] = useState('');
@@ -271,7 +273,42 @@ export default function AdminDashboard() {
   // Fetch delivery partners when tab or filter changes
   useEffect(() => {
     if (activeTab === 'delivery') fetchDeliveryPartners(deliveryFilter);
+    if (activeTab === 'payouts') fetchPayouts();
   }, [activeTab, deliveryFilter]);
+
+  const fetchPayouts = async () => {
+    try {
+      const token = localStorage.getItem('adminToken');
+      const res = await fetch(`${API_BASE_URL}/api/admin/delivery-payouts`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setPayouts(data.partners || []);
+      }
+    } catch { showNotification('error', 'Error', 'Failed to fetch payouts'); }
+  };
+
+  const markPaid = async (partnerId: number, partnerName: string) => {
+    setIsMarkingPaid(partnerId);
+    try {
+      const token = localStorage.getItem('adminToken');
+      const res = await fetch(`${API_BASE_URL}/api/admin/delivery-payout/mark-paid/${partnerId}`, {
+        method: 'PUT',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ partner_id: partnerId })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        showNotification('success', 'Paid', `${data.message} — ₹${data.amount_paid} via ${data.partner_upi}`);
+        fetchPayouts();
+      } else {
+        const d = await res.json();
+        showNotification('error', 'Error', d.detail || 'Failed to mark as paid');
+      }
+    } catch { showNotification('error', 'Error', 'Network error'); }
+    finally { setIsMarkingPaid(null); }
+  };
 
   // WebSocket — live delivery partner application notifications
   useEffect(() => {
@@ -725,7 +762,8 @@ export default function AdminDashboard() {
         <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1.5rem' }}>
           {[
             { key: 'restaurants', label: '🏪 Restaurant Applications', count: applications.length },
-            { key: 'delivery', label: '🛵 Delivery Partners', count: deliveryPartners.length }
+            { key: 'delivery', label: '🛵 Delivery Partners', count: deliveryPartners.length },
+            { key: 'payouts', label: '💸 Payouts', count: payouts.filter((p: any) => p.pending_payout > 0).length }
           ].map(tab => (
             <button key={tab.key}
               onClick={() => setActiveTab(tab.key as 'restaurants' | 'delivery')}
@@ -1248,6 +1286,65 @@ export default function AdminDashboard() {
           </div>
         </div>
       )}
+
+        {/* Payouts Tab */}
+        {activeTab === 'payouts' && (
+          <div style={{ background: 'white', borderRadius: '16px', padding: '2rem', boxShadow: '0 8px 32px rgba(0,0,0,0.1)' }}>
+            <h3 style={{ fontSize: '1.3rem', fontWeight: '700', color: '#333', margin: '0 0 1.5rem' }}>
+              💸 Delivery Partner Payouts
+            </h3>
+            {payouts.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '4rem 2rem', color: '#9ca3af' }}>
+                <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>💸</div>
+                <p style={{ margin: 0 }}>No approved delivery partners yet</p>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                {payouts.map((p: any) => (
+                  <div key={p.id} style={{ border: '1px solid #e5e7eb', borderRadius: '12px', padding: '1.25rem', borderLeft: `4px solid ${p.pending_payout > 0 ? '#f59e0b' : '#10b981'}` }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontWeight: '700', color: '#111827', fontSize: '1rem' }}>{p.name}</div>
+                        <div style={{ color: '#6b7280', fontSize: '0.875rem' }}>{p.email} · {p.phone}</div>
+                        <div style={{ color: '#6b7280', fontSize: '0.875rem' }}>{p.city} · {p.area}</div>
+                        {p.upi_id && <div style={{ color: '#374151', fontSize: '0.875rem', marginTop: '0.25rem' }}>💳 UPI: <strong>{p.upi_id}</strong></div>}
+                        <div style={{ display: 'flex', gap: '1rem', marginTop: '0.75rem', flexWrap: 'wrap' }}>
+                          <span style={{ background: '#fef3c7', color: '#92400e', padding: '0.2rem 0.75rem', borderRadius: '20px', fontSize: '0.8rem', fontWeight: '600' }}>
+                            Pending: ₹{p.pending_payout}
+                          </span>
+                          {p.cod_collected_by_partner > 0 && (
+                            <span style={{ background: '#fee2e2', color: '#991b1b', padding: '0.2rem 0.75rem', borderRadius: '20px', fontSize: '0.8rem', fontWeight: '600' }}>
+                              COD collected: ₹{p.cod_collected_by_partner}
+                            </span>
+                          )}
+                          <span style={{ background: p.net_settlement >= 0 ? '#d1fae5' : '#fef3c7', color: p.net_settlement >= 0 ? '#065f46' : '#92400e', padding: '0.2rem 0.75rem', borderRadius: '20px', fontSize: '0.8rem', fontWeight: '700' }}>
+                            Net: ₹{p.net_settlement} {p.net_settlement >= 0 ? '(pay partner)' : '(partner owes)'}
+                          </span>
+                          <span style={{ background: '#f3f4f6', color: '#374151', padding: '0.2rem 0.75rem', borderRadius: '20px', fontSize: '0.8rem', fontWeight: '600' }}>
+                            {p.total_deliveries} deliveries · Paid: ₹{p.total_paid}
+                          </span>
+                        </div>
+                        {p.cod_collected_by_partner > 0 && (
+                          <div style={{ marginTop: '0.5rem', fontSize: '0.75rem', color: '#9ca3af', fontStyle: 'italic' }}>
+                            ℹ️ COD is collected by partner from customer and needs to be settled separately
+                          </div>
+                        )}
+                      </div>
+                      {p.pending_payout > 0 && (
+                        <button
+                          onClick={() => markPaid(p.id, p.name)}
+                          disabled={isMarkingPaid === p.id}
+                          style={{ padding: '0.6rem 1.25rem', borderRadius: '10px', border: 'none', background: isMarkingPaid === p.id ? '#9ca3af' : '#10b981', color: 'white', fontWeight: '700', cursor: isMarkingPaid === p.id ? 'not-allowed' : 'pointer', fontSize: '0.875rem', whiteSpace: 'nowrap', marginLeft: '1rem' }}>
+                          {isMarkingPaid === p.id ? '...' : '✅ Mark Paid'}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
       {/* Delivery Review Modal */}
       {selectedDelivery && (
