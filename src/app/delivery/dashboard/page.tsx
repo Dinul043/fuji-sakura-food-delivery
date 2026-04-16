@@ -111,6 +111,11 @@ export default function DeliveryDashboard() {
           showToast('🛵 New order available!', 'success');
           fetchAvailableOrders();
         }
+        // Also refresh when an order becomes ready for pickup
+        if (msg.type === 'order_ready_for_pickup' && isOnline) {
+          showToast('📦 Order ready for pickup!', 'success');
+          fetchAvailableOrders();
+        }
       } catch {}
     };
     ws.onclose = () => {};

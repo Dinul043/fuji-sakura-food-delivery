@@ -151,7 +151,6 @@ export default function RestaurantOrders() {
   }, [restaurantId]);
 
   const handleNewOrder = (orderData: any) => {
-    // Transform the data to match our interface
     const transformedOrder = {
       ...orderData,
       order_id: orderData.id || orderData.order_id,
@@ -159,7 +158,12 @@ export default function RestaurantOrders() {
       created_at: orderData.created_at || orderData.timestamp
     };
     
-    setOrders(prev => [transformedOrder, ...prev]);
+    // Deduplicate — don't add if order already exists in list
+    setOrders(prev => {
+      const exists = prev.some(o => o.id === transformedOrder.id || o.order_id === transformedOrder.order_id);
+      if (exists) return prev;
+      return [transformedOrder, ...prev];
+    });
     setLatestOrder(transformedOrder);
     setShowNotification(true);
     setTimeout(() => setShowNotification(false), 10000);
@@ -240,8 +244,10 @@ export default function RestaurantOrders() {
         return { color: '#3b82f6', bg: '#dbeafe', text: 'Order Confirmed', icon: '✅' };
       case 'preparing':
         return { color: '#f59e0b', bg: '#fef3c7', text: 'Preparing', icon: '🍳' };
+      case 'ready':
+        return { color: '#f59e0b', bg: '#fef3c7', text: 'Ready for Pickup', icon: '📦' };
       case 'out_for_delivery':
-        return { color: '#8b5cf6', bg: '#ede9fe', text: 'Out for Delivery', icon: '🚚' };
+        return { color: '#8b5cf6', bg: '#ede9fe', text: 'Out for Delivery', icon: '🛵' };
       case 'delivered':
         return { color: '#10b981', bg: '#d1fae5', text: 'Delivered', icon: '✓' };
       case 'cancelled':
@@ -818,7 +824,7 @@ export default function RestaurantOrders() {
                   )}
                   {order.status === 'preparing' && (
                     <button 
-                      onClick={() => updateOrderStatus(order.order_id, 'out_for_delivery')}
+                      onClick={() => updateOrderStatus(order.order_id, 'ready')}
                       style={{
                         display: 'flex',
                         alignItems: 'center',
@@ -842,39 +848,21 @@ export default function RestaurantOrders() {
                         e.currentTarget.style.transform = 'translateY(0)';
                       }}
                     >
-                      <span>🚚</span>
-                      <span>Ready for Delivery</span>
+                      <span>📦</span>
+                      <span>Ready for Pickup</span>
                     </button>
                   )}
+                  {order.status === 'ready' && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: '#fef3c7', color: '#92400e', padding: '0.75rem 1.5rem', borderRadius: '12px', fontSize: '0.9rem', fontWeight: '600', border: '2px solid #f59e0b' }}>
+                      <span>📦</span>
+                      <span>Waiting for Pickup</span>
+                    </div>
+                  )}
                   {order.status === 'out_for_delivery' && (
-                    <button 
-                      onClick={() => updateOrderStatus(order.order_id, 'delivered')}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '0.5rem',
-                        background: 'linear-gradient(135deg, #10b981, #059669)',
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: '12px',
-                        padding: '0.75rem 1.5rem',
-                        fontSize: '0.9rem',
-                        fontWeight: '600',
-                        cursor: 'pointer',
-                        transition: 'all 0.2s ease'
-                      }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.background = 'linear-gradient(135deg, #059669, #047857)';
-                        e.currentTarget.style.transform = 'translateY(-2px)';
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.background = 'linear-gradient(135deg, #10b981, #059669)';
-                        e.currentTarget.style.transform = 'translateY(0)';
-                      }}
-                    >
-                      <span>✓</span>
-                      <span>Mark as Delivered</span>
-                    </button>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: '#ede9fe', color: '#7c3aed', padding: '0.75rem 1.5rem', borderRadius: '12px', fontSize: '0.9rem', fontWeight: '600', border: '2px solid #8b5cf6' }}>
+                      <span>🛵</span>
+                      <span>Out for Delivery</span>
+                    </div>
                   )}
                   {order.status === 'delivered' && (
                     <div style={{
