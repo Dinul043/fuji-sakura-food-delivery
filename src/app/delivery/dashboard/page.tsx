@@ -306,15 +306,44 @@ export default function DeliveryDashboard() {
 
         {/* Active Delivery Card */}
         {activeOrder && (
-          <div style={{ background: 'white', borderRadius: '16px', padding: '1.5rem', marginBottom: '1.5rem', boxShadow: '0 4px 20px rgba(0,0,0,0.1)', borderLeft: '4px solid #10b981' }}>
+          <div style={{ background: 'white', borderRadius: '16px', padding: '1.5rem', marginBottom: '1.5rem', boxShadow: '0 4px 20px rgba(0,0,0,0.1)', borderLeft: `4px solid ${activeOrder.status === 'ready' ? '#f59e0b' : '#10b981'}` }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem' }}>
               <div>
-                <div style={{ fontSize: '0.75rem', fontWeight: '700', color: '#10b981', textTransform: 'uppercase', marginBottom: '0.25rem' }}>🚚 Active Delivery</div>
+                {/* Phase indicator */}
+                {activeOrder.status === 'ready' ? (
+                  <div style={{ fontSize: '0.75rem', fontWeight: '700', color: '#f59e0b', textTransform: 'uppercase', marginBottom: '0.25rem' }}>🏍️ Head to Restaurant</div>
+                ) : (
+                  <div style={{ fontSize: '0.75rem', fontWeight: '700', color: '#10b981', textTransform: 'uppercase', marginBottom: '0.25rem' }}>🚚 Out for Delivery</div>
+                )}
                 <div style={{ fontWeight: '700', color: '#111827', fontSize: '1.1rem' }}>{activeOrder.order_number}</div>
                 <div style={{ color: '#6b7280', fontSize: '0.875rem' }}>{activeOrder.restaurant_name}</div>
               </div>
               <div style={{ fontWeight: '800', color: '#FF5722', fontSize: '1.2rem' }}>₹{activeOrder.total_amount}</div>
             </div>
+
+            {/* Progress steps */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0', marginBottom: '1rem' }}>
+              {[
+                { label: 'Accepted', done: true },
+                { label: 'Picked Up', done: activeOrder.status === 'out_for_delivery' },
+                { label: 'Delivered', done: false }
+              ].map((step, i) => (
+                <div key={i} style={{ display: 'flex', alignItems: 'center', flex: 1 }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1 }}>
+                    <div style={{
+                      width: '28px', height: '28px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      background: step.done ? '#10b981' : (i === 1 && activeOrder.status === 'ready' ? '#f59e0b' : '#e5e7eb'),
+                      color: 'white', fontSize: '0.75rem', fontWeight: '700'
+                    }}>
+                      {step.done ? '✓' : i + 1}
+                    </div>
+                    <div style={{ fontSize: '0.65rem', color: step.done ? '#10b981' : '#9ca3af', marginTop: '0.2rem', fontWeight: '600' }}>{step.label}</div>
+                  </div>
+                  {i < 2 && <div style={{ height: '2px', flex: 1, background: step.done ? '#10b981' : '#e5e7eb', marginBottom: '1rem' }} />}
+                </div>
+              ))}
+            </div>
+
             <div style={{ background: '#f9fafb', borderRadius: '10px', padding: '0.875rem', marginBottom: '1rem' }}>
               <div style={{ fontSize: '0.8rem', color: '#9ca3af', marginBottom: '0.25rem' }}>📍 Deliver to</div>
               <div style={{ fontWeight: '600', color: '#111827', fontSize: '0.9rem' }}>{activeOrder.customer_name}</div>
@@ -326,38 +355,65 @@ export default function DeliveryDashboard() {
                 📝 {activeOrder.special_instructions}
               </div>
             )}
-            {/* COD Collection button — only for COD orders */}
-            {activeOrder.payment_method?.toLowerCase() === 'cod' && !activeOrder.cod_collected && (
-              <div style={{ background: '#fef3c7', borderRadius: '10px', padding: '0.875rem 1rem', marginBottom: '0.875rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div>
-                  <div style={{ fontWeight: '700', color: '#92400e', fontSize: '0.875rem' }}>💵 COD Order — ₹{activeOrder.total_amount}</div>
-                  <div style={{ color: '#b45309', fontSize: '0.78rem' }}>Collect cash from customer</div>
-                </div>
-                <button onClick={async () => {
-                  try {
-                    const res = await fetch(`${API_BASE_URL}/api/delivery/mark-cod-collected/${activeOrder.id}`, {
-                      method: 'PUT', headers: { 'Authorization': `Bearer ${getToken()}` }
-                    });
-                    if (res.ok) {
-                      setActiveOrder(prev => prev ? { ...prev, cod_collected: true } : null);
-                      showToast('💵 Cash collected marked!');
-                    }
-                  } catch { showToast('Network error', 'error'); }
-                }}
-                  style={{ padding: '0.5rem 1rem', borderRadius: '8px', border: 'none', background: '#f59e0b', color: 'white', fontWeight: '700', cursor: 'pointer', fontSize: '0.8rem' }}>
-                  Mark Collected
+
+            {/* Phase 1: Heading to restaurant — show "Food Picked Up" button */}
+            {activeOrder.status === 'ready' && (
+              <button onClick={async () => {
+                try {
+                  const res = await fetch(`${API_BASE_URL}/api/delivery/pickup-order/${activeOrder.id}`, {
+                    method: 'POST', headers: { 'Authorization': `Bearer ${getToken()}` }
+                  });
+                  if (res.ok) {
+                    const data = await res.json();
+                    setActiveOrder(data.order);
+                    showToast('📦 Food picked up! Head to the customer.');
+                  } else {
+                    const d = await res.json();
+                    showToast(d.detail || 'Failed to mark pickup', 'error');
+                  }
+                } catch { showToast('Network error', 'error'); }
+              }}
+                style={{ width: '100%', padding: '0.875rem', borderRadius: '12px', border: 'none', background: 'linear-gradient(135deg, #f59e0b, #d97706)', color: 'white', fontWeight: '700', fontSize: '1rem', cursor: 'pointer', boxShadow: '0 4px 12px rgba(245,158,11,0.3)' }}>
+                📦 Food Picked Up — Start Delivery
+              </button>
+            )}
+
+            {/* Phase 2: Out for delivery — COD + Mark Delivered */}
+            {activeOrder.status === 'out_for_delivery' && (
+              <>
+                {activeOrder.payment_method?.toLowerCase() === 'cod' && !activeOrder.cod_collected && (
+                  <div style={{ background: '#fef3c7', borderRadius: '10px', padding: '0.875rem 1rem', marginBottom: '0.875rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div>
+                      <div style={{ fontWeight: '700', color: '#92400e', fontSize: '0.875rem' }}>💵 COD Order — ₹{activeOrder.total_amount}</div>
+                      <div style={{ color: '#b45309', fontSize: '0.78rem' }}>Collect cash from customer</div>
+                    </div>
+                    <button onClick={async () => {
+                      try {
+                        const res = await fetch(`${API_BASE_URL}/api/delivery/mark-cod-collected/${activeOrder.id}`, {
+                          method: 'PUT', headers: { 'Authorization': `Bearer ${getToken()}` }
+                        });
+                        if (res.ok) {
+                          setActiveOrder(prev => prev ? { ...prev, cod_collected: true } : null);
+                          showToast('💵 Cash collected marked!');
+                        }
+                      } catch { showToast('Network error', 'error'); }
+                    }}
+                      style={{ padding: '0.5rem 1rem', borderRadius: '8px', border: 'none', background: '#f59e0b', color: 'white', fontWeight: '700', cursor: 'pointer', fontSize: '0.8rem' }}>
+                      Mark Collected
+                    </button>
+                  </div>
+                )}
+                {activeOrder.payment_method?.toLowerCase() === 'cod' && activeOrder.cod_collected && (
+                  <div style={{ background: '#d1fae5', borderRadius: '10px', padding: '0.75rem 1rem', marginBottom: '0.875rem', color: '#065f46', fontWeight: '600', fontSize: '0.875rem' }}>
+                    ✅ Cash collected — ₹{activeOrder.total_amount}
+                  </div>
+                )}
+                <button onClick={completeOrder}
+                  style={{ width: '100%', padding: '0.875rem', borderRadius: '12px', border: 'none', background: 'linear-gradient(135deg, #10b981, #059669)', color: 'white', fontWeight: '700', fontSize: '1rem', cursor: 'pointer', boxShadow: '0 4px 12px rgba(16,185,129,0.3)' }}>
+                  ✅ Mark as Delivered
                 </button>
-              </div>
+              </>
             )}
-            {activeOrder.payment_method?.toLowerCase() === 'cod' && activeOrder.cod_collected && (
-              <div style={{ background: '#d1fae5', borderRadius: '10px', padding: '0.75rem 1rem', marginBottom: '0.875rem', color: '#065f46', fontWeight: '600', fontSize: '0.875rem' }}>
-                ✅ Cash collected — ₹{activeOrder.total_amount}
-              </div>
-            )}
-            <button onClick={completeOrder}
-              style={{ width: '100%', padding: '0.875rem', borderRadius: '12px', border: 'none', background: 'linear-gradient(135deg, #10b981, #059669)', color: 'white', fontWeight: '700', fontSize: '1rem', cursor: 'pointer', boxShadow: '0 4px 12px rgba(16,185,129,0.3)' }}>
-              ✅ Mark as Delivered
-            </button>
           </div>
         )}
 

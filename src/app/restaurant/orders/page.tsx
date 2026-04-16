@@ -869,9 +869,20 @@ export default function RestaurantOrders() {
                     </button>
                   )}
                   {order.status === 'ready' && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: '#fef3c7', color: '#92400e', padding: '0.75rem 1.5rem', borderRadius: '12px', fontSize: '0.9rem', fontWeight: '600', border: '2px solid #f59e0b' }}>
-                      <span>📦</span>
-                      <span>Waiting for Pickup</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem',
+                      background: (order as any).delivery_partner_name ? '#fef9c3' : '#fef3c7',
+                      color: (order as any).delivery_partner_name ? '#854d0e' : '#92400e',
+                      padding: '0.75rem 1.5rem', borderRadius: '12px', fontSize: '0.9rem', fontWeight: '600',
+                      border: `2px solid ${(order as any).delivery_partner_name ? '#fde047' : '#f59e0b'}` }}>
+                      <span>{(order as any).delivery_partner_name ? '🏍️' : '📦'}</span>
+                      <div>
+                        <div>{(order as any).delivery_partner_name ? 'Partner On The Way' : 'Waiting for Pickup'}</div>
+                        {(order as any).delivery_partner_name && (
+                          <div style={{ fontSize: '0.78rem', fontWeight: '500', marginTop: '0.1rem' }}>
+                            {(order as any).delivery_partner_name} · {(order as any).delivery_partner_phone}
+                          </div>
+                        )}
+                      </div>
                     </div>
                   )}
                   {order.status === 'out_for_delivery' && (

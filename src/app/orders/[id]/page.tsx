@@ -275,7 +275,7 @@ export default function OrderTrackingPage() {
     },
     {
       title: 'Ready for Pickup',
-      description: 'Food is ready — delivery partner is on the way',
+      description: 'Food is ready — delivery partner is heading to the restaurant',
       emoji: '📦',
       color: '#f59e0b'
     },
