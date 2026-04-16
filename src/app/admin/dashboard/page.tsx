@@ -975,9 +975,128 @@ export default function AdminDashboard() {
             )}
           </div>
         )}
-      </div>
 
-      {/* Application Detail Modal */}
+        {/* Payouts Tab */}
+        {activeTab === 'payouts' && (
+          <div style={{ background: 'white', borderRadius: '16px', padding: '2rem', boxShadow: '0 8px 32px rgba(0,0,0,0.1)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+              <h3 style={{ fontSize: '1.3rem', fontWeight: '700', color: '#333', margin: 0 }}>
+                💸 Delivery Partner Payouts ({payouts.length})
+              </h3>
+              <button onClick={fetchPayouts} style={{ background: 'none', border: '1px solid #e5e7eb', borderRadius: '8px', padding: '0.4rem 0.75rem', cursor: 'pointer', fontSize: '0.8rem', color: '#6b7280' }}>
+                🔄 Refresh
+              </button>
+            </div>
+            {payouts.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '4rem 2rem', color: '#9ca3af' }}>
+                <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>💸</div>
+                <p style={{ margin: 0 }}>No approved delivery partners yet</p>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                {payouts.map((p: any) => (
+                  <div key={p.id} style={{ border: '1px solid #e5e7eb', borderRadius: '12px', padding: '1.25rem', borderLeft: `4px solid ${p.pending_payout > 0 ? '#f59e0b' : '#10b981'}` }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontWeight: '700', color: '#111827', fontSize: '1rem' }}>{p.name}</div>
+                        <div style={{ color: '#6b7280', fontSize: '0.875rem' }}>{p.email} · {p.phone}</div>
+                        <div style={{ color: '#6b7280', fontSize: '0.875rem' }}>{p.city} · {p.area}</div>
+                        {p.upi_id && <div style={{ color: '#374151', fontSize: '0.875rem', marginTop: '0.25rem' }}>💳 UPI: <strong>{p.upi_id}</strong></div>}
+                        <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.75rem', flexWrap: 'wrap' }}>
+                          <span style={{ background: '#fef3c7', color: '#92400e', padding: '0.2rem 0.75rem', borderRadius: '20px', fontSize: '0.8rem', fontWeight: '600' }}>
+                            Pending: ₹{p.pending_payout}
+                          </span>
+                          {p.cod_collected_by_partner > 0 && (
+                            <span style={{ background: '#fee2e2', color: '#991b1b', padding: '0.2rem 0.75rem', borderRadius: '20px', fontSize: '0.8rem', fontWeight: '600' }}>
+                              COD collected: ₹{p.cod_collected_by_partner}
+                            </span>
+                          )}
+                          <span style={{ background: p.net_settlement >= 0 ? '#d1fae5' : '#fef3c7', color: p.net_settlement >= 0 ? '#065f46' : '#92400e', padding: '0.2rem 0.75rem', borderRadius: '20px', fontSize: '0.8rem', fontWeight: '700' }}>
+                            Net: ₹{p.net_settlement} {p.net_settlement >= 0 ? '(pay partner)' : '(partner owes)'}
+                          </span>
+                          <span style={{ background: '#f3f4f6', color: '#374151', padding: '0.2rem 0.75rem', borderRadius: '20px', fontSize: '0.8rem', fontWeight: '600' }}>
+                            {p.total_deliveries} deliveries · Paid: ₹{p.total_paid}
+                          </span>
+                        </div>
+                        {p.cod_collected_by_partner > 0 && (
+                          <div style={{ marginTop: '0.5rem', fontSize: '0.75rem', color: '#9ca3af', fontStyle: 'italic' }}>
+                            ℹ️ COD collected by partner from customer — settle separately
+                          </div>
+                        )}
+                      </div>
+                      {p.pending_payout > 0 && (
+                        <button onClick={() => markPaid(p.id, p.name)} disabled={isMarkingPaid === p.id}
+                          style={{ padding: '0.6rem 1.25rem', borderRadius: '10px', border: 'none', background: isMarkingPaid === p.id ? '#9ca3af' : '#10b981', color: 'white', fontWeight: '700', cursor: isMarkingPaid === p.id ? 'not-allowed' : 'pointer', fontSize: '0.875rem', whiteSpace: 'nowrap', marginLeft: '1rem' }}>
+                          {isMarkingPaid === p.id ? '...' : '✅ Mark Paid'}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Live Orders Tab */}
+        {activeTab === 'live' && (
+          <div style={{ background: 'white', borderRadius: '16px', padding: '2rem', boxShadow: '0 8px 32px rgba(0,0,0,0.1)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+              <h3 style={{ fontSize: '1.3rem', fontWeight: '700', color: '#333', margin: 0 }}>
+                📍 Live Order Tracking ({liveOrders.length})
+              </h3>
+              <button onClick={fetchLiveOrders} style={{ background: 'none', border: '1px solid #e5e7eb', borderRadius: '8px', padding: '0.4rem 0.75rem', cursor: 'pointer', fontSize: '0.8rem', color: '#6b7280' }}>
+                🔄 Refresh
+              </button>
+            </div>
+            {liveOrders.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '4rem 2rem', color: '#9ca3af' }}>
+                <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>📭</div>
+                <p style={{ margin: 0 }}>No active orders right now</p>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                {liveOrders.map((order: any) => {
+                  const statusColors: Record<string, string> = { confirmed: '#3b82f6', preparing: '#f59e0b', ready: '#f59e0b', out_for_delivery: '#8b5cf6' };
+                  const statusLabels: Record<string, string> = { confirmed: '✅ Confirmed', preparing: '🍳 Preparing', ready: '📦 Ready / Partner On Way', out_for_delivery: '🛵 Out for Delivery' };
+                  return (
+                    <div key={order.id} style={{ border: '1px solid #e5e7eb', borderRadius: '12px', padding: '1.25rem', borderLeft: `4px solid ${statusColors[order.status] || '#6b7280'}` }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.5rem' }}>
+                            <span style={{ fontWeight: '700', color: '#111827' }}>{order.order_number}</span>
+                            <span style={{ padding: '0.15rem 0.6rem', borderRadius: '20px', fontSize: '0.78rem', fontWeight: '600', background: `${statusColors[order.status]}20`, color: statusColors[order.status] }}>
+                              {statusLabels[order.status] || order.status}
+                            </span>
+                            {order.payment_method === 'cod' && (
+                              <span style={{ padding: '0.15rem 0.6rem', borderRadius: '20px', fontSize: '0.75rem', fontWeight: '600', background: '#fef3c7', color: '#92400e' }}>COD</span>
+                            )}
+                          </div>
+                          <div style={{ color: '#6b7280', fontSize: '0.875rem' }}>🏪 {order.restaurant_name}</div>
+                          <div style={{ color: '#6b7280', fontSize: '0.875rem' }}>👤 {order.customer_name} · 📞 {order.delivery_phone}</div>
+                          <div style={{ color: '#6b7280', fontSize: '0.875rem' }}>📍 {order.delivery_address}</div>
+                          {order.delivery_partner_name ? (
+                            <div style={{ marginTop: '0.5rem', padding: '0.4rem 0.75rem', background: '#ede9fe', borderRadius: '8px', fontSize: '0.82rem', color: '#6d28d9', fontWeight: '600' }}>
+                              🛵 {order.delivery_partner_name} · {order.delivery_partner_phone}
+                            </div>
+                          ) : (
+                            <div style={{ marginTop: '0.5rem', fontSize: '0.8rem', color: '#9ca3af', fontStyle: 'italic' }}>No delivery partner assigned yet</div>
+                          )}
+                        </div>
+                        <div style={{ textAlign: 'right', marginLeft: '1rem' }}>
+                          <div style={{ fontWeight: '800', color: '#FF5722', fontSize: '1.1rem' }}>₹{order.total_amount}</div>
+                          <div style={{ fontSize: '0.75rem', color: '#9ca3af', marginTop: '0.25rem' }}>{new Date(order.created_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}</div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+      </div>
       {selectedApplication && (
         <div style={{
           position: 'fixed',
@@ -1233,123 +1352,6 @@ export default function AdminDashboard() {
           </div>
         </div>
       )}
-
-        {/* Payouts Tab */}
-        {activeTab === 'payouts' && (
-          <div style={{ background: 'white', borderRadius: '16px', padding: '2rem', boxShadow: '0 8px 32px rgba(0,0,0,0.1)', maxWidth: '900px', margin: '0 auto', marginBottom: '2rem' }}>
-            <h3 style={{ fontSize: '1.3rem', fontWeight: '700', color: '#333', margin: '0 0 1.5rem' }}>
-              💸 Delivery Partner Payouts
-            </h3>
-            {payouts.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: '4rem 2rem', color: '#9ca3af' }}>
-                <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>💸</div>
-                <p style={{ margin: 0 }}>No approved delivery partners yet</p>
-              </div>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                {payouts.map((p: any) => (
-                  <div key={p.id} style={{ border: '1px solid #e5e7eb', borderRadius: '12px', padding: '1.25rem', borderLeft: `4px solid ${p.pending_payout > 0 ? '#f59e0b' : '#10b981'}` }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                      <div style={{ flex: 1 }}>
-                        <div style={{ fontWeight: '700', color: '#111827', fontSize: '1rem' }}>{p.name}</div>
-                        <div style={{ color: '#6b7280', fontSize: '0.875rem' }}>{p.email} · {p.phone}</div>
-                        <div style={{ color: '#6b7280', fontSize: '0.875rem' }}>{p.city} · {p.area}</div>
-                        {p.upi_id && <div style={{ color: '#374151', fontSize: '0.875rem', marginTop: '0.25rem' }}>💳 UPI: <strong>{p.upi_id}</strong></div>}
-                        <div style={{ display: 'flex', gap: '1rem', marginTop: '0.75rem', flexWrap: 'wrap' }}>
-                          <span style={{ background: '#fef3c7', color: '#92400e', padding: '0.2rem 0.75rem', borderRadius: '20px', fontSize: '0.8rem', fontWeight: '600' }}>
-                            Pending: ₹{p.pending_payout}
-                          </span>
-                          {p.cod_collected_by_partner > 0 && (
-                            <span style={{ background: '#fee2e2', color: '#991b1b', padding: '0.2rem 0.75rem', borderRadius: '20px', fontSize: '0.8rem', fontWeight: '600' }}>
-                              COD collected: ₹{p.cod_collected_by_partner}
-                            </span>
-                          )}
-                          <span style={{ background: p.net_settlement >= 0 ? '#d1fae5' : '#fef3c7', color: p.net_settlement >= 0 ? '#065f46' : '#92400e', padding: '0.2rem 0.75rem', borderRadius: '20px', fontSize: '0.8rem', fontWeight: '700' }}>
-                            Net: ₹{p.net_settlement} {p.net_settlement >= 0 ? '(pay partner)' : '(partner owes)'}
-                          </span>
-                          <span style={{ background: '#f3f4f6', color: '#374151', padding: '0.2rem 0.75rem', borderRadius: '20px', fontSize: '0.8rem', fontWeight: '600' }}>
-                            {p.total_deliveries} deliveries · Paid: ₹{p.total_paid}
-                          </span>
-                        </div>
-                        {p.cod_collected_by_partner > 0 && (
-                          <div style={{ marginTop: '0.5rem', fontSize: '0.75rem', color: '#9ca3af', fontStyle: 'italic' }}>
-                            ℹ️ COD is collected by partner from customer and needs to be settled separately
-                          </div>
-                        )}
-                      </div>
-                      {p.pending_payout > 0 && (
-                        <button
-                          onClick={() => markPaid(p.id, p.name)}
-                          disabled={isMarkingPaid === p.id}
-                          style={{ padding: '0.6rem 1.25rem', borderRadius: '10px', border: 'none', background: isMarkingPaid === p.id ? '#9ca3af' : '#10b981', color: 'white', fontWeight: '700', cursor: isMarkingPaid === p.id ? 'not-allowed' : 'pointer', fontSize: '0.875rem', whiteSpace: 'nowrap', marginLeft: '1rem' }}>
-                          {isMarkingPaid === p.id ? '...' : '✅ Mark Paid'}
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
-      {/* Live Orders Tab */}
-        {activeTab === 'live' && (
-          <div style={{ background: 'white', borderRadius: '16px', padding: '2rem', boxShadow: '0 8px 32px rgba(0,0,0,0.1)', marginBottom: '2rem' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-              <h3 style={{ fontSize: '1.3rem', fontWeight: '700', color: '#333', margin: 0 }}>
-                📍 Live Order Tracking ({liveOrders.length})
-              </h3>
-              <button onClick={fetchLiveOrders} style={{ background: 'none', border: '1px solid #e5e7eb', borderRadius: '8px', padding: '0.4rem 0.75rem', cursor: 'pointer', fontSize: '0.8rem', color: '#6b7280' }}>
-                🔄 Refresh
-              </button>
-            </div>
-            {liveOrders.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: '4rem 2rem', color: '#9ca3af' }}>
-                <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>📭</div>
-                <p style={{ margin: 0 }}>No active orders right now</p>
-              </div>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                {liveOrders.map((order: any) => {
-                  const statusColors: Record<string, string> = { confirmed: '#3b82f6', preparing: '#f59e0b', ready: '#f59e0b', out_for_delivery: '#8b5cf6' };
-                  const statusLabels: Record<string, string> = { confirmed: '✅ Confirmed', preparing: '🍳 Preparing', ready: '📦 Ready for Pickup', out_for_delivery: '🛵 Out for Delivery' };
-                  return (
-                    <div key={order.id} style={{ border: '1px solid #e5e7eb', borderRadius: '12px', padding: '1.25rem', borderLeft: `4px solid ${statusColors[order.status] || '#6b7280'}` }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                        <div style={{ flex: 1 }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.5rem' }}>
-                            <span style={{ fontWeight: '700', color: '#111827' }}>{order.order_number}</span>
-                            <span style={{ padding: '0.15rem 0.6rem', borderRadius: '20px', fontSize: '0.78rem', fontWeight: '600', background: `${statusColors[order.status]}20`, color: statusColors[order.status] }}>
-                              {statusLabels[order.status] || order.status}
-                            </span>
-                            {order.payment_method === 'cod' && (
-                              <span style={{ padding: '0.15rem 0.6rem', borderRadius: '20px', fontSize: '0.75rem', fontWeight: '600', background: '#fef3c7', color: '#92400e' }}>COD</span>
-                            )}
-                          </div>
-                          <div style={{ color: '#6b7280', fontSize: '0.875rem' }}>🏪 {order.restaurant_name}</div>
-                          <div style={{ color: '#6b7280', fontSize: '0.875rem' }}>👤 {order.customer_name} · 📞 {order.delivery_phone}</div>
-                          <div style={{ color: '#6b7280', fontSize: '0.875rem' }}>📍 {order.delivery_address}</div>
-                          {order.delivery_partner_name ? (
-                            <div style={{ marginTop: '0.5rem', padding: '0.5rem 0.75rem', background: '#ede9fe', borderRadius: '8px', fontSize: '0.82rem', color: '#6d28d9', fontWeight: '600' }}>
-                              🛵 {order.delivery_partner_name} · {order.delivery_partner_phone}
-                            </div>
-                          ) : (
-                            <div style={{ marginTop: '0.5rem', fontSize: '0.8rem', color: '#9ca3af', fontStyle: 'italic' }}>No delivery partner assigned yet</div>
-                          )}
-                        </div>
-                        <div style={{ textAlign: 'right', marginLeft: '1rem' }}>
-                          <div style={{ fontWeight: '800', color: '#FF5722', fontSize: '1.1rem' }}>₹{order.total_amount}</div>
-                          <div style={{ fontSize: '0.75rem', color: '#9ca3af', marginTop: '0.25rem' }}>{new Date(order.created_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}</div>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        )}
 
       {/* Delivery Review Modal */}
       {selectedDelivery && (
