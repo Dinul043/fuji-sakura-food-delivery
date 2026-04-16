@@ -859,9 +859,16 @@ export default function RestaurantOrders() {
                     </div>
                   )}
                   {order.status === 'out_for_delivery' && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: '#ede9fe', color: '#7c3aed', padding: '0.75rem 1.5rem', borderRadius: '12px', fontSize: '0.9rem', fontWeight: '600', border: '2px solid #8b5cf6' }}>
-                      <span>🛵</span>
-                      <span>Out for Delivery</span>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', background: '#ede9fe', color: '#7c3aed', padding: '0.75rem 1.5rem', borderRadius: '12px', fontSize: '0.9rem', fontWeight: '600', border: '2px solid #8b5cf6' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <span>🛵</span>
+                        <span>Picked up — Out for Delivery</span>
+                      </div>
+                      {(order as any).delivery_partner_name && (
+                        <div style={{ fontSize: '0.8rem', color: '#6d28d9', fontWeight: '500' }}>
+                          Partner: {(order as any).delivery_partner_name} · {(order as any).delivery_partner_phone}
+                        </div>
+                      )}
                     </div>
                   )}
                   {order.status === 'delivered' && (
