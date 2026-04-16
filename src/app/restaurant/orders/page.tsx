@@ -129,6 +129,14 @@ export default function RestaurantOrders() {
           if (message.event === 'new_order') {
             handleNewOrder(message.data);
           }
+          // Update order status in real-time when delivery partner accepts/delivers
+          if (message.type === 'order_status_update' && message.order) {
+            setOrders(prev => prev.map(o =>
+              (o.id === message.order_id || o.order_id === message.order_id)
+                ? { ...o, ...message.order, order_id: message.order_id, items_count: o.items_count }
+                : o
+            ));
+          }
         } catch (error) {
           // Silently ignore non-JSON messages (like pong)
           if (event.data !== 'pong') {

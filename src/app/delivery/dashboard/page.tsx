@@ -90,6 +90,14 @@ export default function DeliveryDashboard() {
     }).catch(() => {});
     fetchAvailableOrders();
     fetchEarnings();
+
+    // Restore active order if partner has one in progress
+    fetch(`${API_BASE_URL}/api/delivery/active-order`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    }).then(r => r.ok ? r.json() : null).then(data => {
+      if (data?.order) setActiveOrder(data.order);
+    }).catch(() => {});
+
     setIsLoading(false);
 
     // Replace history so browser back button doesn't go to login
@@ -107,13 +115,12 @@ export default function DeliveryDashboard() {
     ws.onmessage = (e) => {
       try {
         const msg = JSON.parse(e.data);
-        if (msg.event === 'new_order' && isOnline) {
-          showToast('🛵 New order available!', 'success');
-          fetchAvailableOrders();
-        }
-        // Also refresh when an order becomes ready for pickup
-        if (msg.type === 'order_ready_for_pickup' && isOnline) {
-          showToast('📦 Order ready for pickup!', 'success');
+        // Use sessionStorage to check current online status (avoids stale closure)
+        const currentPartner = sessionStorage.getItem('deliveryPartner');
+        const isCurrentlyOnline = currentPartner ? JSON.parse(currentPartner).is_available : false;
+
+        if ((msg.event === 'new_order' || msg.type === 'order_ready_for_pickup') && isCurrentlyOnline) {
+          showToast(msg.type === 'order_ready_for_pickup' ? '📦 Order ready for pickup!' : '🛵 New order available!', 'success');
           fetchAvailableOrders();
         }
       } catch {}
@@ -159,8 +166,7 @@ export default function DeliveryDashboard() {
         setIsOnline(data.is_available);
         const updated = { ...partner!, is_available: data.is_available };
         setPartner(updated);
-        sessionStorage.setItem('deliveryPartner', JSON.stringify(updated));
-        showToast(data.is_available ? '🟢 You are now Online' : '🔴 You are now Offline');
+        sessionStorage.setItem('deliveryPartner', JSON.stringify(updated));        showToast(data.is_available ? '🟢 You are now Online' : '🔴 You are now Offline');
         if (data.is_available) fetchAvailableOrders();
         else setAvailableOrders([]);
       }
@@ -344,16 +350,11 @@ export default function DeliveryDashboard() {
               style={{ width: '100%', padding: '0.875rem', borderRadius: '12px', border: 'none', background: 'linear-gradient(135deg, #10b981, #059669)', color: 'white', fontWeight: '700', fontSize: '1rem', cursor: 'pointer', boxShadow: '0 4px 12px rgba(16,185,129,0.3)' }}>
               ✅ Mark as Delivered
             </button>
-            <button onClick={() => { setActiveOrder(null); fetchAvailableOrders(); }}
-              style={{ width: '100%', marginTop: '0.75rem', padding: '0.75rem', borderRadius: '12px', border: '2px solid #e2e8f0', background: 'white', color: '#6b7280', fontWeight: '600', fontSize: '0.9rem', cursor: 'pointer' }}>
-              ← Back to Available Orders
-            </button>
           </div>
         )}
 
-        {/* Available Orders */}
-        {!activeOrder && (
-          <div>
+        {/* Available Orders — always show, even when active order exists */}
+        <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
               <h2 style={{ margin: 0, fontSize: '1.1rem', fontWeight: '700', color: '#111827' }}>
                 Available Orders {availableOrders.length > 0 && <span style={{ background: '#FF5722', color: 'white', borderRadius: '20px', padding: '0.1rem 0.6rem', fontSize: '0.8rem', marginLeft: '0.5rem' }}>{availableOrders.length}</span>}
@@ -400,7 +401,6 @@ export default function DeliveryDashboard() {
               </div>
             )}
           </div>
-        )}
       </div>
     </div>
   );

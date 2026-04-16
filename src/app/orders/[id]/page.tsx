@@ -98,11 +98,12 @@ export default function OrderTrackingPage() {
         const stepMap: Record<string, number> = {
           'confirmed': 0,
           'preparing': 1,
-          'out_for_delivery': 2,
-          'delivered': 3,
+          'ready': 2,
+          'out_for_delivery': 3,
+          'delivered': 4,
           'cancelled': -1
         };
-        setCurrentStep(stepMap[updatedOrder.status] || 0);
+        setCurrentStep(stepMap[updatedOrder.status] ?? 0);
       }
     }
   );
@@ -164,11 +165,12 @@ export default function OrderTrackingPage() {
         const stepMap: Record<string, number> = {
           'confirmed': 0,
           'preparing': 1,
-          'out_for_delivery': 2,
-          'delivered': 3,
+          'ready': 2,
+          'out_for_delivery': 3,
+          'delivered': 4,
           'cancelled': -1
         };
-        setCurrentStep(stepMap[data.status] || 0);
+        setCurrentStep(stepMap[data.status] ?? 0);
       } catch (error) {
         console.error('❌ Error loading order:', error);
         setOrder(null);
