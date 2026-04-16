@@ -115,13 +115,21 @@ export default function DeliveryDashboard() {
     ws.onmessage = (e) => {
       try {
         const msg = JSON.parse(e.data);
-        // Use sessionStorage to check current online status (avoids stale closure)
-        const currentPartner = sessionStorage.getItem('deliveryPartner');
-        const isCurrentlyOnline = currentPartner ? JSON.parse(currentPartner).is_available : false;
+        if (msg === 'pong') return;
 
-        if ((msg.event === 'new_order' || msg.type === 'order_ready_for_pickup') && isCurrentlyOnline) {
-          showToast(msg.type === 'order_ready_for_pickup' ? '📦 Order ready for pickup!' : '🛵 New order available!', 'success');
-          fetchAvailableOrders();
+        // New order available or order ready for pickup — refresh available orders
+        if (msg.type === 'order_ready_for_pickup' || msg.type === 'new_order') {
+          const currentPartner = sessionStorage.getItem('deliveryPartner');
+          const isCurrentlyOnline = currentPartner ? JSON.parse(currentPartner).is_available : false;
+          if (isCurrentlyOnline) {
+            showToast(msg.type === 'order_ready_for_pickup' ? '📦 Order ready for pickup!' : '🛵 New order available!', 'success');
+            fetchAvailableOrders();
+          }
+        }
+
+        // Another delivery partner took an order — remove it from our list
+        if (msg.type === 'order_taken') {
+          setAvailableOrders(prev => prev.filter(o => o.id !== msg.order_id));
         }
       } catch {}
     };

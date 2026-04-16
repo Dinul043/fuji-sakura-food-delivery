@@ -130,12 +130,20 @@ export default function RestaurantOrders() {
             handleNewOrder(message.data);
           }
           // Update order status in real-time when delivery partner accepts/delivers
+          // These come as direct messages (not wrapped in event/data)
           if (message.type === 'order_status_update' && message.order) {
-            setOrders(prev => prev.map(o =>
-              (o.id === message.order_id || o.order_id === message.order_id)
-                ? { ...o, ...message.order, order_id: message.order_id, items_count: o.items_count }
-                : o
-            ));
+            setOrders(prev => prev.map(o => {
+              if (o.id === message.order_id || o.order_id === message.order_id) {
+                const updatedOrder = message.order;
+                return {
+                  ...o,
+                  status: updatedOrder.status,
+                  delivery_partner_name: updatedOrder.delivery_partner_name || (o as any).delivery_partner_name,
+                  delivery_partner_phone: updatedOrder.delivery_partner_phone || (o as any).delivery_partner_phone,
+                };
+              }
+              return o;
+            }));
           }
         } catch (error) {
           // Silently ignore non-JSON messages (like pong)
