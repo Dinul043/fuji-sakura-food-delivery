@@ -45,15 +45,17 @@ export default function AdminDashboard() {
   const [isLoading, setIsLoading] = useState(false);
 
   // Tab + Delivery Partners state
-  const [activeTab, setActiveTab] = useState<'restaurants' | 'delivery' | 'payouts' | 'live'>('restaurants');
+  const [activeTab, setActiveTab] = useState<'restaurants' | 'delivery' | 'payouts' | 'live' | 'settings'>('restaurants');
   const [deliveryPartners, setDeliveryPartners] = useState<any[]>([]);
   const [deliveryFilter, setDeliveryFilter] = useState('all');
   const [deliveryNotes, setDeliveryNotes] = useState('');
   const [selectedDelivery, setSelectedDelivery] = useState<any | null>(null);
   const [payouts, setPayouts] = useState<any[]>([]);
   const [isMarkingPaid, setIsMarkingPaid] = useState<number | null>(null);
-  const [confirmMarkPaid, setConfirmMarkPaid] = useState<any | null>(null); // partner to confirm payout
+  const [confirmMarkPaid, setConfirmMarkPaid] = useState<any | null>(null);
   const [liveOrders, setLiveOrders] = useState<any[]>([]);
+  const [companyUpiInput, setCompanyUpiInput] = useState('');
+  const [isSavingUpi, setIsSavingUpi] = useState(false);
   const [isUpdatingDelivery, setIsUpdatingDelivery] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
   const [adminNotes, setAdminNotes] = useState('');
@@ -215,6 +217,7 @@ export default function AdminDashboard() {
     if (activeTab === 'delivery') fetchDeliveryPartners(deliveryFilter);
     if (activeTab === 'payouts') fetchPayouts();
     if (activeTab === 'live') fetchLiveOrders();
+    if (activeTab === 'settings') fetchCompanyUpi();
   }, [activeTab, deliveryFilter]);
 
   const fetchLiveOrders = async () => {
@@ -241,6 +244,39 @@ export default function AdminDashboard() {
         setPayouts(data.partners || []);
       }
     } catch { showNotification('error', 'Error', 'Failed to fetch payouts'); }
+  };
+
+  const fetchCompanyUpi = async () => {
+    try {
+      const token = localStorage.getItem('adminToken');
+      const res = await fetch(`${API_BASE_URL}/api/admin/company-upi`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setCompanyUpiInput(data.upi_id || '');
+      }
+    } catch {}
+  };
+
+  const saveCompanyUpi = async () => {
+    if (!companyUpiInput.trim()) return;
+    setIsSavingUpi(true);
+    try {
+      const token = localStorage.getItem('adminToken');
+      const res = await fetch(`${API_BASE_URL}/api/admin/company-upi`, {
+        method: 'PUT',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ upi_id: companyUpiInput.trim() })
+      });
+      if (res.ok) {
+        showNotification('success', 'Saved', 'Company UPI ID updated successfully');
+      } else {
+        const d = await res.json();
+        showNotification('error', 'Error', d.detail || 'Failed to update UPI');
+      }
+    } catch { showNotification('error', 'Error', 'Network error'); }
+    finally { setIsSavingUpi(false); }
   };
 
   const markPaid = async (partnerId: number, partnerName: string) => {
@@ -706,7 +742,8 @@ export default function AdminDashboard() {
             { key: 'restaurants', label: '🏪 Restaurant Applications', count: applications.length },
             { key: 'delivery', label: '🛵 Delivery Partners', count: deliveryPartners.length },
             { key: 'payouts', label: '💸 Payouts', count: payouts.filter((p: any) => p.pending_payout > 0).length },
-            { key: 'live', label: '📍 Live Orders', count: liveOrders.length }
+            { key: 'live', label: '📍 Live Orders', count: liveOrders.length },
+            { key: 'settings', label: '⚙️ Settings', count: null }
           ].map(tab => (
             <button key={tab.key}
               onClick={() => setActiveTab(tab.key as 'restaurants' | 'delivery')}
@@ -717,7 +754,7 @@ export default function AdminDashboard() {
                 color: activeTab === tab.key ? 'white' : '#555',
                 boxShadow: activeTab === tab.key ? '0 4px 15px rgba(76,175,80,0.3)' : '0 2px 8px rgba(0,0,0,0.08)'
               }}>
-              {tab.label} ({tab.count})
+              {tab.label} {tab.count !== null ? `(${tab.count})` : ''}
             </button>
           ))}
         </div>
@@ -1147,6 +1184,53 @@ export default function AdminDashboard() {
                 })}
               </div>
             )}
+          </div>
+        )}
+
+        {/* Settings Tab */}
+        {activeTab === 'settings' && (
+          <div style={{ background: 'white', borderRadius: '16px', padding: '2rem', boxShadow: '0 8px 32px rgba(0,0,0,0.1)' }}>
+            <h3 style={{ fontSize: '1.3rem', fontWeight: '700', color: '#333', margin: '0 0 1.5rem' }}>⚙️ Platform Settings</h3>
+
+            {/* Company UPI */}
+            <div style={{ border: '1px solid #e5e7eb', borderRadius: '12px', padding: '1.5rem', marginBottom: '1.5rem' }}>
+              <div style={{ fontWeight: '700', color: '#111827', fontSize: '1rem', marginBottom: '0.4rem' }}>💳 Company UPI ID</div>
+              <div style={{ color: '#6b7280', fontSize: '0.82rem', marginBottom: '1rem' }}>
+                Delivery partners will use this UPI ID to return COD cash to the company. They can tap "Pay Now" on their dashboard to open their UPI app with this pre-filled.
+              </div>
+              <div style={{ display: 'flex', gap: '0.75rem' }}>
+                <input
+                  type="text"
+                  value={companyUpiInput}
+                  onChange={(e) => setCompanyUpiInput(e.target.value)}
+                  placeholder="e.g. fujisakura@upi or 9876543210@paytm"
+                  style={{ flex: 1, padding: '0.75rem 1rem', borderRadius: '10px', border: '1.5px solid #e5e7eb', fontSize: '0.95rem', outline: 'none', fontFamily: 'Anuphan, system-ui, sans-serif' }}
+                  onFocus={(e) => { e.currentTarget.style.borderColor = '#FF5722'; }}
+                  onBlur={(e) => { e.currentTarget.style.borderColor = '#e5e7eb'; }}
+                />
+                <button
+                  onClick={saveCompanyUpi}
+                  disabled={isSavingUpi || !companyUpiInput.trim()}
+                  style={{ padding: '0.75rem 1.5rem', borderRadius: '10px', border: 'none', background: isSavingUpi || !companyUpiInput.trim() ? '#9ca3af' : 'linear-gradient(135deg, #FF5722, #FF7043)', color: 'white', fontWeight: '700', cursor: isSavingUpi || !companyUpiInput.trim() ? 'not-allowed' : 'pointer', fontSize: '0.9rem', whiteSpace: 'nowrap' }}
+                >
+                  {isSavingUpi ? 'Saving...' : '💾 Save'}
+                </button>
+              </div>
+              {companyUpiInput && (
+                <div style={{ marginTop: '0.75rem', fontSize: '0.8rem', color: '#6b7280' }}>
+                  Partners will see: <strong>{companyUpiInput}</strong>
+                </div>
+              )}
+            </div>
+
+            <div style={{ background: '#f8fafc', borderRadius: '10px', padding: '1rem', fontSize: '0.82rem', color: '#374151', lineHeight: '1.7' }}>
+              <strong>COD Settlement Flow:</strong><br />
+              1. Partner collects full order amount in cash from customer<br />
+              2. Partner keeps ₹40 delivery fee<br />
+              3. Partner pays remaining amount to company via this UPI ID<br />
+              4. If pending COD ≥ ₹1500, partner is blocked from new COD orders<br />
+              5. Single orders above ₹1500 are still allowed (exception rule)
+            </div>
           </div>
         )}
 
