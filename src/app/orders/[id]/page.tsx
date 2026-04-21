@@ -54,6 +54,11 @@ export default function OrderTrackingPage() {
   const [isSubmittingReview, setIsSubmittingReview] = useState(false);
   const [reviewToast, setReviewToast] = useState<string | null>(null);
 
+  // Cancel order state
+  const [isCancelling, setIsCancelling] = useState(false);
+  const [cancelSecondsLeft, setCancelSecondsLeft] = useState<number | null>(null);
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+
   // WebSocket connection for real-time updates
   const { isConnected } = useWebSocket(
     `ws://localhost:8000/ws/orders/${orderId}`,
@@ -192,6 +197,43 @@ export default function OrderTrackingPage() {
         .catch(() => {});
     }
   }, [orderId]);
+
+  // 1-minute cancellation countdown timer
+  useEffect(() => {
+    if (!order || order.status !== 'confirmed' || !order.orderTime) return;
+    const updateTimer = () => {
+      const elapsed = (Date.now() - new Date(order.orderTime).getTime()) / 1000;
+      const remaining = Math.max(0, 60 - Math.floor(elapsed));
+      setCancelSecondsLeft(remaining);
+    };
+    updateTimer();
+    const interval = setInterval(updateTimer, 1000);
+    return () => clearInterval(interval);
+  }, [order?.orderTime, order?.status]);
+
+  // Cancel order handler
+  const handleCancelOrder = async () => {
+    setIsCancelling(true);
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`http://localhost:8000/api/orders/${orderId}/cancel`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        setShowCancelConfirm(false);
+        setOrder(prev => prev ? { ...prev, status: 'cancelled' } : prev);
+        setCurrentStep(-1);
+      } else {
+        const err = await res.json();
+        alert(err.detail || 'Failed to cancel order');
+      }
+    } catch {
+      alert('Network error. Please try again.');
+    } finally {
+      setIsCancelling(false);
+    }
+  };
 
   // Submit review
   const handleSubmitReview = async () => {
@@ -625,6 +667,83 @@ export default function OrderTrackingPage() {
               </div>
             )}
           </div>
+
+          {/* Cancel Order — visible only within 1 minute of confirmed order */}
+          {order.status === 'confirmed' && cancelSecondsLeft !== null && cancelSecondsLeft > 0 && (
+            <div style={{
+              background: 'rgba(255,255,255,0.95)', backdropFilter: 'blur(10px)',
+              borderRadius: '20px', padding: '1.5rem 2rem',
+              border: '2px solid #fee2e2', boxShadow: '0 8px 32px rgba(0,0,0,0.08)',
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem'
+            }}>
+              <div>
+                <p style={{ margin: 0, fontWeight: '600', color: '#374151', fontSize: '0.95rem' }}>
+                  Cancel window closes in <span style={{ color: '#ef4444', fontWeight: '700' }}>{cancelSecondsLeft}s</span>
+                </p>
+                <p style={{ margin: '0.25rem 0 0', fontSize: '0.82rem', color: '#9ca3af' }}>
+                  Orders can only be cancelled within 1 minute of placement
+                </p>
+              </div>
+              <button
+                onClick={() => setShowCancelConfirm(true)}
+                style={{
+                  padding: '0.6rem 1.25rem', background: 'linear-gradient(135deg, #ef4444, #dc2626)',
+                  color: 'white', border: 'none', borderRadius: '10px',
+                  fontSize: '0.9rem', fontWeight: '600', cursor: 'pointer',
+                  transition: 'all 0.2s ease', whiteSpace: 'nowrap'
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 4px 12px rgba(239,68,68,0.4)'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = 'none'; }}
+              >
+                Cancel Order
+              </button>
+            </div>
+          )}
+
+          {/* Cancel Confirmation Modal */}
+          {showCancelConfirm && (
+            <div style={{
+              position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999
+            }}>
+              <div style={{
+                background: 'white', borderRadius: '20px', padding: '2rem',
+                maxWidth: '400px', width: '90%', textAlign: 'center',
+                boxShadow: '0 20px 60px rgba(0,0,0,0.3)'
+              }}>
+                <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>⚠️</div>
+                <h3 style={{ margin: '0 0 0.5rem', color: '#1f2937', fontSize: '1.2rem', fontWeight: '700' }}>Cancel this order?</h3>
+                <p style={{ margin: '0 0 1.5rem', color: '#6b7280', fontSize: '0.95rem' }}>
+                  This action cannot be undone. The restaurant will be notified immediately.
+                </p>
+                <div style={{ display: 'flex', gap: '0.75rem' }}>
+                  <button
+                    onClick={() => setShowCancelConfirm(false)}
+                    style={{
+                      flex: 1, padding: '0.75rem', background: '#f3f4f6', color: '#374151',
+                      border: 'none', borderRadius: '10px', fontSize: '0.95rem',
+                      fontWeight: '600', cursor: 'pointer'
+                    }}
+                  >
+                    Keep Order
+                  </button>
+                  <button
+                    onClick={handleCancelOrder}
+                    disabled={isCancelling}
+                    style={{
+                      flex: 1, padding: '0.75rem',
+                      background: isCancelling ? '#9ca3af' : 'linear-gradient(135deg, #ef4444, #dc2626)',
+                      color: 'white', border: 'none', borderRadius: '10px',
+                      fontSize: '0.95rem', fontWeight: '600',
+                      cursor: isCancelling ? 'not-allowed' : 'pointer'
+                    }}
+                  >
+                    {isCancelling ? 'Cancelling...' : 'Yes, Cancel'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Delivery Information */}
           <div style={{

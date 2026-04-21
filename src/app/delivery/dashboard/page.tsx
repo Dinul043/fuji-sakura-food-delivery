@@ -131,6 +131,18 @@ export default function DeliveryDashboard() {
         if (msg.type === 'order_taken') {
           setAvailableOrders(prev => prev.filter(o => o.id !== msg.order_id));
         }
+
+        // Order was cancelled by customer — remove from active order and available list
+        if (msg.type === 'order_cancelled') {
+          setAvailableOrders(prev => prev.filter(o => o.id !== msg.order_id));
+          setActiveOrder(prev => {
+            if (prev && prev.id === msg.order_id) {
+              showToast(`Order #${msg.order_id} was cancelled by the customer`, 'error');
+              return null;
+            }
+            return prev;
+          });
+        }
       } catch {}
     };
     ws.onclose = () => {};
@@ -289,18 +301,46 @@ export default function DeliveryDashboard() {
 
         {/* Earnings Summary */}
         {earnings && (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.875rem', marginBottom: '1.5rem' }}>
-            {[
-              { label: "Today's Earnings", value: `₹${earnings.today_earnings}`, sub: `${earnings.today_deliveries} deliveries`, color: '#10b981' },
-              { label: 'Total Earnings', value: `₹${earnings.total_earnings}`, sub: `${earnings.total_deliveries} total`, color: '#3b82f6' },
-              { label: 'Pending Payout', value: `₹${earnings.pending_payout}`, sub: earnings.cod_to_submit > 0 ? `COD: ₹${earnings.cod_to_submit}` : 'No COD pending', color: '#f59e0b' }
-            ].map(card => (
-              <div key={card.label} style={{ background: 'white', borderRadius: '12px', padding: '1rem', boxShadow: '0 2px 8px rgba(0,0,0,0.06)', borderTop: `3px solid ${card.color}` }}>
-                <div style={{ fontSize: '0.72rem', color: '#9ca3af', fontWeight: '600', textTransform: 'uppercase', marginBottom: '0.25rem' }}>{card.label}</div>
-                <div style={{ fontSize: '1.3rem', fontWeight: '800', color: card.color }}>{card.value}</div>
-                <div style={{ fontSize: '0.75rem', color: '#9ca3af', marginTop: '0.2rem' }}>{card.sub}</div>
+          <div style={{ marginBottom: '1.5rem' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.875rem', marginBottom: '0.75rem' }}>
+              {[
+                { label: "Today's Earnings", value: `₹${earnings.today_earnings}`, sub: `${earnings.today_deliveries} deliveries`, color: '#10b981' },
+                { label: 'Total Earnings', value: `₹${earnings.total_earnings}`, sub: `${earnings.total_deliveries} total`, color: '#3b82f6' },
+                { label: 'Pending Payout', value: `₹${earnings.pending_payout}`, sub: 'Admin will transfer', color: '#f59e0b' }
+              ].map(card => (
+                <div key={card.label} style={{ background: 'white', borderRadius: '12px', padding: '1rem', boxShadow: '0 2px 8px rgba(0,0,0,0.06)', borderTop: `3px solid ${card.color}` }}>
+                  <div style={{ fontSize: '0.72rem', color: '#9ca3af', fontWeight: '600', textTransform: 'uppercase', marginBottom: '0.25rem' }}>{card.label}</div>
+                  <div style={{ fontSize: '1.3rem', fontWeight: '800', color: card.color }}>{card.value}</div>
+                  <div style={{ fontSize: '0.75rem', color: '#9ca3af', marginTop: '0.2rem' }}>{card.sub}</div>
+                </div>
+              ))}
+            </div>
+
+            {/* COD Settlement breakdown — only show if there's COD pending */}
+            {earnings.cod_to_submit > 0 && (
+              <div style={{ background: 'white', borderRadius: '12px', padding: '1rem', boxShadow: '0 2px 8px rgba(0,0,0,0.06)', border: '1px solid #fde68a' }}>
+                <div style={{ fontSize: '0.78rem', fontWeight: '700', color: '#92400e', marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                  ⚠️ COD Settlement Pending
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.5rem', fontSize: '0.8rem' }}>
+                  <div style={{ background: '#fef2f2', borderRadius: '8px', padding: '0.6rem', textAlign: 'center' }}>
+                    <div style={{ color: '#991b1b', fontWeight: '700', fontSize: '0.68rem', textTransform: 'uppercase', marginBottom: '0.2rem' }}>COD Collected</div>
+                    <div style={{ color: '#dc2626', fontWeight: '800', fontSize: '1.1rem' }}>₹{earnings.cod_to_submit}</div>
+                    <div style={{ color: '#f87171', fontSize: '0.68rem' }}>Cash from customer</div>
+                  </div>
+                  <div style={{ background: '#f0fdf4', borderRadius: '8px', padding: '0.6rem', textAlign: 'center' }}>
+                    <div style={{ color: '#166534', fontWeight: '700', fontSize: '0.68rem', textTransform: 'uppercase', marginBottom: '0.2rem' }}>Your Earnings</div>
+                    <div style={{ color: '#16a34a', fontWeight: '800', fontSize: '1.1rem' }}>₹{earnings.pending_payout}</div>
+                    <div style={{ color: '#4ade80', fontSize: '0.68rem' }}>You keep this</div>
+                  </div>
+                  <div style={{ background: '#fef3c7', borderRadius: '8px', padding: '0.6rem', textAlign: 'center' }}>
+                    <div style={{ color: '#92400e', fontWeight: '700', fontSize: '0.68rem', textTransform: 'uppercase', marginBottom: '0.2rem' }}>Return to Platform</div>
+                    <div style={{ color: '#d97706', fontWeight: '800', fontSize: '1.1rem' }}>₹{Math.max(0, earnings.cod_to_submit - earnings.pending_payout)}</div>
+                    <div style={{ color: '#fbbf24', fontSize: '0.68rem' }}>COD − your earnings</div>
+                  </div>
+                </div>
               </div>
-            ))}
+            )}
           </div>
         )}
 

@@ -52,6 +52,7 @@ export default function AdminDashboard() {
   const [selectedDelivery, setSelectedDelivery] = useState<any | null>(null);
   const [payouts, setPayouts] = useState<any[]>([]);
   const [isMarkingPaid, setIsMarkingPaid] = useState<number | null>(null);
+  const [confirmMarkPaid, setConfirmMarkPaid] = useState<any | null>(null); // partner to confirm payout
   const [liveOrders, setLiveOrders] = useState<any[]>([]);
   const [isUpdatingDelivery, setIsUpdatingDelivery] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
@@ -244,6 +245,7 @@ export default function AdminDashboard() {
 
   const markPaid = async (partnerId: number, partnerName: string) => {
     setIsMarkingPaid(partnerId);
+    setConfirmMarkPaid(null);
     try {
       const token = localStorage.getItem('adminToken');
       const res = await fetch(`${API_BASE_URL}/api/admin/delivery-payout/mark-paid/${partnerId}`, {
@@ -987,54 +989,106 @@ export default function AdminDashboard() {
                 🔄 Refresh
               </button>
             </div>
+
+            {/* Legend */}
+            <div style={{ background: '#f8fafc', borderRadius: '10px', padding: '0.875rem 1rem', marginBottom: '1.5rem', fontSize: '0.82rem', color: '#374151', lineHeight: '1.7' }}>
+              <strong>How settlement works:</strong><br />
+              🟢 <strong>Delivery Earnings</strong> = ₹40 per order (what the partner keeps)<br />
+              🔴 <strong>COD Collected</strong> = Full order amount collected from customer in cash<br />
+              🔵 <strong>Amount to Return</strong> = COD Collected − Delivery Earnings (partner must return this to platform)<br />
+              ✅ <strong>Net to Pay Partner</strong> = Delivery Earnings − COD to Return (if negative, partner owes platform)
+            </div>
+
             {payouts.length === 0 ? (
               <div style={{ textAlign: 'center', padding: '4rem 2rem', color: '#9ca3af' }}>
                 <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>💸</div>
                 <p style={{ margin: 0 }}>No approved delivery partners yet</p>
               </div>
             ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                {payouts.map((p: any) => (
-                  <div key={p.id} style={{ border: '1px solid #e5e7eb', borderRadius: '12px', padding: '1.25rem', borderLeft: `4px solid ${p.pending_payout > 0 ? '#f59e0b' : '#10b981'}` }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                      <div style={{ flex: 1 }}>
-                        <div style={{ fontWeight: '700', color: '#111827', fontSize: '1rem' }}>{p.name}</div>
-                        <div style={{ color: '#6b7280', fontSize: '0.875rem' }}>{p.email} · {p.phone}</div>
-                        <div style={{ color: '#6b7280', fontSize: '0.875rem' }}>{p.city} · {p.area}</div>
-                        {p.upi_id && <div style={{ color: '#374151', fontSize: '0.875rem', marginTop: '0.25rem' }}>💳 UPI: <strong>{p.upi_id}</strong></div>}
-                        <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.75rem', flexWrap: 'wrap' }}>
-                          <span style={{ background: '#fef3c7', color: '#92400e', padding: '0.2rem 0.75rem', borderRadius: '20px', fontSize: '0.8rem', fontWeight: '600' }}>
-                            Pending: ₹{p.pending_payout}
-                          </span>
-                          {p.cod_collected_by_partner > 0 && (
-                            <span style={{ background: '#fee2e2', color: '#991b1b', padding: '0.2rem 0.75rem', borderRadius: '20px', fontSize: '0.8rem', fontWeight: '600' }}>
-                              COD collected: ₹{p.cod_collected_by_partner}
-                            </span>
-                          )}
-                          <span style={{ background: p.net_settlement >= 0 ? '#d1fae5' : '#fef3c7', color: p.net_settlement >= 0 ? '#065f46' : '#92400e', padding: '0.2rem 0.75rem', borderRadius: '20px', fontSize: '0.8rem', fontWeight: '700' }}>
-                            Net: ₹{p.net_settlement} {p.net_settlement >= 0 ? '(pay partner)' : '(partner owes)'}
-                          </span>
-                          <span style={{ background: '#f3f4f6', color: '#374151', padding: '0.2rem 0.75rem', borderRadius: '20px', fontSize: '0.8rem', fontWeight: '600' }}>
-                            {p.total_deliveries} deliveries · Paid: ₹{p.total_paid}
-                          </span>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+                {payouts.map((p: any) => {
+                  const amountToReturn = Math.max(0, p.cod_collected_by_partner - p.pending_payout);
+                  const netToPay = p.pending_payout - amountToReturn;
+                  return (
+                    <div key={p.id} style={{ border: '1px solid #e5e7eb', borderRadius: '14px', padding: '1.25rem', borderLeft: `4px solid ${p.pending_payout > 0 ? '#f59e0b' : '#10b981'}` }}>
+                      {/* Partner info */}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem' }}>
+                        <div>
+                          <div style={{ fontWeight: '700', color: '#111827', fontSize: '1rem' }}>{p.name}</div>
+                          <div style={{ color: '#6b7280', fontSize: '0.82rem' }}>{p.email} · {p.phone}</div>
+                          <div style={{ color: '#6b7280', fontSize: '0.82rem' }}>{p.city}{p.area ? ` · ${p.area}` : ''} · {p.total_deliveries} deliveries</div>
+                          {p.upi_id && <div style={{ color: '#374151', fontSize: '0.82rem', marginTop: '0.2rem' }}>💳 UPI: <strong>{p.upi_id}</strong></div>}
                         </div>
-                        {p.cod_collected_by_partner > 0 && (
-                          <div style={{ marginTop: '0.5rem', fontSize: '0.75rem', color: '#9ca3af', fontStyle: 'italic' }}>
-                            ℹ️ COD collected by partner from customer — settle separately
-                          </div>
-                        )}
+                        <div style={{ fontSize: '0.78rem', color: '#9ca3af' }}>Paid so far: ₹{p.total_paid}</div>
                       </div>
+
+                      {/* Settlement breakdown */}
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.75rem', marginBottom: '1rem' }}>
+                        <div style={{ background: '#f0fdf4', borderRadius: '10px', padding: '0.75rem', textAlign: 'center', border: '1px solid #bbf7d0' }}>
+                          <div style={{ fontSize: '0.7rem', color: '#166534', fontWeight: '700', textTransform: 'uppercase', marginBottom: '0.25rem' }}>🟢 Delivery Earnings</div>
+                          <div style={{ fontSize: '1.2rem', fontWeight: '800', color: '#16a34a' }}>₹{p.pending_payout}</div>
+                          <div style={{ fontSize: '0.7rem', color: '#4ade80' }}>Partner keeps this</div>
+                        </div>
+                        <div style={{ background: p.cod_collected_by_partner > 0 ? '#fef2f2' : '#f9fafb', borderRadius: '10px', padding: '0.75rem', textAlign: 'center', border: `1px solid ${p.cod_collected_by_partner > 0 ? '#fecaca' : '#e5e7eb'}` }}>
+                          <div style={{ fontSize: '0.7rem', color: p.cod_collected_by_partner > 0 ? '#991b1b' : '#9ca3af', fontWeight: '700', textTransform: 'uppercase', marginBottom: '0.25rem' }}>🔴 COD Collected</div>
+                          <div style={{ fontSize: '1.2rem', fontWeight: '800', color: p.cod_collected_by_partner > 0 ? '#dc2626' : '#9ca3af' }}>₹{p.cod_collected_by_partner}</div>
+                          <div style={{ fontSize: '0.7rem', color: '#f87171' }}>{p.cod_collected_by_partner > 0 ? 'Cash from customer' : 'No COD orders'}</div>
+                        </div>
+                        <div style={{ background: netToPay >= 0 ? '#eff6ff' : '#fef3c7', borderRadius: '10px', padding: '0.75rem', textAlign: 'center', border: `1px solid ${netToPay >= 0 ? '#bfdbfe' : '#fde68a'}` }}>
+                          <div style={{ fontSize: '0.7rem', color: netToPay >= 0 ? '#1e40af' : '#92400e', fontWeight: '700', textTransform: 'uppercase', marginBottom: '0.25rem' }}>🔵 Net Settlement</div>
+                          <div style={{ fontSize: '1.2rem', fontWeight: '800', color: netToPay >= 0 ? '#2563eb' : '#d97706' }}>₹{Math.abs(netToPay)}</div>
+                          <div style={{ fontSize: '0.7rem', color: netToPay >= 0 ? '#60a5fa' : '#f59e0b' }}>{netToPay >= 0 ? 'Pay to partner' : 'Partner owes platform'}</div>
+                        </div>
+                      </div>
+
+                      {amountToReturn > 0 && (
+                        <div style={{ background: '#fef3c7', borderRadius: '8px', padding: '0.6rem 0.875rem', marginBottom: '0.875rem', fontSize: '0.82rem', color: '#92400e', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                          ⚠️ Partner must return <strong>₹{amountToReturn}</strong> to platform (COD collected − delivery earnings)
+                        </div>
+                      )}
+
                       {p.pending_payout > 0 && (
-                        <button onClick={() => markPaid(p.id, p.name)} disabled={isMarkingPaid === p.id}
-                          style={{ padding: '0.6rem 1.25rem', borderRadius: '10px', border: 'none', background: isMarkingPaid === p.id ? '#9ca3af' : '#10b981', color: 'white', fontWeight: '700', cursor: isMarkingPaid === p.id ? 'not-allowed' : 'pointer', fontSize: '0.875rem', whiteSpace: 'nowrap', marginLeft: '1rem' }}>
-                          {isMarkingPaid === p.id ? '...' : '✅ Mark Paid'}
+                        <button
+                          onClick={() => setConfirmMarkPaid(p)}
+                          disabled={isMarkingPaid === p.id}
+                          style={{ width: '100%', padding: '0.7rem', borderRadius: '10px', border: 'none', background: isMarkingPaid === p.id ? '#9ca3af' : 'linear-gradient(135deg, #10b981, #059669)', color: 'white', fontWeight: '700', cursor: isMarkingPaid === p.id ? 'not-allowed' : 'pointer', fontSize: '0.9rem' }}>
+                          {isMarkingPaid === p.id ? 'Processing...' : `✅ Mark ₹${p.pending_payout} as Paid via UPI`}
                         </button>
                       )}
+                      {p.pending_payout === 0 && (
+                        <div style={{ textAlign: 'center', color: '#10b981', fontWeight: '600', fontSize: '0.875rem', padding: '0.5rem' }}>✅ All settled</div>
+                      )}
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
+          </div>
+        )}
+
+        {/* Mark Paid Confirmation Modal */}
+        {confirmMarkPaid && (
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}>
+            <div style={{ background: 'white', borderRadius: '20px', padding: '2rem', maxWidth: '420px', width: '90%', boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}>
+              <div style={{ fontSize: '2.5rem', textAlign: 'center', marginBottom: '1rem' }}>💸</div>
+              <h3 style={{ textAlign: 'center', margin: '0 0 0.5rem', color: '#111827', fontSize: '1.2rem', fontWeight: '700' }}>Confirm Payout</h3>
+              <p style={{ textAlign: 'center', color: '#6b7280', fontSize: '0.9rem', margin: '0 0 1.25rem' }}>
+                You are about to mark <strong>₹{confirmMarkPaid.pending_payout}</strong> as paid to <strong>{confirmMarkPaid.name}</strong> via UPI <strong>{confirmMarkPaid.upi_id || 'N/A'}</strong>.
+              </p>
+              {confirmMarkPaid.cod_collected_by_partner > 0 && (
+                <div style={{ background: '#fef3c7', borderRadius: '10px', padding: '0.75rem', marginBottom: '1.25rem', fontSize: '0.82rem', color: '#92400e', textAlign: 'center' }}>
+                  ⚠️ Ensure partner has returned <strong>₹{Math.max(0, confirmMarkPaid.cod_collected_by_partner - confirmMarkPaid.pending_payout)}</strong> COD amount before confirming.
+                </div>
+              )}
+              <div style={{ display: 'flex', gap: '0.75rem' }}>
+                <button onClick={() => setConfirmMarkPaid(null)} style={{ flex: 1, padding: '0.75rem', background: '#f3f4f6', color: '#374151', border: 'none', borderRadius: '10px', fontWeight: '600', cursor: 'pointer' }}>
+                  Cancel
+                </button>
+                <button onClick={() => markPaid(confirmMarkPaid.id, confirmMarkPaid.name)} style={{ flex: 1, padding: '0.75rem', background: 'linear-gradient(135deg, #10b981, #059669)', color: 'white', border: 'none', borderRadius: '10px', fontWeight: '700', cursor: 'pointer' }}>
+                  ✅ Confirm Paid
+                </button>
+              </div>
+            </div>
           </div>
         )}
 

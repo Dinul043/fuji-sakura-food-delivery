@@ -99,7 +99,7 @@ export default function CheckoutPage() {
 
   // Calculate totals
   const subtotal = checkoutItems.reduce((total, item) => total + (item.price * item.quantity), 0);
-  const deliveryFee = 2.99;
+  const deliveryFee = 40.00;  // Fixed delivery fee — paid to delivery partner
   const taxRate = 0.08;
   const tax = subtotal * taxRate;
   const total = subtotal + deliveryFee + tax;
