@@ -340,126 +340,37 @@ export default function DeliveryDashboard() {
           </div>
         )}
 
-        {/* Earnings Summary */}
+        {/* Earnings Summary — compact, tap to see full details */}
         {earnings && (
-          <div style={{ marginBottom: '1.5rem' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.875rem', marginBottom: '0.75rem' }}>
-              {[
-                { label: "Today's Earnings", value: `₹${earnings.today_earnings}`, sub: `${earnings.today_deliveries} deliveries`, color: '#10b981' },
-                { label: 'Total Earnings', value: `₹${earnings.total_earnings}`, sub: `${earnings.total_deliveries} total`, color: '#3b82f6' },
-                { label: 'Pending Payout', value: `₹${earnings.pending_payout}`, sub: 'Admin will transfer', color: '#f59e0b' }
-              ].map(card => (
-                <div key={card.label} style={{ background: 'white', borderRadius: '12px', padding: '1rem', boxShadow: '0 2px 8px rgba(0,0,0,0.06)', borderTop: `3px solid ${card.color}` }}>
-                  <div style={{ fontSize: '0.72rem', color: '#9ca3af', fontWeight: '600', textTransform: 'uppercase', marginBottom: '0.25rem' }}>{card.label}</div>
-                  <div style={{ fontSize: '1.3rem', fontWeight: '800', color: card.color }}>{card.value}</div>
-                  <div style={{ fontSize: '0.75rem', color: '#9ca3af', marginTop: '0.2rem' }}>{card.sub}</div>
-                </div>
-              ))}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginBottom: '1rem' }}>
+            <div style={{ background: 'white', borderRadius: '12px', padding: '1rem', boxShadow: '0 2px 8px rgba(0,0,0,0.06)', borderTop: '3px solid #10b981' }}>
+              <div style={{ fontSize: '0.7rem', color: '#9ca3af', fontWeight: '600', textTransform: 'uppercase', marginBottom: '0.2rem' }}>Today&apos;s Earnings</div>
+              <div style={{ fontSize: '1.4rem', fontWeight: '800', color: '#10b981' }}>₹{earnings.today_earnings}</div>
+              <div style={{ fontSize: '0.72rem', color: '#9ca3af' }}>{earnings.today_deliveries} deliveries</div>
             </div>
-
-            {/* COD Settlement — only show if there's COD pending */}
-            {earnings.cod_to_submit > 0 && (
-              <div style={{ background: 'white', borderRadius: '12px', padding: '1rem 1.25rem', boxShadow: '0 2px 8px rgba(0,0,0,0.06)', border: `1px solid ${earnings.cod_to_submit >= 1500 ? '#fecaca' : '#fde68a'}` }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.875rem' }}>
-                  <div style={{ fontSize: '0.82rem', fontWeight: '700', color: earnings.cod_to_submit >= 1500 ? '#dc2626' : '#92400e' }}>
-                    {earnings.cod_to_submit >= 1500 ? '🚫 COD Limit Reached — New COD orders blocked' : '⚠️ COD Settlement Pending'}
-                  </div>
-                  <div style={{ fontSize: '0.7rem', color: '#9ca3af' }}>Limit: ₹1500</div>
-                </div>
-
-                {/* 3-column breakdown */}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.5rem', marginBottom: '0.875rem' }}>
-                  <div style={{ background: '#fef2f2', borderRadius: '8px', padding: '0.6rem', textAlign: 'center' }}>
-                    <div style={{ color: '#991b1b', fontWeight: '700', fontSize: '0.65rem', textTransform: 'uppercase', marginBottom: '0.2rem' }}>COD Collected</div>
-                    <div style={{ color: '#dc2626', fontWeight: '800', fontSize: '1.1rem' }}>₹{earnings.cod_to_submit}</div>
-                    <div style={{ color: '#f87171', fontSize: '0.65rem' }}>Cash from customers</div>
-                  </div>
-                  <div style={{ background: '#f0fdf4', borderRadius: '8px', padding: '0.6rem', textAlign: 'center' }}>
-                    <div style={{ color: '#166534', fontWeight: '700', fontSize: '0.65rem', textTransform: 'uppercase', marginBottom: '0.2rem' }}>Your Earnings</div>
-                    <div style={{ color: '#16a34a', fontWeight: '800', fontSize: '1.1rem' }}>₹{earnings.pending_payout}</div>
-                    <div style={{ color: '#4ade80', fontSize: '0.65rem' }}>You keep this</div>
-                  </div>
-                  <div style={{ background: '#fef3c7', borderRadius: '8px', padding: '0.6rem', textAlign: 'center' }}>
-                    <div style={{ color: '#92400e', fontWeight: '700', fontSize: '0.65rem', textTransform: 'uppercase', marginBottom: '0.2rem' }}>Return to Us</div>
-                    <div style={{ color: '#d97706', fontWeight: '800', fontSize: '1.1rem' }}>₹{Math.max(0, earnings.cod_to_submit - earnings.pending_payout)}</div>
-                    <div style={{ color: '#fbbf24', fontSize: '0.65rem' }}>COD − earnings</div>
-                  </div>
-                </div>
-
-                {/* Progress bar */}
-                <div style={{ marginBottom: '0.875rem' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.68rem', color: '#9ca3af', marginBottom: '0.25rem' }}>
-                    <span>₹0</span><span>₹1500 limit</span>
-                  </div>
-                  <div style={{ height: '6px', background: '#f3f4f6', borderRadius: '3px', overflow: 'hidden' }}>
-                    <div style={{ height: '100%', width: `${Math.min(100, (earnings.cod_to_submit / 1500) * 100)}%`, background: earnings.cod_to_submit >= 1500 ? '#ef4444' : earnings.cod_to_submit >= 1200 ? '#f59e0b' : '#10b981', borderRadius: '3px' }} />
-                  </div>
-                </div>
-
-                {/* Pay Now button */}
-                {Math.max(0, earnings.cod_to_submit - earnings.pending_payout) > 0 && (
-                  companyUpi ? (
-                    <a
-                      href={`upi://pay?pa=${companyUpi}&pn=FujiSakura&am=${Math.max(0, earnings.cod_to_submit - earnings.pending_payout)}&cu=INR&tn=COD+Settlement`}
-                      style={{
-                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem',
-                        padding: '0.75rem', borderRadius: '10px', marginBottom: '0.5rem',
-                        background: 'linear-gradient(135deg, #FF5722, #FF7043)',
-                        color: 'white', textDecoration: 'none', fontWeight: '700', fontSize: '0.9rem',
-                        boxShadow: '0 4px 12px rgba(255,87,34,0.3)'
-                      }}
-                    >
-                      💸 Pay ₹{Math.max(0, earnings.cod_to_submit - earnings.pending_payout)} to Company UPI
-                    </a>
-                  ) : (
-                    <div style={{ textAlign: 'center', fontSize: '0.8rem', color: '#9ca3af', marginBottom: '0.5rem', padding: '0.5rem' }}>
-                      Company UPI not configured. Contact admin.
-                    </div>
-                  )
-                )}
-
-                {/* Can't pay? Report issue */}
-                <button
-                  onClick={() => setShowIssueModal(true)}
-                  style={{ width: '100%', padding: '0.5rem', background: 'none', border: '1px solid #e5e7eb', borderRadius: '8px', color: '#6b7280', fontSize: '0.8rem', cursor: 'pointer', fontWeight: '500' }}
-                >
-                  Can&apos;t pay? Report an issue
-                </button>
+            <div style={{ background: 'white', borderRadius: '12px', padding: '1rem', boxShadow: '0 2px 8px rgba(0,0,0,0.06)', borderTop: `3px solid ${Math.max(0, earnings.cod_to_submit - earnings.pending_payout) >= 1500 ? '#ef4444' : earnings.cod_to_submit > 0 ? '#f59e0b' : '#3b82f6'}` }}>
+              <div style={{ fontSize: '0.7rem', color: '#9ca3af', fontWeight: '600', textTransform: 'uppercase', marginBottom: '0.2rem' }}>
+                {Math.max(0, earnings.cod_to_submit - earnings.pending_payout) >= 1500 ? '🚫 COD Blocked' : earnings.cod_to_submit > 0 ? '⚠️ COD Due' : 'Pending Payout'}
               </div>
-            )}
-          </div>
-        )}
-
-        {/* Issue Report Modal */}
-        {showIssueModal && (
-          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: '1rem' }}>
-            <div style={{ background: 'white', borderRadius: '16px', padding: '1.5rem', maxWidth: '400px', width: '100%', boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}>
-              <h3 style={{ margin: '0 0 0.5rem', color: '#111827', fontSize: '1.1rem', fontWeight: '700' }}>Report Payment Issue</h3>
-              <p style={{ margin: '0 0 1rem', color: '#6b7280', fontSize: '0.85rem' }}>
-                Amount to return: <strong>₹{earnings ? Math.max(0, earnings.cod_to_submit - earnings.pending_payout) : 0}</strong>
-              </p>
-              <textarea
-                value={issueText}
-                onChange={(e) => setIssueText(e.target.value)}
-                placeholder="Describe the issue (e.g. UPI app not working, network issue, etc.)"
-                rows={4}
-                style={{ width: '100%', padding: '0.75rem', borderRadius: '10px', border: '1.5px solid #e5e7eb', fontSize: '0.875rem', outline: 'none', resize: 'vertical', fontFamily: 'inherit', boxSizing: 'border-box' }}
-                onFocus={(e) => { e.currentTarget.style.borderColor = '#FF5722'; }}
-                onBlur={(e) => { e.currentTarget.style.borderColor = '#e5e7eb'; }}
-              />
-              <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1rem' }}>
-                <button onClick={() => { setShowIssueModal(false); setIssueText(''); }}
-                  style={{ flex: 1, padding: '0.75rem', background: '#f3f4f6', color: '#374151', border: 'none', borderRadius: '10px', fontWeight: '600', cursor: 'pointer' }}>
-                  Cancel
-                </button>
-                <button onClick={submitCodIssue} disabled={!issueText.trim() || isSubmittingIssue}
-                  style={{ flex: 1, padding: '0.75rem', background: !issueText.trim() || isSubmittingIssue ? '#9ca3af' : 'linear-gradient(135deg, #FF5722, #FF7043)', color: 'white', border: 'none', borderRadius: '10px', fontWeight: '700', cursor: !issueText.trim() || isSubmittingIssue ? 'not-allowed' : 'pointer' }}>
-                  {isSubmittingIssue ? 'Submitting...' : 'Submit Issue'}
-                </button>
+              <div style={{ fontSize: '1.4rem', fontWeight: '800', color: Math.max(0, earnings.cod_to_submit - earnings.pending_payout) >= 1500 ? '#ef4444' : earnings.cod_to_submit > 0 ? '#f59e0b' : '#3b82f6' }}>
+                ₹{earnings.cod_to_submit > 0 ? Math.max(0, earnings.cod_to_submit - earnings.pending_payout) : earnings.pending_payout}
               </div>
+              <div style={{ fontSize: '0.72rem', color: '#9ca3af' }}>{earnings.cod_to_submit > 0 ? 'Net to return to company' : 'Admin will transfer'}</div>
             </div>
           </div>
         )}
+
+        {/* Quick action buttons */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginBottom: '1.5rem' }}>
+          <button onClick={() => router.push('/delivery/earnings')}
+            style={{ padding: '0.75rem', borderRadius: '10px', border: '1.5px solid #e5e7eb', background: 'white', color: '#374151', fontWeight: '600', fontSize: '0.875rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem' }}>
+            📊 View Earnings
+          </button>
+          <button onClick={() => router.push('/delivery/settle')}
+            style={{ padding: '0.75rem', borderRadius: '10px', border: `1.5px solid ${earnings && earnings.cod_to_submit > 0 ? '#FF5722' : '#e5e7eb'}`, background: earnings && earnings.cod_to_submit > 0 ? '#FFF5F2' : 'white', color: earnings && earnings.cod_to_submit > 0 ? '#FF5722' : '#374151', fontWeight: '600', fontSize: '0.875rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem' }}>
+            💸 Settle COD {earnings && earnings.cod_to_submit > 0 ? `(₹${Math.max(0, earnings.cod_to_submit - earnings.pending_payout)})` : ''}
+          </button>
+        </div>
 
         {/* Active Delivery Card */}
         {activeOrder && (
