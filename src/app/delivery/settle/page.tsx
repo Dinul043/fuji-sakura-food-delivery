@@ -53,9 +53,7 @@ export default function DeliverySettlePage() {
     ]).then(async ([earningsRes, historyRes]) => {
       if (earningsRes.ok) {
         const d = await earningsRes.json();
-        // cod_to_submit = raw COD collected from customers
-        // pending_payout = delivery earnings (₹40 per order)
-        // amountToReturn = cod_to_submit - pending_payout (net due to company)
+        console.log('Earnings API response:', d);
         setCodPending(d.cod_to_submit || 0);
         setMyEarnings(d.pending_payout || 0);
       }

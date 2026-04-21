@@ -1007,8 +1007,8 @@ export default function AdminDashboard() {
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
                 {payouts.map((p: any) => {
-                  const amountToReturn = Math.max(0, p.cod_collected_by_partner - p.pending_payout);
-                  const netToPay = p.pending_payout - amountToReturn;
+                  const amountToReturn = p.net_cod_to_return || 0;
+                  const netToPay = p.net_settlement || 0;
                   return (
                     <div key={p.id} style={{ border: '1px solid #e5e7eb', borderRadius: '14px', padding: '1.25rem', borderLeft: `4px solid ${p.pending_payout > 0 ? '#f59e0b' : '#10b981'}` }}>
                       {/* Partner info */}
@@ -1029,10 +1029,10 @@ export default function AdminDashboard() {
                           <div style={{ fontSize: '1.2rem', fontWeight: '800', color: '#16a34a' }}>₹{p.pending_payout}</div>
                           <div style={{ fontSize: '0.7rem', color: '#4ade80' }}>Partner keeps this</div>
                         </div>
-                        <div style={{ background: p.cod_collected_by_partner > 0 ? '#fef2f2' : '#f9fafb', borderRadius: '10px', padding: '0.75rem', textAlign: 'center', border: `1px solid ${p.cod_collected_by_partner > 0 ? '#fecaca' : '#e5e7eb'}` }}>
-                          <div style={{ fontSize: '0.7rem', color: p.cod_collected_by_partner > 0 ? '#991b1b' : '#9ca3af', fontWeight: '700', textTransform: 'uppercase', marginBottom: '0.25rem' }}>🔴 COD Collected</div>
-                          <div style={{ fontSize: '1.2rem', fontWeight: '800', color: p.cod_collected_by_partner > 0 ? '#dc2626' : '#9ca3af' }}>₹{p.cod_collected_by_partner}</div>
-                          <div style={{ fontSize: '0.7rem', color: '#f87171' }}>{p.cod_collected_by_partner > 0 ? 'Cash from customer' : 'No COD orders'}</div>
+                        <div style={{ background: p.net_cod_to_return > 0 ? '#fef2f2' : '#f9fafb', borderRadius: '10px', padding: '0.75rem', textAlign: 'center', border: `1px solid ${p.net_cod_to_return > 0 ? '#fecaca' : '#e5e7eb'}` }}>
+                          <div style={{ fontSize: '0.7rem', color: p.net_cod_to_return > 0 ? '#991b1b' : '#9ca3af', fontWeight: '700', textTransform: 'uppercase', marginBottom: '0.25rem' }}>🔴 COD to Return</div>
+                          <div style={{ fontSize: '1.2rem', fontWeight: '800', color: p.net_cod_to_return > 0 ? '#dc2626' : '#9ca3af' }}>₹{p.net_cod_to_return || 0}</div>
+                          <div style={{ fontSize: '0.7rem', color: '#f87171' }}>{p.net_cod_to_return > 0 ? 'Partner must return this' : 'No COD pending'}</div>
                         </div>
                         <div style={{ background: netToPay >= 0 ? '#eff6ff' : '#fef3c7', borderRadius: '10px', padding: '0.75rem', textAlign: 'center', border: `1px solid ${netToPay >= 0 ? '#bfdbfe' : '#fde68a'}` }}>
                           <div style={{ fontSize: '0.7rem', color: netToPay >= 0 ? '#1e40af' : '#92400e', fontWeight: '700', textTransform: 'uppercase', marginBottom: '0.25rem' }}>🔵 Net Settlement</div>
@@ -1075,9 +1075,9 @@ export default function AdminDashboard() {
               <p style={{ textAlign: 'center', color: '#6b7280', fontSize: '0.9rem', margin: '0 0 1.25rem' }}>
                 You are about to mark <strong>₹{confirmMarkPaid.pending_payout}</strong> as paid to <strong>{confirmMarkPaid.name}</strong> via UPI <strong>{confirmMarkPaid.upi_id || 'N/A'}</strong>.
               </p>
-              {confirmMarkPaid.cod_collected_by_partner > 0 && (
+              {confirmMarkPaid.net_cod_to_return > 0 && (
                 <div style={{ background: '#fef3c7', borderRadius: '10px', padding: '0.75rem', marginBottom: '1.25rem', fontSize: '0.82rem', color: '#92400e', textAlign: 'center' }}>
-                  ⚠️ Ensure partner has returned <strong>₹{Math.max(0, confirmMarkPaid.cod_collected_by_partner - confirmMarkPaid.pending_payout)}</strong> COD amount before confirming.
+                  ⚠️ Ensure partner has returned <strong>₹{confirmMarkPaid.net_cod_to_return}</strong> COD amount before confirming.
                 </div>
               )}
               <div style={{ display: 'flex', gap: '0.75rem' }}>
