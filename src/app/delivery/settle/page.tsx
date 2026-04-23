@@ -53,7 +53,6 @@ export default function DeliverySettlePage() {
     ]).then(async ([earningsRes, historyRes]) => {
       if (earningsRes.ok) {
         const d = await earningsRes.json();
-        console.log('Earnings API response:', d);
         setCodPending(d.cod_to_submit || 0);
         setMyEarnings(d.pending_payout || 0);
       }
@@ -142,8 +141,8 @@ export default function DeliverySettlePage() {
         },
         modal: {
           ondismiss: async () => {
-            // Mark as failed when dismissed
-            await fetch(`${API_BASE_URL}/api/delivery/cod-settlement/failed`, {
+            // BUG-4 fix: pass failure reason from frontend
+            await fetch(`${API_BASE_URL}/api/delivery/cod-settlement/failed?reason=Payment+dismissed+by+partner`, {
               method: 'POST',
               headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
               body: JSON.stringify({
@@ -155,6 +154,22 @@ export default function DeliverySettlePage() {
             }).catch(() => {});
             setIsPaying(false);
           }
+        },
+        // BUG-4 fix: capture Razorpay payment failure with reason
+        'payment.failed': async (response: any) => {
+          const reason = response?.error?.description || response?.error?.reason || 'Payment failed';
+          await fetch(`${API_BASE_URL}/api/delivery/cod-settlement/failed?reason=${encodeURIComponent(reason)}`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              settlement_id: orderData.settlement_id,
+              razorpay_order_id: orderData.razorpay_order_id,
+              razorpay_payment_id: response?.error?.metadata?.payment_id || '',
+              razorpay_signature: ''
+            })
+          }).catch(() => {});
+          showToast(`Payment failed: ${reason}`, 'error');
+          setIsPaying(false);
         }
       };
 
@@ -279,16 +294,16 @@ export default function DeliverySettlePage() {
                 </div>
                 <button
                   onClick={handlePayNow}
-                  disabled={isPaying}
+                  disabled={isPaying || amountToReturn <= 0}
                   style={{
                     width: '100%', padding: '1rem', borderRadius: '12px', border: 'none',
-                    background: isPaying ? '#9ca3af' : 'linear-gradient(135deg, #FF5722, #FF7043)',
+                    background: isPaying || amountToReturn <= 0 ? '#9ca3af' : 'linear-gradient(135deg, #FF5722, #FF7043)',
                     color: 'white', fontWeight: '700', fontSize: '1rem',
-                    cursor: isPaying ? 'not-allowed' : 'pointer',
-                    boxShadow: isPaying ? 'none' : '0 4px 15px rgba(255,87,34,0.35)'
+                    cursor: isPaying || amountToReturn <= 0 ? 'not-allowed' : 'pointer',
+                    boxShadow: isPaying || amountToReturn <= 0 ? 'none' : '0 4px 15px rgba(255,87,34,0.35)'
                   }}
                 >
-                  {isPaying ? '⏳ Opening Payment...' : `💸 Pay ₹${amountToReturn} Now`}
+                  {isPaying ? '⏳ Opening Payment...' : amountToReturn <= 0 ? '✅ Nothing to Pay' : `💸 Pay ₹${amountToReturn} Now`}
                 </button>
               </div>
             )}

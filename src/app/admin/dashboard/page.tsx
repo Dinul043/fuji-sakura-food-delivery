@@ -265,7 +265,7 @@ export default function AdminDashboard() {
     finally { setIsMarkingPaid(null); }
   };
 
-  // WebSocket — live delivery partner application notifications
+  // WebSocket — live delivery partner application notifications + COD settlement updates
   useEffect(() => {
     const ws = new WebSocket('ws://localhost:8000/ws/admin');
     ws.onmessage = (e) => {
@@ -273,8 +273,12 @@ export default function AdminDashboard() {
         const msg = JSON.parse(e.data);
         if (msg.type === 'new_delivery_application') {
           showNotification('success', '🛵 New Application', `${msg.partner.name} applied as delivery partner`);
-          // Refresh delivery partners list if on that tab
           setDeliveryPartners(prev => [msg.partner, ...prev]);
+        }
+        // Auto-refresh payouts tab when a partner settles COD
+        if (msg.type === 'cod_settlement_paid') {
+          showNotification('success', '💸 COD Settled', `${msg.partner_name} paid ₹${msg.amount_paid} COD settlement`);
+          fetchPayouts(); // Refresh payout data immediately
         }
       } catch { /* ignore non-JSON */ }
     };
@@ -991,12 +995,12 @@ export default function AdminDashboard() {
             </div>
 
             {/* Legend */}
-            <div style={{ background: '#f8fafc', borderRadius: '10px', padding: '0.875rem 1rem', marginBottom: '1.5rem', fontSize: '0.82rem', color: '#374151', lineHeight: '1.7' }}>
-              <strong>How settlement works:</strong><br />
-              🟢 <strong>Delivery Earnings</strong> = ₹40 per order (what the partner keeps)<br />
-              🔴 <strong>COD Collected</strong> = Full order amount collected from customer in cash<br />
-              🔵 <strong>Amount to Return</strong> = COD Collected − Delivery Earnings (partner must return this to platform)<br />
-              ✅ <strong>Net to Pay Partner</strong> = Delivery Earnings − COD to Return (if negative, partner owes platform)
+            <div style={{ background: '#f8fafc', borderRadius: '10px', padding: '0.875rem 1rem', marginBottom: '1.5rem', fontSize: '0.82rem', color: '#374151', lineHeight: '1.8' }}>
+              <strong>How COD settlement works:</strong><br />
+              🟢 <strong>Delivery Earnings</strong> = ₹40 per order — partner keeps this, company pays via UPI<br />
+              🔴 <strong>COD Collected</strong> = Full cash received from customer — partner holds this temporarily<br />
+              💳 <strong>Platform Received</strong> = Amount partner already paid back via Razorpay<br />
+              🔵 <strong>Still Pending</strong> = COD Collected − Delivery Earnings − Platform Received (still owed to company)
             </div>
 
             {payouts.length === 0 ? (
@@ -1022,22 +1026,27 @@ export default function AdminDashboard() {
                         <div style={{ fontSize: '0.78rem', color: '#9ca3af' }}>Paid so far: ₹{p.total_paid}</div>
                       </div>
 
-                      {/* Settlement breakdown */}
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.75rem', marginBottom: '1rem' }}>
+                      {/* Settlement breakdown — 4 columns */}
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.6rem', marginBottom: '1rem' }}>
                         <div style={{ background: '#f0fdf4', borderRadius: '10px', padding: '0.75rem', textAlign: 'center', border: '1px solid #bbf7d0' }}>
-                          <div style={{ fontSize: '0.7rem', color: '#166534', fontWeight: '700', textTransform: 'uppercase', marginBottom: '0.25rem' }}>🟢 Delivery Earnings</div>
-                          <div style={{ fontSize: '1.2rem', fontWeight: '800', color: '#16a34a' }}>₹{p.pending_payout}</div>
-                          <div style={{ fontSize: '0.7rem', color: '#4ade80' }}>Partner keeps this</div>
+                          <div style={{ fontSize: '0.65rem', color: '#166534', fontWeight: '700', textTransform: 'uppercase', marginBottom: '0.25rem' }}>🟢 Delivery Earnings</div>
+                          <div style={{ fontSize: '1.1rem', fontWeight: '800', color: '#16a34a' }}>₹{p.pending_payout}</div>
+                          <div style={{ fontSize: '0.62rem', color: '#4ade80' }}>Partner keeps</div>
                         </div>
-                        <div style={{ background: p.net_cod_to_return > 0 ? '#fef2f2' : '#f9fafb', borderRadius: '10px', padding: '0.75rem', textAlign: 'center', border: `1px solid ${p.net_cod_to_return > 0 ? '#fecaca' : '#e5e7eb'}` }}>
-                          <div style={{ fontSize: '0.7rem', color: p.net_cod_to_return > 0 ? '#991b1b' : '#9ca3af', fontWeight: '700', textTransform: 'uppercase', marginBottom: '0.25rem' }}>🔴 COD to Return</div>
-                          <div style={{ fontSize: '1.2rem', fontWeight: '800', color: p.net_cod_to_return > 0 ? '#dc2626' : '#9ca3af' }}>₹{p.net_cod_to_return || 0}</div>
-                          <div style={{ fontSize: '0.7rem', color: '#f87171' }}>{p.net_cod_to_return > 0 ? 'Partner must return this' : 'No COD pending'}</div>
+                        <div style={{ background: p.cod_collected_by_partner > 0 ? '#fef2f2' : '#f9fafb', borderRadius: '10px', padding: '0.75rem', textAlign: 'center', border: `1px solid ${p.cod_collected_by_partner > 0 ? '#fecaca' : '#e5e7eb'}` }}>
+                          <div style={{ fontSize: '0.65rem', color: p.cod_collected_by_partner > 0 ? '#991b1b' : '#9ca3af', fontWeight: '700', textTransform: 'uppercase', marginBottom: '0.25rem' }}>🔴 COD Collected</div>
+                          <div style={{ fontSize: '1.1rem', fontWeight: '800', color: p.cod_collected_by_partner > 0 ? '#dc2626' : '#9ca3af' }}>₹{p.cod_collected_by_partner}</div>
+                          <div style={{ fontSize: '0.62rem', color: '#f87171' }}>{p.cod_collected_by_partner > 0 ? 'Cash from customer' : 'No COD'}</div>
                         </div>
-                        <div style={{ background: netToPay >= 0 ? '#eff6ff' : '#fef3c7', borderRadius: '10px', padding: '0.75rem', textAlign: 'center', border: `1px solid ${netToPay >= 0 ? '#bfdbfe' : '#fde68a'}` }}>
-                          <div style={{ fontSize: '0.7rem', color: netToPay >= 0 ? '#1e40af' : '#92400e', fontWeight: '700', textTransform: 'uppercase', marginBottom: '0.25rem' }}>🔵 Net Settlement</div>
-                          <div style={{ fontSize: '1.2rem', fontWeight: '800', color: netToPay >= 0 ? '#2563eb' : '#d97706' }}>₹{Math.abs(netToPay)}</div>
-                          <div style={{ fontSize: '0.7rem', color: netToPay >= 0 ? '#60a5fa' : '#f59e0b' }}>{netToPay >= 0 ? 'Pay to partner' : 'Partner owes platform'}</div>
+                        <div style={{ background: p.total_settled_by_partner > 0 ? '#eff6ff' : '#f9fafb', borderRadius: '10px', padding: '0.75rem', textAlign: 'center', border: `1px solid ${p.total_settled_by_partner > 0 ? '#bfdbfe' : '#e5e7eb'}` }}>
+                          <div style={{ fontSize: '0.65rem', color: p.total_settled_by_partner > 0 ? '#1e40af' : '#9ca3af', fontWeight: '700', textTransform: 'uppercase', marginBottom: '0.25rem' }}>💳 Platform Received</div>
+                          <div style={{ fontSize: '1.1rem', fontWeight: '800', color: p.total_settled_by_partner > 0 ? '#2563eb' : '#9ca3af' }}>₹{p.total_settled_by_partner || 0}</div>
+                          <div style={{ fontSize: '0.62rem', color: '#60a5fa' }}>{p.total_settled_by_partner > 0 ? 'Via Razorpay' : 'Not settled yet'}</div>
+                        </div>
+                        <div style={{ background: p.net_cod_to_return > 0 ? '#fef3c7' : '#f0fdf4', borderRadius: '10px', padding: '0.75rem', textAlign: 'center', border: `1px solid ${p.net_cod_to_return > 0 ? '#fde68a' : '#bbf7d0'}` }}>
+                          <div style={{ fontSize: '0.65rem', color: p.net_cod_to_return > 0 ? '#92400e' : '#166534', fontWeight: '700', textTransform: 'uppercase', marginBottom: '0.25rem' }}>🔵 Still Pending</div>
+                          <div style={{ fontSize: '1.1rem', fontWeight: '800', color: p.net_cod_to_return > 0 ? '#d97706' : '#16a34a' }}>₹{p.net_cod_to_return}</div>
+                          <div style={{ fontSize: '0.62rem', color: p.net_cod_to_return > 0 ? '#fbbf24' : '#4ade80' }}>{p.net_cod_to_return > 0 ? 'Partner still owes' : '✅ All clear'}</div>
                         </div>
                       </div>
 

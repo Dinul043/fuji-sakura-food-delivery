@@ -245,6 +245,7 @@ export default function DeliveryDashboard() {
         setActiveOrder(data.order);
         setAvailableOrders(prev => prev.filter(o => o.id !== orderId));
         showToast('✅ Order accepted! Head to the restaurant.');
+        fetchEarnings(); // BUG-2 fix: re-check COD limit immediately after accepting
       } else {
         const d = await res.json();
         showToast(d.detail || 'Failed to accept order', 'error');
