@@ -53,6 +53,9 @@ export default function AdminDashboard() {
   const [payouts, setPayouts] = useState<any[]>([]);
   const [isMarkingPaid, setIsMarkingPaid] = useState<number | null>(null);
   const [confirmMarkPaid, setConfirmMarkPaid] = useState<any | null>(null);
+  const [viewSettlements, setViewSettlements] = useState<any | null>(null); // partner whose settlements to view
+  const [partnerSettlements, setPartnerSettlements] = useState<any[]>([]);
+  const [isRefunding, setIsRefunding] = useState<number | null>(null); // settlement id being refunded
   const [liveOrders, setLiveOrders] = useState<any[]>([]);
   const [isUpdatingDelivery, setIsUpdatingDelivery] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
@@ -263,6 +266,40 @@ export default function AdminDashboard() {
       }
     } catch { showNotification('error', 'Error', 'Network error'); }
     finally { setIsMarkingPaid(null); }
+  };
+
+  const fetchPartnerSettlements = async (partnerId: number) => {
+    try {
+      const token = localStorage.getItem('adminToken');
+      const res = await fetch(`${API_BASE_URL}/api/admin/delivery-partner/${partnerId}/cod-settlements`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setPartnerSettlements(data.settlements || []);
+      }
+    } catch { showNotification('error', 'Error', 'Failed to fetch settlements'); }
+  };
+
+  const initiateRefund = async (settlementId: number, reason: string) => {
+    setIsRefunding(settlementId);
+    try {
+      const token = localStorage.getItem('adminToken');
+      const res = await fetch(`${API_BASE_URL}/api/admin/cod-settlement/${settlementId}/refund`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        showNotification('success', 'Refund Initiated', `₹${data.amount} refund initiated. Refund ID: ${data.refund_id}`);
+        if (viewSettlements) fetchPartnerSettlements(viewSettlements.id);
+      } else {
+        const d = await res.json();
+        showNotification('error', 'Refund Failed', d.detail || 'Failed to initiate refund');
+      }
+    } catch { showNotification('error', 'Error', 'Network error'); }
+    finally { setIsRefunding(null); }
   };
 
   // WebSocket — live delivery partner application notifications + COD settlement updates
@@ -1060,18 +1097,78 @@ export default function AdminDashboard() {
                         <button
                           onClick={() => setConfirmMarkPaid(p)}
                           disabled={isMarkingPaid === p.id}
-                          style={{ width: '100%', padding: '0.7rem', borderRadius: '10px', border: 'none', background: isMarkingPaid === p.id ? '#9ca3af' : 'linear-gradient(135deg, #10b981, #059669)', color: 'white', fontWeight: '700', cursor: isMarkingPaid === p.id ? 'not-allowed' : 'pointer', fontSize: '0.9rem' }}>
+                          style={{ width: '100%', padding: '0.7rem', borderRadius: '10px', border: 'none', background: isMarkingPaid === p.id ? '#9ca3af' : 'linear-gradient(135deg, #10b981, #059669)', color: 'white', fontWeight: '700', cursor: isMarkingPaid === p.id ? 'not-allowed' : 'pointer', fontSize: '0.9rem', marginBottom: '0.5rem' }}>
                           {isMarkingPaid === p.id ? 'Processing...' : `✅ Mark ₹${p.pending_payout} as Paid via UPI`}
                         </button>
                       )}
                       {p.pending_payout === 0 && (
-                        <div style={{ textAlign: 'center', color: '#10b981', fontWeight: '600', fontSize: '0.875rem', padding: '0.5rem' }}>✅ All settled</div>
+                        <div style={{ textAlign: 'center', color: '#10b981', fontWeight: '600', fontSize: '0.875rem', padding: '0.5rem 0' }}>✅ All settled</div>
                       )}
+                      <button
+                        onClick={() => { setViewSettlements(p); fetchPartnerSettlements(p.id); }}
+                        style={{ width: '100%', padding: '0.5rem', background: 'none', border: '1px solid #e5e7eb', borderRadius: '8px', color: '#6b7280', fontSize: '0.8rem', cursor: 'pointer', fontWeight: '500' }}>
+                        🔍 View COD Settlement History
+                      </button>
                     </div>
                   );
                 })}
               </div>
             )}
+          </div>
+        )}
+
+        {/* COD Settlement History Modal */}
+        {viewSettlements && (
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: '1rem' }}>
+            <div style={{ background: 'white', borderRadius: '20px', padding: '1.5rem', maxWidth: '560px', width: '100%', maxHeight: '80vh', overflowY: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
+                <h3 style={{ margin: 0, color: '#111827', fontSize: '1.1rem', fontWeight: '700' }}>
+                  💳 COD Settlements — {viewSettlements.name}
+                </h3>
+                <button onClick={() => { setViewSettlements(null); setPartnerSettlements([]); }}
+                  style={{ background: 'none', border: 'none', fontSize: '1.3rem', cursor: 'pointer', color: '#9ca3af' }}>✕</button>
+              </div>
+
+              {partnerSettlements.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '2rem', color: '#9ca3af' }}>No settlement records found</div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                  {partnerSettlements.map((s: any) => (
+                    <div key={s.id} style={{ padding: '1rem', background: '#f9fafb', borderRadius: '12px', borderLeft: `3px solid ${s.status === 'paid' ? '#10b981' : s.status === 'failed' ? '#ef4444' : '#f59e0b'}` }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                        <div>
+                          <div style={{ fontWeight: '700', color: '#111827', fontSize: '0.9rem' }}>
+                            {s.status === 'paid' ? '✅ Paid' : s.status === 'failed' ? '❌ Failed' : '⏳ Pending'}
+                            {s.refund_status !== 'none' && (
+                              <span style={{ marginLeft: '0.5rem', background: '#fef3c7', color: '#92400e', padding: '0.1rem 0.4rem', borderRadius: '4px', fontSize: '0.72rem', fontWeight: '600' }}>
+                                Refund: {s.refund_status}
+                              </span>
+                            )}
+                          </div>
+                          <div style={{ fontSize: '0.75rem', color: '#6b7280', marginTop: '0.2rem' }}>
+                            {new Date(s.created_at).toLocaleString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                          </div>
+                          {s.razorpay_payment_id && <div style={{ fontSize: '0.7rem', color: '#9ca3af', fontFamily: 'monospace', marginTop: '0.1rem' }}>{s.razorpay_payment_id}</div>}
+                          {s.failure_reason && <div style={{ fontSize: '0.72rem', color: '#ef4444', marginTop: '0.1rem' }}>{s.failure_reason}</div>}
+                          {s.refund_id && <div style={{ fontSize: '0.7rem', color: '#2563eb', marginTop: '0.1rem' }}>Refund ID: {s.refund_id}</div>}
+                        </div>
+                        <div style={{ textAlign: 'right' }}>
+                          <div style={{ fontWeight: '800', color: '#111827', fontSize: '1rem' }}>₹{s.amount}</div>
+                          {s.status === 'paid' && s.refund_status === 'none' && (
+                            <button
+                              onClick={() => initiateRefund(s.id, 'Manual refund by admin')}
+                              disabled={isRefunding === s.id}
+                              style={{ marginTop: '0.4rem', padding: '0.3rem 0.6rem', background: isRefunding === s.id ? '#9ca3af' : '#fef2f2', color: isRefunding === s.id ? 'white' : '#dc2626', border: '1px solid #fecaca', borderRadius: '6px', fontSize: '0.72rem', fontWeight: '600', cursor: isRefunding === s.id ? 'not-allowed' : 'pointer' }}>
+                              {isRefunding === s.id ? '...' : '↩ Refund'}
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         )}
 
