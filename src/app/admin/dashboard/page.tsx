@@ -746,7 +746,6 @@ export default function AdminDashboard() {
           {[
             { key: 'restaurants', label: '🏪 Restaurant Applications', count: applications.length },
             { key: 'delivery', label: '🛵 Delivery Partners', count: deliveryPartners.length },
-            { key: 'payouts', label: '💸 Partner Payouts', count: payouts.filter((p: any) => p.pending_payout > 0).length },
             { key: 'live', label: '📍 Live Orders', count: liveOrders.length }
           ].map(tab => (
             <button key={tab.key}
@@ -766,6 +765,12 @@ export default function AdminDashboard() {
             onClick={() => router.push('/admin/payouts/restaurant')}
             style={{ padding: '0.75rem 1.5rem', borderRadius: '12px', cursor: 'pointer', fontWeight: '600', fontSize: '0.95rem', background: 'white', color: '#FF5722', boxShadow: '0 2px 8px rgba(0,0,0,0.08)', border: '1.5px solid #FF7043' }}>
             🏪 Restaurant Payouts
+          </button>
+          {/* Delivery Partner Payouts — separate screen */}
+          <button
+            onClick={() => router.push('/admin/payouts/delivery')}
+            style={{ padding: '0.75rem 1.5rem', borderRadius: '12px', cursor: 'pointer', fontWeight: '600', fontSize: '0.95rem', background: 'white', color: '#FF5722', boxShadow: '0 2px 8px rgba(0,0,0,0.08)', border: '1.5px solid #FF7043' }}>
+            💸 Partner Payouts
           </button>
         </div>
 
