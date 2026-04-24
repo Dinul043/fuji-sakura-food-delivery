@@ -64,7 +64,10 @@ export default function DeliverySettlePage() {
   }, []);
 
   const handlePayNow = async () => {
-    if (amountToReturn <= 0) return;
+    if (amountToReturn <= 0) {
+      showToast('No amount due to settle', 'error');
+      return;
+    }
     setIsPaying(true);
     try {
       const token = getToken();
