@@ -764,7 +764,7 @@ export default function AdminDashboard() {
           {/* Restaurant Payouts — separate screen */}
           <button
             onClick={() => router.push('/admin/payouts/restaurant')}
-            style={{ padding: '0.75rem 1.5rem', borderRadius: '12px', border: 'none', cursor: 'pointer', fontWeight: '600', fontSize: '0.95rem', background: 'white', color: '#FF5722', boxShadow: '0 2px 8px rgba(0,0,0,0.08)', border: '1.5px solid #FF7043' }}>
+            style={{ padding: '0.75rem 1.5rem', borderRadius: '12px', cursor: 'pointer', fontWeight: '600', fontSize: '0.95rem', background: 'white', color: '#FF5722', boxShadow: '0 2px 8px rgba(0,0,0,0.08)', border: '1.5px solid #FF7043' }}>
             🏪 Restaurant Payouts
           </button>
         </div>
