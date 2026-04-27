@@ -1542,7 +1542,8 @@ export default function HomePage() {
           {!loading && !error && filteredRestaurants.length > 0 && (
             <div style={{
               display: 'flex',
-             justifyContent:'center',
+              flexWrap: 'wrap',
+              justifyContent: 'center',
               gap: '1.5rem'
             }}>
               {filteredRestaurants.map((restaurant, index) => (
@@ -1565,7 +1566,9 @@ export default function HomePage() {
                     border: '1px solid rgba(255, 255, 255, 0.3)',
                     opacity: restaurant.is_online ? 1 : 0.7,
                     position: 'relative',
-                    width:'361.01px',
+                    width: 'calc(33.333% - 1rem)',
+                    minWidth: '280px',
+                    maxWidth: '380px',
                   }}
                 >
                   {/* Restaurant Image with Overlay Rating */}
