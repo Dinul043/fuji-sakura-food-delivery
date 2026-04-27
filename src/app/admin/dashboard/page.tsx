@@ -23,6 +23,8 @@ interface Application {
   email: string;
   phone: string;
   address: string;
+  city?: string;
+  area?: string;
   cuisine_type: string;
   description: string;
   business_license: string;
@@ -921,6 +923,9 @@ export default function AdminDashboard() {
                           <p style={{ fontSize: '0.9rem', color: '#666', margin: '0 0 0.5rem 0' }}>
                             <strong>🍽️ Cuisine:</strong> {application.cuisine_type}
                           </p>
+                          <p style={{ fontSize: '0.9rem', color: '#666', margin: '0 0 0.5rem 0' }}>
+                            📍 {application.city || '—'}{application.area ? ` · ${application.area}` : ''}
+                          </p>
                           <p style={{ fontSize: '0.9rem', color: '#666', margin: 0 }}>
                             📅 Applied: {new Date(application.created_at).toLocaleDateString()}
                           </p>
@@ -1365,6 +1370,8 @@ export default function AdminDashboard() {
                   { label: 'Email Address', value: selectedApplication.email, icon: '📧' },
                   { label: 'Phone Number', value: selectedApplication.phone, icon: '📞' },
                   { label: 'Restaurant Address', value: selectedApplication.address, icon: '📍' },
+                  { label: 'City', value: (selectedApplication as any).city || '—', icon: '🏙️' },
+                  { label: 'Area', value: (selectedApplication as any).area || '—', icon: '📌' },
                   { label: 'Cuisine Type', value: selectedApplication.cuisine_type, icon: '🍽️' },
                   { label: 'Business License', value: selectedApplication.business_license, icon: '📄' },
                   { label: 'Food Permit', value: selectedApplication.food_permit, icon: '🍽️' },
