@@ -173,7 +173,21 @@ export default function DeliveryApplyPage() {
             <input type="text" value={form.email} onChange={e => setForm(p => ({ ...p, email: e.target.value }))}
               placeholder="your@email.com" style={inputStyle('email')}
               onFocus={e => { e.currentTarget.style.borderColor = '#FF5722'; e.currentTarget.style.backgroundColor = '#fff'; }}
-              onBlur={e => { e.currentTarget.style.borderColor = errors.email ? '#ef4444' : '#e2e8f0'; e.currentTarget.style.backgroundColor = '#fafafa'; }} />
+              onBlur={e => {
+                const val = e.currentTarget.value.trim();
+                const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                if (!val) {
+                  setErrors(p => ({ ...p, email: 'Email is required' }));
+                  e.currentTarget.style.borderColor = '#ef4444';
+                } else if (!emailRegex.test(val)) {
+                  setErrors(p => ({ ...p, email: 'Please enter a valid email address' }));
+                  e.currentTarget.style.borderColor = '#ef4444';
+                } else {
+                  setErrors(p => ({ ...p, email: '' }));
+                  e.currentTarget.style.borderColor = '#e2e8f0';
+                  e.currentTarget.style.backgroundColor = '#fafafa';
+                }
+              }} />
             {errors.email && <p style={{ color: '#ef4444', fontSize: '0.8rem', margin: '0.3rem 0 0' }}>{errors.email}</p>}
           </div>
 

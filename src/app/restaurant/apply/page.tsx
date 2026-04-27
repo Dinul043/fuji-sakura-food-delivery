@@ -717,7 +717,15 @@ export default function RestaurantApplicationPage() {
                       }
                     }}
                     onBlur={(e) => {
-                      if (!errors.email) {
+                      const val = e.target.value.trim();
+                      if (val && !validateEmail(val)) {
+                        setErrors(prev => ({ ...prev, email: 'Please enter a valid email address' }));
+                        e.target.style.borderColor = '#ef4444';
+                      } else if (!val) {
+                        setErrors(prev => ({ ...prev, email: 'Email is required' }));
+                        e.target.style.borderColor = '#ef4444';
+                      } else {
+                        setErrors(prev => ({ ...prev, email: '' }));
                         e.target.style.borderColor = '#e2e8f0';
                         e.target.style.backgroundColor = '#fafafa';
                       }
