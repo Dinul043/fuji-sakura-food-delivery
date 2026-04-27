@@ -1396,6 +1396,8 @@ export default function RestaurantApplicationPage() {
                         password: '',
                         phone: '',
                         address: '',
+                        city: '',
+                        area: '',
                         cuisineType: '',
                         description: '',
                         businessLicense: '',
