@@ -46,6 +46,7 @@ export default function HomePage() {
   const [userProfileImage, setUserProfileImage] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
+  const [showAllCategories, setShowAllCategories] = useState(false);
   const [restaurants, setRestaurants] = useState<RealRestaurant[]>([]);
   const [categories, setCategories] = useState<RealCategory[]>([]);
   const [filteredRestaurants, setFilteredRestaurants] = useState<RealRestaurant[]>([]);
@@ -1063,7 +1064,7 @@ export default function HomePage() {
         }}>
           <div style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(4, 1fr)',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
             gap: '1rem'
           }}>
             {/* All Category - Selected by default */}
@@ -1175,8 +1176,8 @@ export default function HomePage() {
               </div>
             </button>
 
-            {/* Other Categories */}
-            {categories.map((category) => (
+            {/* Other Categories — show top 4, rest hidden behind More button */}
+            {(showAllCategories ? categories : categories.slice(0, 4)).map((category) => (
               <button
                 key={category.id}
                 onClick={() => handleCategoryClick(category.id)}
@@ -1286,6 +1287,41 @@ export default function HomePage() {
                 </div>
               </button>
             ))}
+
+            {/* More / Less button — only show if more than 4 categories */}
+            {categories.length > 4 && (
+              <button
+                onClick={() => setShowAllCategories(!showAllCategories)}
+                style={{
+                  background: 'rgba(255, 255, 255, 0.9)',
+                  backdropFilter: 'blur(10px)',
+                  border: '1px solid rgba(255, 255, 255, 0.3)',
+                  borderRadius: '20px',
+                  padding: '2rem 1rem',
+                  cursor: 'pointer',
+                  transition: 'all 0.3s ease',
+                  boxShadow: '0 8px 25px rgba(0, 0, 0, 0.1)'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = 'linear-gradient(135deg, #ff6b6b, #ee5a24)';
+                  e.currentTarget.style.transform = 'scale(1.05)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = 'rgba(255, 255, 255, 0.9)';
+                  e.currentTarget.style.transform = 'scale(1)';
+                }}
+              >
+                <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>
+                  {showAllCategories ? '▲' : '⋯'}
+                </div>
+                <div style={{ fontSize: '0.85rem', fontWeight: '700', color: '#333' }}>
+                  {showAllCategories ? 'Less' : `+${categories.length - 4} More`}
+                </div>
+                <div style={{ fontSize: '0.8rem', color: '#666', marginTop: '0.25rem', fontWeight: '500' }}>
+                  {showAllCategories ? 'Show less' : 'View all'}
+                </div>
+              </button>
+            )}
           </div>
         </div>
       </section>
