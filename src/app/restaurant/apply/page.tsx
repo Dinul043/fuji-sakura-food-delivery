@@ -43,7 +43,8 @@ export default function RestaurantApplicationPage() {
 
   const validateEmail = (email: string) => {
     const cleanEmail = email.trim();
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    // Requires: something@something.something (min 2 chars in domain, min 2 chars in TLD)
+    const emailRegex = /^[^\s@]+@[a-zA-Z0-9-]{2,}\.[a-zA-Z]{2,}$/;
     return emailRegex.test(cleanEmail);
   };
 
@@ -718,7 +719,8 @@ export default function RestaurantApplicationPage() {
                     }}
                     onBlur={(e) => {
                       const val = e.target.value.trim();
-                      if (val && !validateEmail(val)) {
+                      const emailRegex = /^[^\s@]+@[a-zA-Z0-9-]{2,}\.[a-zA-Z]{2,}$/;
+                      if (val && !emailRegex.test(val)) {
                         setErrors(prev => ({ ...prev, email: 'Please enter a valid email address' }));
                         e.target.style.borderColor = '#ef4444';
                       } else if (!val) {
