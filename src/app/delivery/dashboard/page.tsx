@@ -477,10 +477,18 @@ export default function DeliveryDashboard() {
                     ✅ Cash collected — ₹{activeOrder.total_amount}
                   </div>
                 )}
-                <button onClick={completeOrder}
-                  style={{ width: '100%', padding: '0.875rem', borderRadius: '12px', border: 'none', background: 'linear-gradient(135deg, #10b981, #059669)', color: 'white', fontWeight: '700', fontSize: '1rem', cursor: 'pointer', boxShadow: '0 4px 12px rgba(16,185,129,0.3)' }}>
-                  ✅ Mark as Delivered
-                </button>
+
+                {/* Mark as Delivered — for COD only show after cash collected, always show for online */}
+                {(activeOrder.payment_method?.toLowerCase() !== 'cod' || activeOrder.cod_collected) ? (
+                  <button onClick={completeOrder}
+                    style={{ width: '100%', padding: '0.875rem', borderRadius: '12px', border: 'none', background: 'linear-gradient(135deg, #10b981, #059669)', color: 'white', fontWeight: '700', fontSize: '1rem', cursor: 'pointer', boxShadow: '0 4px 12px rgba(16,185,129,0.3)' }}>
+                    ✅ Mark as Delivered
+                  </button>
+                ) : (
+                  <div style={{ background: '#fef3c7', borderRadius: '10px', padding: '0.75rem 1rem', textAlign: 'center', color: '#92400e', fontWeight: '600', fontSize: '0.875rem', border: '1px solid #fde68a' }}>
+                    ⚠️ Please collect cash from customer first
+                  </div>
+                )}
               </>
             )}
           </div>
