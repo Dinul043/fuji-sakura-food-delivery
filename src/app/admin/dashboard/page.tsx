@@ -1821,7 +1821,7 @@ export default function AdminDashboard() {
                   📧 Email Address:
                 </label>
                 <input
-                  type="email"
+                  type="text"
                   value={newAdmin.email}
                   onChange={(e) => setNewAdmin(prev => ({ ...prev, email: e.target.value }))}
                   placeholder="Enter admin's email address"

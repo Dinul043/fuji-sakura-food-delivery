@@ -438,7 +438,7 @@ export default function RestaurantLogin() {
                   Restaurant Email *
                 </label>
                 <input
-                  type="email"
+                  type="text"
                   name="email"
                   value={formData.email}
                   onChange={handleInputChange}
@@ -557,7 +557,7 @@ export default function RestaurantLogin() {
             {/* Forgot password steps — inline, same card */}
             {step === 'forgot' && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                <input type="email" value={forgotEmail} onChange={e => setForgotEmail(e.target.value)}
+                <input type="text" value={forgotEmail} onChange={e => setForgotEmail(e.target.value)}
                   placeholder="Restaurant email" style={{ width: '100%', padding: '0.875rem', borderRadius: '12px', border: '2px solid #e2e8f0', fontSize: '0.95rem', outline: 'none', boxSizing: 'border-box', backgroundColor: '#fafafa' }}
                   onFocus={e => { e.currentTarget.style.borderColor = '#FF5722'; e.currentTarget.style.backgroundColor = '#fff'; }}
                   onBlur={e => { e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.backgroundColor = '#fafafa'; }} />

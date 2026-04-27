@@ -170,7 +170,7 @@ export default function DeliveryApplyPage() {
           {/* Email */}
           <div>
             <label style={labelStyle}>Email *</label>
-            <input type="email" value={form.email} onChange={e => setForm(p => ({ ...p, email: e.target.value }))}
+            <input type="text" value={form.email} onChange={e => setForm(p => ({ ...p, email: e.target.value }))}
               placeholder="your@email.com" style={inputStyle('email')}
               onFocus={e => { e.currentTarget.style.borderColor = '#FF5722'; e.currentTarget.style.backgroundColor = '#fff'; }}
               onBlur={e => { e.currentTarget.style.borderColor = errors.email ? '#ef4444' : '#e2e8f0'; e.currentTarget.style.backgroundColor = '#fafafa'; }} />

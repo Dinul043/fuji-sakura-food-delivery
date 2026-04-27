@@ -175,7 +175,7 @@ export default function DeliveryLoginPage() {
           <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
             <div>
               <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '600', color: '#374151', marginBottom: '0.4rem' }}>Email *</label>
-              <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="your@email.com" style={inputStyle}
+              <input type="text" value={email} onChange={e => setEmail(e.target.value)} placeholder="your@email.com" style={inputStyle}
                 onFocus={e => { e.currentTarget.style.borderColor = '#FF5722'; e.currentTarget.style.backgroundColor = '#fff'; }}
                 onBlur={e => { e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.backgroundColor = '#fafafa'; }} />
             </div>
@@ -216,7 +216,7 @@ export default function DeliveryLoginPage() {
         {/* Forgot — enter email */}
         {step === 'forgot' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            <input type="email" value={forgotEmail} onChange={e => setForgotEmail(e.target.value)} placeholder="Registered email" style={inputStyle}
+            <input type="text" value={forgotEmail} onChange={e => setForgotEmail(e.target.value)} placeholder="Registered email" style={inputStyle}
               onFocus={e => { e.currentTarget.style.borderColor = '#FF5722'; e.currentTarget.style.backgroundColor = '#fff'; }}
               onBlur={e => { e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.backgroundColor = '#fafafa'; }} />
             <button onClick={handleForgotPassword} disabled={forgotLoading}
