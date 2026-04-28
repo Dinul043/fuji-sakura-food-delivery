@@ -31,7 +31,8 @@ export default function LoginPage() {
     password: '',
     newPassword: '',
     firstName: '',
-    lastName: ''
+    lastName: '',
+    phone: ''
   });
   
   const [errors, setErrors] = useState({
@@ -40,7 +41,8 @@ export default function LoginPage() {
     newPassword: '',
     firstName: '',
     lastName: '',
-    otp: ''
+    otp: '',
+    phone: ''
   });
   
   const [isLoading, setIsLoading] = useState(false);
@@ -77,13 +79,14 @@ export default function LoginPage() {
         password: '', 
         newPassword: '', 
         firstName: '', 
-        lastName: '' 
+        lastName: '',
+        phone: ''
       }));
     } else {
       // Clear all form data for other steps
-      setFormData({ email: '', password: '', newPassword: '', firstName: '', lastName: '' });
+      setFormData({ email: '', password: '', newPassword: '', firstName: '', lastName: '', phone: '' });
     }
-    setErrors({ email: '', password: '', newPassword: '', firstName: '', lastName: '', otp: '' });
+    setErrors({ email: '', password: '', newPassword: '', firstName: '', lastName: '', otp: '', phone: '' });
     
     // Don't clear OTP when moving from reset-code to new-password or to success (preserve the reset code)
     if (!(currentStep === 'reset-code' && (step === 'new-password' || step === 'password-success'))) {
@@ -111,8 +114,11 @@ export default function LoginPage() {
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    // Trim whitespace for email field
-    const cleanValue = name === 'email' ? value.trim() : value;
+    let cleanValue = name === 'email' ? value.trim() : value;
+    // Phone: only allow digits, max 10
+    if (name === 'phone') {
+      cleanValue = value.replace(/\D/g, '').slice(0, 10);
+    }
     setFormData(prev => ({ ...prev, [name]: cleanValue }));
     if (errors[name as keyof typeof errors]) {
       setErrors(prev => ({ ...prev, [name]: '' }));
@@ -438,6 +444,11 @@ export default function LoginPage() {
     const newErrors = { ...errors };
     if (!formData.firstName.trim()) newErrors.firstName = 'First name is required';
     if (!formData.lastName.trim()) newErrors.lastName = 'Last name is required';
+    if (!formData.phone.trim()) {
+      newErrors.phone = 'Phone number is required';
+    } else if (!/^\d{10}$/.test(formData.phone.trim())) {
+      newErrors.phone = 'Please enter a valid 10-digit phone number';
+    }
     if (!formData.password.trim()) {
       newErrors.password = 'Password is required';
     } else if (!validatePassword(formData.password)) {
@@ -449,7 +460,7 @@ export default function LoginPage() {
       newErrors.newPassword = 'Passwords do not match';
     }
     setErrors(newErrors);
-    if (!newErrors.firstName && !newErrors.lastName && !newErrors.password && !newErrors.newPassword) {
+    if (!newErrors.firstName && !newErrors.lastName && !newErrors.phone && !newErrors.password && !newErrors.newPassword) {
       try {
         setIsLoading(true);
         
@@ -461,7 +472,8 @@ export default function LoginPage() {
             email: formData.email.trim().toLowerCase(),
             firstName: formData.firstName.trim(),
             lastName: formData.lastName.trim(),
-            password: formData.password.trim() // Trim password for consistency
+            password: formData.password.trim(),
+            phone: formData.phone.trim()
           })
         });
         
@@ -637,7 +649,8 @@ export default function LoginPage() {
             password: '',
             newPassword: '',
             firstName: '',
-            lastName: ''
+            lastName: '',
+            phone: ''
           });
           setOtp(['', '', '', '']);
         } else {
@@ -1117,6 +1130,27 @@ export default function LoginPage() {
                   <label style={{ display: 'block', marginBottom: '0.5rem', color: '#333', fontWeight: '500' }}>last name</label>
                   <input type="text" name="lastName" value={formData.lastName} onChange={handleInputChange} style={{ width: '100%', padding: '0.75rem', border: `1px solid ${errors.lastName ? '#dc3545' : '#ddd'}`, borderRadius: '8px', fontSize: '1rem', outline: 'none' }} />
                   {errors.lastName && <p style={{ color: '#dc3545', fontSize: '0.875rem', marginTop: '0.25rem' }}>{errors.lastName}</p>}
+                </div>
+
+                <div style={{ marginBottom: '1.5rem' }}>
+                  <label style={{ display: 'block', marginBottom: '0.5rem', color: '#333', fontWeight: '500' }}>Phone Number *</label>
+                  <input type="tel" name="phone" value={formData.phone} onChange={handleInputChange} placeholder="10-digit mobile number" maxLength={10} style={{ width: '100%', padding: '0.75rem', border: `1px solid ${errors.phone ? '#dc3545' : '#ddd'}`, borderRadius: '8px', fontSize: '1rem', outline: 'none' }}
+                    onFocus={(e) => { if (!errors.phone) e.target.style.borderColor = '#F15D31'; }}
+                    onBlur={(e) => {
+                      const val = e.target.value.trim();
+                      if (!val) {
+                        setErrors(p => ({ ...p, phone: 'Phone number is required' }));
+                        e.target.style.borderColor = '#dc3545';
+                      } else if (!/^\d{10}$/.test(val)) {
+                        setErrors(p => ({ ...p, phone: 'Please enter a valid 10-digit phone number' }));
+                        e.target.style.borderColor = '#dc3545';
+                      } else {
+                        setErrors(p => ({ ...p, phone: '' }));
+                        e.target.style.borderColor = '#ddd';
+                      }
+                    }}
+                  />
+                  {errors.phone && <p style={{ color: '#dc3545', fontSize: '0.875rem', marginTop: '0.25rem' }}>{errors.phone}</p>}
                 </div>
                 
                 <div style={{ marginBottom: '1.5rem' }}>
