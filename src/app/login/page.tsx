@@ -443,7 +443,7 @@ export default function LoginPage() {
     e.preventDefault();
     const newErrors = { ...errors };
     if (!formData.firstName.trim()) newErrors.firstName = 'First name is required';
-    if (!formData.lastName.trim()) newErrors.lastName = 'Last name is required';
+    // Last name is optional
     if (!formData.phone.trim()) {
       newErrors.phone = 'Phone number is required';
     } else if (!/^\d{10}$/.test(formData.phone.trim())) {
@@ -460,7 +460,7 @@ export default function LoginPage() {
       newErrors.newPassword = 'Passwords do not match';
     }
     setErrors(newErrors);
-    if (!newErrors.firstName && !newErrors.lastName && !newErrors.phone && !newErrors.password && !newErrors.newPassword) {
+    if (!newErrors.firstName && !newErrors.phone && !newErrors.password && !newErrors.newPassword) {
       try {
         setIsLoading(true);
         
@@ -1127,7 +1127,7 @@ export default function LoginPage() {
                 </div>
                 
                 <div style={{ marginBottom: '1.5rem' }}>
-                  <label style={{ display: 'block', marginBottom: '0.5rem', color: '#333', fontWeight: '500' }}>last name</label>
+                  <label style={{ display: 'block', marginBottom: '0.5rem', color: '#333', fontWeight: '500' }}>Last name <span style={{ color: '#9ca3af', fontWeight: '400', fontSize: '0.85rem' }}>(optional)</span></label>
                   <input type="text" name="lastName" value={formData.lastName} onChange={handleInputChange} style={{ width: '100%', padding: '0.75rem', border: `1px solid ${errors.lastName ? '#dc3545' : '#ddd'}`, borderRadius: '8px', fontSize: '1rem', outline: 'none' }} />
                   {errors.lastName && <p style={{ color: '#dc3545', fontSize: '0.875rem', marginTop: '0.25rem' }}>{errors.lastName}</p>}
                 </div>
