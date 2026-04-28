@@ -12,6 +12,9 @@ interface RestaurantProfile {
   email: string;
   phone: string;
   address: string;
+  city?: string;
+  area?: string;
+  upi_id?: string;
   cuisine_type: string;
   description: string;
   business_license: string;
@@ -34,7 +37,8 @@ export default function RestaurantProfile() {
     phone: '',
     address: '',
     cuisine_type: '',
-    description: ''
+    description: '',
+    upi_id: ''
   });
   const [notification, setNotification] = useState<{
     show: boolean;
@@ -163,7 +167,8 @@ export default function RestaurantProfile() {
           phone: profileData.phone,
           address: profileData.address,
           cuisine_type: profileData.cuisine_type,
-          description: profileData.description
+          description: profileData.description,
+          upi_id: profileData.upi_id || ''
         });
       } else {
         showNotification('error', 'Failed to load profile data');
@@ -219,7 +224,8 @@ export default function RestaurantProfile() {
         phone: profile.phone,
         address: profile.address,
         cuisine_type: profile.cuisine_type,
-        description: profile.description
+        description: profile.description,
+        upi_id: profile.upi_id || ''
       });
     }
     setIsEditing(false);
@@ -977,6 +983,50 @@ export default function RestaurantProfile() {
                 }}>
                   "{profile?.description}"
                 </p>
+              )}
+            </div>
+
+            {/* UPI ID — mandatory for receiving payouts */}
+            <div style={{ marginBottom: '1.5rem' }}>
+              <label style={{ display: 'block', marginBottom: '0.5rem', color: '#374151', fontWeight: '600', fontSize: '0.95rem' }}>
+                💳 UPI ID <span style={{ color: '#ef4444' }}>*</span>
+                <span style={{ fontSize: '0.78rem', color: '#6b7280', fontWeight: '400', marginLeft: '0.5rem' }}>Required for receiving payouts from admin</span>
+              </label>
+              {isEditing ? (
+                <input
+                  type="text"
+                  value={editForm.upi_id}
+                  onChange={(e) => setEditForm(prev => ({ ...prev, upi_id: e.target.value }))}
+                  placeholder="e.g. restaurant@upi or 9876543210@paytm"
+                  style={{
+                    width: '100%',
+                    padding: '0.75rem',
+                    border: `2px solid ${!editForm.upi_id ? '#f59e0b' : '#e9ecef'}`,
+                    borderRadius: '8px',
+                    fontSize: '1rem',
+                    outline: 'none',
+                    transition: 'border-color 0.2s ease',
+                    boxSizing: 'border-box'
+                  }}
+                  onFocus={(e) => { e.currentTarget.style.borderColor = '#FF5722'; }}
+                  onBlur={(e) => { e.currentTarget.style.borderColor = editForm.upi_id ? '#e9ecef' : '#f59e0b'; }}
+                />
+              ) : (
+                <div style={{
+                  padding: '0.75rem',
+                  background: profile?.upi_id ? '#f0fdf4' : '#fef3c7',
+                  borderRadius: '8px',
+                  border: `1px solid ${profile?.upi_id ? '#bbf7d0' : '#fde68a'}`,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.5rem'
+                }}>
+                  {profile?.upi_id ? (
+                    <span style={{ color: '#166534', fontWeight: '600' }}>✅ {profile.upi_id}</span>
+                  ) : (
+                    <span style={{ color: '#92400e', fontWeight: '600' }}>⚠️ Not set — click Edit to add your UPI ID to receive payouts</span>
+                  )}
+                </div>
               )}
             </div>
           </div>

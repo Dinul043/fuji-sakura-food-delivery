@@ -16,6 +16,9 @@ interface RestaurantData {
   cuisine_type: string;
   description: string;
   status: string;
+  upi_id?: string;
+  city?: string;
+  area?: string;
 }
 
 interface DashboardStats {
@@ -402,6 +405,32 @@ export default function RestaurantDashboard() {
             {statusNotification.type === 'success' ? '✅' : '❌'}
           </span>
           <span>{statusNotification.message}</span>
+        </div>
+      )}
+
+      {/* UPI ID Warning — show if restaurant hasn't set UPI ID */}
+      {restaurantData && !restaurantData.upi_id && (
+        <div style={{
+          background: '#fef3c7',
+          borderBottom: '2px solid #f59e0b',
+          padding: '0.75rem 2rem',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: '1rem'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            <span style={{ fontSize: '1.2rem' }}>⚠️</span>
+            <div>
+              <span style={{ fontWeight: '700', color: '#92400e', fontSize: '0.9rem' }}>UPI ID not set — </span>
+              <span style={{ color: '#b45309', fontSize: '0.875rem' }}>Admin cannot pay you until you add your UPI ID in your profile.</span>
+            </div>
+          </div>
+          <button
+            onClick={() => router.push('/restaurant/profile')}
+            style={{ padding: '0.4rem 1rem', borderRadius: '8px', border: 'none', background: '#f59e0b', color: 'white', fontWeight: '600', fontSize: '0.8rem', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+            Add UPI ID
+          </button>
         </div>
       )}
 

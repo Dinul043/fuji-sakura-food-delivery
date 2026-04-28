@@ -42,6 +42,7 @@ export default function RestaurantPayoutsPage() {
   const [isLoadingDetail, setIsLoadingDetail] = useState(false);
   const [isMarkingPaid, setIsMarkingPaid] = useState<number | null>(null);
   const [confirmPay, setConfirmPay] = useState<RestaurantPayout | null>(null);
+  const [payNotes, setPayNotes] = useState('');
   const [toast, setToast] = useState<{ msg: string; type: 'success' | 'error' } | null>(null);
 
   const getToken = () => localStorage.getItem('adminToken');
@@ -94,11 +95,12 @@ export default function RestaurantPayoutsPage() {
       const res = await fetch(`${API_BASE_URL}/api/admin/restaurant-payout/mark-paid/${restaurantId}`, {
         method: 'PUT',
         headers: { 'Authorization': `Bearer ${getToken()}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ notes: '' })
+        body: JSON.stringify({ notes: payNotes.trim() })
       });
       if (res.ok) {
         const data = await res.json();
-        showToast(`✅ ₹${data.amount_paid} paid to ${selectedRestaurant?.business_name || 'restaurant'}`);
+        showToast(`✅ ₹${data.amount_paid} paid`);
+        setPayNotes('');
         fetchRestaurants();
         if (selectedRestaurant) fetchDetail(selectedRestaurant.id);
       } else {
@@ -212,12 +214,18 @@ export default function RestaurantPayoutsPage() {
               </div>
 
               {selectedRestaurant.total_pending_payout > 0 && (
-                <button
-                  onClick={() => setConfirmPay(selectedRestaurant)}
-                  disabled={isMarkingPaid === selectedRestaurant.id}
-                  style={{ width: '100%', padding: '0.875rem', borderRadius: '10px', border: 'none', background: isMarkingPaid === selectedRestaurant.id ? '#9ca3af' : 'linear-gradient(135deg, #10b981, #059669)', color: 'white', fontWeight: '700', fontSize: '0.95rem', cursor: isMarkingPaid === selectedRestaurant.id ? 'not-allowed' : 'pointer' }}>
-                  {isMarkingPaid === selectedRestaurant.id ? 'Processing...' : `✅ Mark ₹${selectedRestaurant.total_pending_payout} as Paid`}
-                </button>
+                <>
+                  {/* Show UPI ID */}
+                  <div style={{ background: '#f9fafb', borderRadius: '8px', padding: '0.6rem 0.875rem', marginBottom: '0.75rem', fontSize: '0.82rem', color: '#374151' }}>
+                    💳 UPI: {selectedRestaurant.upi_id ? <strong>{selectedRestaurant.upi_id}</strong> : <span style={{ color: '#ef4444', fontWeight: '600' }}>Not set — restaurant must add UPI ID</span>}
+                  </div>
+                  <button
+                    onClick={() => selectedRestaurant.upi_id ? setConfirmPay(selectedRestaurant) : null}
+                    disabled={isMarkingPaid === selectedRestaurant.id || !selectedRestaurant.upi_id}
+                    style={{ width: '100%', padding: '0.875rem', borderRadius: '10px', border: 'none', background: !selectedRestaurant.upi_id ? '#9ca3af' : isMarkingPaid === selectedRestaurant.id ? '#9ca3af' : 'linear-gradient(135deg, #10b981, #059669)', color: 'white', fontWeight: '700', fontSize: '0.95rem', cursor: !selectedRestaurant.upi_id || isMarkingPaid === selectedRestaurant.id ? 'not-allowed' : 'pointer' }}>
+                    {isMarkingPaid === selectedRestaurant.id ? 'Processing...' : !selectedRestaurant.upi_id ? '⚠️ UPI ID required to pay' : `✅ Mark ₹${selectedRestaurant.total_pending_payout} as Paid`}
+                  </button>
+                </>
               )}
               {selectedRestaurant.total_pending_payout === 0 && (
                 <div style={{ textAlign: 'center', color: '#10b981', fontWeight: '600', padding: '0.5rem' }}>✅ All payouts settled</div>
@@ -262,17 +270,36 @@ export default function RestaurantPayoutsPage() {
       {/* Confirm Pay Modal */}
       {confirmPay && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}>
-          <div style={{ background: 'white', borderRadius: '20px', padding: '2rem', maxWidth: '400px', width: '90%', boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}>
+          <div style={{ background: 'white', borderRadius: '20px', padding: '2rem', maxWidth: '420px', width: '90%', boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}>
             <div style={{ fontSize: '2.5rem', textAlign: 'center', marginBottom: '1rem' }}>💸</div>
             <h3 style={{ textAlign: 'center', margin: '0 0 0.5rem', color: '#111827', fontSize: '1.1rem', fontWeight: '700' }}>Confirm Payout</h3>
-            <p style={{ textAlign: 'center', color: '#6b7280', fontSize: '0.875rem', margin: '0 0 0.5rem' }}>
+            <p style={{ textAlign: 'center', color: '#6b7280', fontSize: '0.875rem', margin: '0 0 0.25rem' }}>
               Pay <strong>₹{confirmPay.total_pending_payout}</strong> to <strong>{confirmPay.business_name}</strong>
             </p>
-            <p style={{ textAlign: 'center', color: '#9ca3af', fontSize: '0.78rem', margin: '0 0 1.5rem' }}>
+            <p style={{ textAlign: 'center', color: '#9ca3af', fontSize: '0.78rem', margin: '0 0 0.75rem' }}>
               {confirmPay.pending_orders} orders · Platform earned ₹{confirmPay.total_commission_earned} commission
             </p>
+            {/* UPI ID */}
+            <div style={{ background: '#f0fdf4', borderRadius: '8px', padding: '0.6rem 0.875rem', marginBottom: '1rem', fontSize: '0.85rem', color: '#166534', fontWeight: '600', textAlign: 'center' }}>
+              💳 Send to UPI: {confirmPay.upi_id}
+            </div>
+            {/* Notes / UTR field */}
+            <div style={{ marginBottom: '1.25rem' }}>
+              <label style={{ display: 'block', fontSize: '0.82rem', color: '#374151', fontWeight: '600', marginBottom: '0.4rem' }}>
+                Payment Reference / UTR Number (optional)
+              </label>
+              <input
+                type="text"
+                value={payNotes}
+                onChange={(e) => setPayNotes(e.target.value)}
+                placeholder="e.g. UTR123456789 or transaction ID"
+                style={{ width: '100%', padding: '0.6rem 0.875rem', borderRadius: '8px', border: '1.5px solid #e5e7eb', fontSize: '0.875rem', outline: 'none', boxSizing: 'border-box' }}
+                onFocus={(e) => { e.currentTarget.style.borderColor = '#10b981'; }}
+                onBlur={(e) => { e.currentTarget.style.borderColor = '#e5e7eb'; }}
+              />
+            </div>
             <div style={{ display: 'flex', gap: '0.75rem' }}>
-              <button onClick={() => setConfirmPay(null)}
+              <button onClick={() => { setConfirmPay(null); setPayNotes(''); }}
                 style={{ flex: 1, padding: '0.75rem', background: '#f3f4f6', color: '#374151', border: 'none', borderRadius: '10px', fontWeight: '600', cursor: 'pointer' }}>
                 Cancel
               </button>
