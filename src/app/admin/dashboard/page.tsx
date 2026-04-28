@@ -62,6 +62,7 @@ export default function AdminDashboard() {
   const [isUpdatingDelivery, setIsUpdatingDelivery] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
   const [adminNotes, setAdminNotes] = useState('');
+  const [commissionRate, setCommissionRate] = useState<number>(10);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [showAddAdminModal, setShowAddAdminModal] = useState(false);
   const [showAdminListModal, setShowAdminListModal] = useState(false);
@@ -364,7 +365,7 @@ export default function AdminDashboard() {
     try {
       setIsUpdating(true);
       
-      const response = await fetch(`${API_BASE_URL}/api/restaurant/applications/${applicationId}/status?new_status=${newStatus}&admin_notes=${encodeURIComponent(adminNotes || '')}&reviewed_by=1`, {
+      const response = await fetch(`${API_BASE_URL}/api/restaurant/applications/${applicationId}/status?new_status=${newStatus}&admin_notes=${encodeURIComponent(adminNotes || '')}&reviewed_by=1&commission_rate=${commissionRate}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' }
       });
@@ -373,6 +374,7 @@ export default function AdminDashboard() {
         showNotification('success', 'Success', `Application ${newStatus} successfully`);
         setSelectedApplication(null);
         setAdminNotes('');
+        setCommissionRate(10);
         fetchApplications(); // Refresh the list
       } else {
         showNotification('error', 'Error', `Failed to ${newStatus} application`);
@@ -1439,6 +1441,44 @@ export default function AdminDashboard() {
                   padding: '2rem',
                   border: '1px solid #e9ecef'
                 }}>
+                  <div style={{ marginBottom: '1.5rem' }}>
+                    <label style={{ 
+                      display: 'block', 
+                      marginBottom: '0.75rem', 
+                      fontWeight: '600',
+                      color: '#333',
+                      fontSize: '1rem'
+                    }}>
+                      💰 Commission Rate (%) :
+                    </label>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                      <input
+                        type="number"
+                        min={0}
+                        max={50}
+                        step={0.5}
+                        value={commissionRate}
+                        onChange={(e) => setCommissionRate(parseFloat(e.target.value) || 10)}
+                        style={{
+                          width: '120px',
+                          padding: '0.75rem',
+                          border: '2px solid #e9ecef',
+                          borderRadius: '8px',
+                          fontSize: '1rem',
+                          outline: 'none',
+                          fontFamily: 'Anuphan, system-ui, sans-serif',
+                          textAlign: 'center',
+                          fontWeight: '700'
+                        }}
+                        onFocus={(e) => { e.currentTarget.style.borderColor = '#FF5722'; }}
+                        onBlur={(e) => { e.currentTarget.style.borderColor = '#e9ecef'; }}
+                      />
+                      <span style={{ color: '#6b7280', fontSize: '0.875rem' }}>
+                        % of food subtotal — platform keeps this, restaurant gets the rest
+                      </span>
+                    </div>
+                  </div>
+
                   <div style={{ marginBottom: '1.5rem' }}>
                     <label style={{ 
                       display: 'block', 
