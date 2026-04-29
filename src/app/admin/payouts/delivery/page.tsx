@@ -103,7 +103,7 @@ export default function DeliveryPayoutsPage() {
         fetchPartners();
       } else {
         const d = await res.json().catch(() => ({}));
-        showToast(d.detail || 'Failed to mark as paid', 'error');
+        showToast(typeof d.detail === 'string' ? d.detail : Array.isArray(d.detail) ? d.detail[0]?.msg : 'Failed to mark as paid', 'error');
       }
     } catch { showToast('Network error', 'error'); }
     finally { setIsMarkingPaid(null); }
@@ -136,7 +136,7 @@ export default function DeliveryPayoutsPage() {
         if (viewSettlements) fetchSettlements(viewSettlements.id);
       } else {
         const d = await res.json().catch(() => ({}));
-        showToast(d.detail || 'Refund failed', 'error');
+        showToast(typeof d.detail === 'string' ? d.detail : Array.isArray(d.detail) ? d.detail[0]?.msg : 'Refund failed', 'error');
       }
     } catch { showToast('Network error', 'error'); }
     finally { setIsRefunding(null); }

@@ -1603,7 +1603,8 @@ export default function AdminDashboard() {
                             fetchApplications();
                           } else {
                             const d = await res.json();
-                            showNotification('error', 'Error', d.detail || 'Failed to update');
+                            const msg = typeof d.detail === 'string' ? d.detail : Array.isArray(d.detail) ? d.detail[0]?.msg : 'Failed to update';
+                            showNotification('error', 'Error', msg);
                           }
                         } catch { showNotification('error', 'Error', 'Network error'); }
                       }}

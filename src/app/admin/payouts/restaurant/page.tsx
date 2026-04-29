@@ -105,7 +105,7 @@ export default function RestaurantPayoutsPage() {
         if (selectedRestaurant) fetchDetail(selectedRestaurant.id);
       } else {
         const d = await res.json();
-        showToast(d.detail || 'Failed to mark as paid', 'error');
+        showToast(typeof d.detail === 'string' ? d.detail : Array.isArray(d.detail) ? d.detail[0]?.msg : 'Failed to mark as paid', 'error');
       }
     } catch { showToast('Network error', 'error'); }
     finally { setIsMarkingPaid(null); }
