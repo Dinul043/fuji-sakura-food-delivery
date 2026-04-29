@@ -21,11 +21,13 @@ interface DeliveryPartnerPayout {
 
 interface CodSettlement {
   id: number;
-  order_id: number;
-  amount_collected: number;
-  amount_settled: number;
+  order_id?: number;
+  amount: number;
   status: string;
-  settled_at: string | null;
+  refund_status: string;
+  refund_id?: string;
+  failure_reason?: string;
+  paid_at: string | null;
   created_at: string;
 }
 
@@ -129,7 +131,8 @@ export default function DeliveryPayoutsPage() {
     try {
       const res = await fetch(`${API_BASE_URL}/api/admin/cod-settlement/${settlementId}/refund`, {
         method: 'POST',
-        headers: { 'Authorization': `Bearer ${getToken()}`, 'Content-Type': 'application/json' }
+        headers: { 'Authorization': `Bearer ${getToken()}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason: 'Manual refund by admin' })
       });
       if (res.ok) {
         showToast('✅ Refund initiated');
@@ -314,23 +317,25 @@ export default function DeliveryPayoutsPage() {
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
                   {settlements.map(s => (
-                    <div key={s.id} style={{ background: '#f9fafb', borderRadius: '10px', padding: '0.875rem', borderLeft: `3px solid ${s.status === 'settled' ? '#10b981' : s.status === 'refunded' ? '#8b5cf6' : '#f59e0b'}` }}>
+                    <div key={s.id} style={{ background: '#f9fafb', borderRadius: '10px', padding: '0.875rem', borderLeft: `3px solid ${s.status === 'paid' ? '#10b981' : s.status === 'failed' ? '#ef4444' : '#f59e0b'}` }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                         <div>
-                          <div style={{ fontWeight: '600', color: '#111827', fontSize: '0.85rem' }}>Order #{s.order_id}</div>
+                          <div style={{ fontWeight: '600', color: '#111827', fontSize: '0.85rem' }}>Settlement #{s.id}</div>
                           <div style={{ fontSize: '0.72rem', color: '#6b7280', marginTop: '0.15rem' }}>
-                            Collected: ₹{s.amount_collected} · Settled: ₹{s.amount_settled}
+                            Amount: ₹{s.amount}
                           </div>
                           <div style={{ fontSize: '0.7rem', color: '#9ca3af', marginTop: '0.1rem' }}>
                             {new Date(s.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
-                            {s.settled_at && ` · Settled ${new Date(s.settled_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}`}
+                            {s.paid_at && ` · Paid ${new Date(s.paid_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}`}
                           </div>
+                          {s.failure_reason && <div style={{ fontSize: '0.7rem', color: '#ef4444', marginTop: '0.1rem' }}>{s.failure_reason}</div>}
+                          {s.refund_id && <div style={{ fontSize: '0.7rem', color: '#2563eb', marginTop: '0.1rem' }}>Refund ID: {s.refund_id}</div>}
                         </div>
                         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.4rem' }}>
-                          <span style={{ fontSize: '0.7rem', fontWeight: '700', padding: '0.2rem 0.5rem', borderRadius: '6px', background: s.status === 'settled' ? '#d1fae5' : s.status === 'refunded' ? '#ede9fe' : '#fef3c7', color: s.status === 'settled' ? '#065f46' : s.status === 'refunded' ? '#5b21b6' : '#92400e' }}>
-                            {s.status === 'settled' ? '✅ Settled' : s.status === 'refunded' ? '↩️ Refunded' : '⏳ Pending'}
+                          <span style={{ fontSize: '0.7rem', fontWeight: '700', padding: '0.2rem 0.5rem', borderRadius: '6px', background: s.status === 'paid' ? '#d1fae5' : s.status === 'failed' ? '#fee2e2' : '#fef3c7', color: s.status === 'paid' ? '#065f46' : s.status === 'failed' ? '#991b1b' : '#92400e' }}>
+                            {s.status === 'paid' ? '✅ Paid' : s.status === 'failed' ? '❌ Failed' : '⏳ Pending'}
                           </span>
-                          {s.status !== 'refunded' && (
+                          {s.status === 'paid' && s.refund_status === 'none' && (
                             <button
                               onClick={() => initiateRefund(s.id)}
                               disabled={isRefunding === s.id}
