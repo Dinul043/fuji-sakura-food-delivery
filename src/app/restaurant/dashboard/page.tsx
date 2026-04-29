@@ -792,7 +792,7 @@ export default function RestaurantDashboard() {
             </button>
 
             <button
-              onClick={() => router.push('/restaurant/analytics')}
+              onClick={() => router.push('/restaurant/earnings')}
               style={{
                 padding: '1.5rem',
                 borderRadius: '10px',
@@ -813,12 +813,12 @@ export default function RestaurantDashboard() {
                 e.currentTarget.style.boxShadow = 'none';
               }}
             >
-              <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>📊</div>
+              <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>💰</div>
               <h4 style={{ margin: '0 0 0.25rem 0', color: '#333', fontSize: '1.1rem' }}>
-                Analytics
+                Earnings
               </h4>
               <p style={{ margin: 0, color: '#666', fontSize: '0.85rem' }}>
-                View sales and performance
+                View payouts and revenue
               </p>
             </button>
 
