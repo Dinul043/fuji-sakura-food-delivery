@@ -25,6 +25,8 @@ interface Application {
   address: string;
   city?: string;
   area?: string;
+  upi_id?: string;
+  commission_rate?: number;
   cuisine_type: string;
   description: string;
   business_license: string;
@@ -952,7 +954,7 @@ export default function AdminDashboard() {
                       </span>
                       
                       <button
-                        onClick={() => setSelectedApplication(application)}
+                        onClick={() => { setSelectedApplication(application); setCommissionRate((application as any).commission_rate || 10); }}
                         style={{
                           background: '#FF5722',
                           color: 'white',
@@ -1566,6 +1568,52 @@ export default function AdminDashboard() {
                       {isUpdating ? '⏳ Processing...' : '❌ Reject Application'}
                     </button>
                   </div>
+                </div>
+              )}
+
+              {/* Commission Rate — editable for approved restaurants */}
+              {selectedApplication.status === 'approved' && (
+                <div style={{ background: '#f8f9fa', borderRadius: '12px', padding: '1.5rem', marginTop: '1rem' }}>
+                  <div style={{ fontWeight: '700', color: '#333', fontSize: '1rem', marginBottom: '1rem' }}>
+                    💰 Commission Rate
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+                    <input
+                      type="number"
+                      min={0}
+                      max={50}
+                      step={0.5}
+                      value={commissionRate}
+                      onChange={(e) => setCommissionRate(parseFloat(e.target.value) || 10)}
+                      style={{ width: '100px', padding: '0.6rem', border: '2px solid #e9ecef', borderRadius: '8px', fontSize: '1rem', outline: 'none', textAlign: 'center', fontWeight: '700' }}
+                      onFocus={(e) => { e.currentTarget.style.borderColor = '#FF5722'; }}
+                      onBlur={(e) => { e.currentTarget.style.borderColor = '#e9ecef'; }}
+                    />
+                    <span style={{ color: '#6b7280', fontSize: '0.875rem' }}>% of food subtotal</span>
+                    <button
+                      onClick={async () => {
+                        try {
+                          const token = localStorage.getItem('adminToken');
+                          const res = await fetch(`${API_BASE_URL}/api/restaurant/applications/${selectedApplication.id}/commission-rate?commission_rate=${commissionRate}`, {
+                            method: 'PUT',
+                            headers: { 'Authorization': `Bearer ${token}` }
+                          });
+                          if (res.ok) {
+                            showNotification('success', 'Updated', `Commission rate set to ${commissionRate}%`);
+                            fetchApplications();
+                          } else {
+                            const d = await res.json();
+                            showNotification('error', 'Error', d.detail || 'Failed to update');
+                          }
+                        } catch { showNotification('error', 'Error', 'Network error'); }
+                      }}
+                      style={{ padding: '0.6rem 1.25rem', borderRadius: '8px', border: 'none', background: 'linear-gradient(135deg, #FF5722, #FF7043)', color: 'white', fontWeight: '600', cursor: 'pointer', fontSize: '0.875rem' }}>
+                      Save Rate
+                    </button>
+                  </div>
+                  <p style={{ margin: '0.5rem 0 0', fontSize: '0.78rem', color: '#9ca3af' }}>
+                    Current: {(selectedApplication as any).commission_rate || 10}% · Changes apply to future orders only
+                  </p>
                 </div>
               )}
             </div>
