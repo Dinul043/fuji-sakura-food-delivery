@@ -101,8 +101,21 @@ export default function RestaurantPayoutsPage() {
         const data = await res.json();
         showToast(`✅ ₹${data.amount_paid} paid`);
         setPayNotes('');
-        fetchRestaurants();
-        if (selectedRestaurant) fetchDetail(selectedRestaurant.id);
+        // Refresh restaurants and update selectedRestaurant with fresh data
+        const refreshRes = await fetch(`${API_BASE_URL}/api/admin/restaurant-payouts`, {
+          headers: { 'Authorization': `Bearer ${getToken()}` }
+        });
+        if (refreshRes.ok) {
+          const refreshData = await refreshRes.json();
+          const updated = (refreshData.restaurants || []);
+          setRestaurants(updated);
+          // Update selectedRestaurant so button reflects new state immediately
+          if (selectedRestaurant) {
+            const fresh = updated.find((r: any) => r.id === selectedRestaurant.id);
+            if (fresh) setSelectedRestaurant(fresh);
+            fetchDetail(selectedRestaurant.id);
+          }
+        }
       } else {
         const d = await res.json();
         showToast(typeof d.detail === 'string' ? d.detail : Array.isArray(d.detail) ? d.detail[0]?.msg : 'Failed to mark as paid', 'error');
