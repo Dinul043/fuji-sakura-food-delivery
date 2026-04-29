@@ -163,7 +163,7 @@ export default function RestaurantPayoutsPage() {
               {restaurants.map(r => (
                 <div key={r.id}
                   onClick={() => { setSelectedRestaurant(r); fetchDetail(r.id); }}
-                  style={{ background: 'white', borderRadius: '14px', padding: '1.25rem', boxShadow: '0 2px 8px rgba(0,0,0,0.06)', cursor: 'pointer', borderTop: '1px solid #e5e7eb', borderRight: '1px solid #e5e7eb', borderBottom: '1px solid #e5e7eb', borderLeft: selectedRestaurant?.id === r.id ? '4px solid #FF5722' : `4px solid ${r.total_pending_payout > 0 ? '#f59e0b' : '#10b981'}`, transition: 'all 0.2s' }}>
+                  style={{ background: 'white', borderRadius: '14px', padding: '1.25rem', boxShadow: selectedRestaurant?.id === r.id ? '0 0 0 2px #FF5722' : '0 2px 8px rgba(0,0,0,0.06)', cursor: 'pointer', borderTop: '1px solid #e5e7eb', borderRight: '1px solid #e5e7eb', borderBottom: '1px solid #e5e7eb', borderLeft: `4px solid ${r.total_pending_payout > 0 ? '#f59e0b' : '#10b981'}`, transition: 'all 0.2s' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.875rem' }}>
                     <div>
                       <div style={{ fontWeight: '700', color: '#111827', fontSize: '1rem' }}>{r.business_name}</div>
