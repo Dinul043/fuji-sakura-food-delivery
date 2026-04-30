@@ -4,6 +4,9 @@ import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useWebSocket } from '@/hooks/useWebSocket';
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+const WS_BASE_URL = API_BASE_URL.replace(/^http/, 'ws');
+
 interface OrderItem {
   id: number;
   name: string;
@@ -61,7 +64,7 @@ export default function OrderTrackingPage() {
 
   // WebSocket connection for real-time updates
   const { isConnected } = useWebSocket(
-    `ws://localhost:8000/ws/orders/${orderId}`,
+    `${WS_BASE_URL}/ws/orders/${orderId}`,
     (data) => {
       if (data.type === 'order_status_update' && data.order) {
         // Update order with new data from WebSocket
@@ -118,7 +121,7 @@ export default function OrderTrackingPage() {
     const fetchOrder = async () => {
       try {
         const token = localStorage.getItem('token');
-        const response = await fetch(`http://localhost:8000/api/orders/${orderId}`, {
+        const response = await fetch(`${API_BASE_URL}/api/orders/${orderId}`, {
           headers: {
             'Authorization': `Bearer ${token}`
           }
@@ -189,7 +192,7 @@ export default function OrderTrackingPage() {
     // Fetch existing review for this order
     const token = localStorage.getItem('token');
     if (token) {
-      fetch(`http://localhost:8000/api/reviews/order/${orderId}`, {
+      fetch(`${API_BASE_URL}/api/reviews/order/${orderId}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       })
         .then(r => r.ok ? r.json() : null)
@@ -216,7 +219,7 @@ export default function OrderTrackingPage() {
     setIsCancelling(true);
     try {
       const token = localStorage.getItem('token');
-      const res = await fetch(`http://localhost:8000/api/orders/${orderId}/cancel`, {
+      const res = await fetch(`${API_BASE_URL}/api/orders/${orderId}/cancel`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -241,7 +244,7 @@ export default function OrderTrackingPage() {
     setIsSubmittingReview(true);
     try {
       const token = localStorage.getItem('token');
-      const res = await fetch('http://localhost:8000/api/reviews', {
+      const res = await fetch(`${API_BASE_URL}/api/reviews`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ order_id: orderId, rating: reviewRating, comment: reviewComment.trim() || null })

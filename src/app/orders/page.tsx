@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+
 interface OrderItem {
   id: number;
   name: string;
@@ -54,7 +56,7 @@ export default function OrdersPage() {
           return;
         }
 
-        const response = await fetch('http://localhost:8000/api/orders/', {
+        const response = await fetch(`${API_BASE_URL}/api/orders/`, {
           headers: {
             'Authorization': `Bearer ${token}`
           }
@@ -146,7 +148,7 @@ export default function OrdersPage() {
       
       // Add items back to cart via API
       for (const item of order.items) {
-        await fetch('http://localhost:8000/api/cart/add', {
+        await fetch(`${API_BASE_URL}/api/cart/add`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -183,7 +185,7 @@ export default function OrdersPage() {
     setIsCancelling(true);
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`http://localhost:8000/api/orders/${orderToCancel}/cancel`, {
+      const response = await fetch(`${API_BASE_URL}/api/orders/${orderToCancel}/cancel`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -198,7 +200,7 @@ export default function OrdersPage() {
       }
 
       // Refresh orders list
-      const ordersResponse = await fetch('http://localhost:8000/api/orders/', {
+      const ordersResponse = await fetch(`${API_BASE_URL}/api/orders/`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
