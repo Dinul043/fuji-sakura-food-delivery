@@ -689,7 +689,7 @@ export default function OrdersPage() {
                       color: '#ff6b6b',
                       marginBottom: '0.5rem'
                     }}>
-                      ${order.total_amount.toFixed(2)}
+                      ₹{order.total_amount.toFixed(2)}
                     </div>
                     <div style={{
                       fontSize: '0.85rem',
@@ -779,7 +779,7 @@ export default function OrdersPage() {
                               fontWeight: '600',
                               color: '#ff6b6b'
                             }}>
-                              ${(item.price * item.quantity).toFixed(2)}
+                              ₹{(item.price * item.quantity).toFixed(2)}
                             </span>
                           </div>
                         </div>

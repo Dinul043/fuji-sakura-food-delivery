@@ -1062,7 +1062,7 @@ export default function OrderTrackingPage() {
                           minWidth: '60px',
                           textAlign: 'right'
                         }}>
-                          ${(item.price * item.quantity).toFixed(2)}
+                          ₹{(item.price * item.quantity).toFixed(2)}
                         </span>
                       </div>
                     </div>
@@ -1170,7 +1170,7 @@ export default function OrderTrackingPage() {
                 <span style={{ fontSize: '1.2rem' }}>💳</span>
                 Total Amount
               </span>
-              <span style={{ color: '#ff6b6b' }}>${order.total.toFixed(2)}</span>
+              <span style={{ color: '#ff6b6b' }}>₹{order.total.toFixed(2)}</span>
             </div>
           </div>
 
