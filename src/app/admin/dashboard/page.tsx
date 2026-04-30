@@ -71,6 +71,8 @@ export default function AdminDashboard() {
   const [adminList, setAdminList] = useState<any[]>([]);
   const [currentAdmin, setCurrentAdmin] = useState<any>(null);
   const [showConfirmDeactivate, setShowConfirmDeactivate] = useState<{show: boolean, admin: any}>({show: false, admin: null});
+  const [confirmRestaurantAction, setConfirmRestaurantAction] = useState<{ id: number; status: string; label: string } | null>(null);
+  const [confirmDeliveryPartnerAction, setConfirmDeliveryPartnerAction] = useState<{ id: number; action: 'approve' | 'reject'; label: string } | null>(null);
   const [newAdmin, setNewAdmin] = useState({
     name: '',
     email: '',
@@ -1511,7 +1513,7 @@ export default function AdminDashboard() {
                   
                   <div style={{ display: 'flex', gap: '1rem' }}>
                     <button
-                      onClick={() => handleStatusUpdate(selectedApplication.id, 'approved')}
+                      onClick={() => setConfirmRestaurantAction({ id: selectedApplication.id, status: 'approved', label: 'Approve Application' })}
                       disabled={isUpdating}
                       style={{
                         flex: 1,
@@ -1540,7 +1542,7 @@ export default function AdminDashboard() {
                     </button>
                     
                     <button
-                      onClick={() => handleStatusUpdate(selectedApplication.id, 'rejected')}
+                      onClick={() => setConfirmRestaurantAction({ id: selectedApplication.id, status: 'rejected', label: 'Reject Application' })}
                       disabled={isUpdating}
                       style={{
                         flex: 1,
@@ -1666,15 +1668,79 @@ export default function AdminDashboard() {
                 Close
               </button>
               {selectedDelivery.status === 0 && (<>
-              <button onClick={() => handleDeliveryAction(selectedDelivery.id, 'reject')} disabled={isUpdatingDelivery}
+              <button onClick={() => setConfirmDeliveryPartnerAction({ id: selectedDelivery.id, action: 'reject', label: 'Reject Partner' })} disabled={isUpdatingDelivery}
                 style={{ flex: 1, padding: '0.75rem', borderRadius: '10px', border: 'none', background: '#ef4444', color: 'white', fontWeight: '600', cursor: isUpdatingDelivery ? 'not-allowed' : 'pointer' }}>
                 {isUpdatingDelivery ? '...' : 'Reject'}
               </button>
-              <button onClick={() => handleDeliveryAction(selectedDelivery.id, 'approve')} disabled={isUpdatingDelivery}
+              <button onClick={() => setConfirmDeliveryPartnerAction({ id: selectedDelivery.id, action: 'approve', label: 'Approve Partner' })} disabled={isUpdatingDelivery}
                 style={{ flex: 1, padding: '0.75rem', borderRadius: '10px', border: 'none', background: '#10b981', color: 'white', fontWeight: '600', cursor: isUpdatingDelivery ? 'not-allowed' : 'pointer' }}>
                 {isUpdatingDelivery ? '...' : 'Approve'}
               </button>
               </>)}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Restaurant Action Confirmation Modal */}
+      {confirmRestaurantAction && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1002, padding: '1rem' }}>
+          <div style={{ background: 'white', borderRadius: '20px', padding: '2rem', maxWidth: '400px', width: '100%', boxShadow: '0 20px 60px rgba(0,0,0,0.3)', textAlign: 'center' }}>
+            <div style={{ fontSize: '2.5rem', marginBottom: '0.75rem' }}>
+              {confirmRestaurantAction.status === 'approved' ? '✅' : '❌'}
+            </div>
+            <h3 style={{ margin: '0 0 0.5rem', color: '#111827', fontSize: '1.2rem', fontWeight: '700' }}>
+              {confirmRestaurantAction.label}
+            </h3>
+            <p style={{ color: '#6b7280', fontSize: '0.9rem', margin: '0 0 1.5rem', lineHeight: '1.5' }}>
+              Are you sure you want to <strong>{confirmRestaurantAction.status}</strong> this restaurant application? This action will notify the applicant.
+            </p>
+            <div style={{ display: 'flex', gap: '0.75rem' }}>
+              <button onClick={() => setConfirmRestaurantAction(null)}
+                style={{ flex: 1, padding: '0.75rem', background: '#f3f4f6', color: '#374151', border: 'none', borderRadius: '10px', fontWeight: '600', cursor: 'pointer' }}>
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  const action = confirmRestaurantAction;
+                  setConfirmRestaurantAction(null);
+                  handleStatusUpdate(action.id, action.status);
+                }}
+                style={{ flex: 1, padding: '0.75rem', background: confirmRestaurantAction.status === 'approved' ? '#4CAF50' : '#F44336', color: 'white', border: 'none', borderRadius: '10px', fontWeight: '700', cursor: 'pointer' }}>
+                Yes, {confirmRestaurantAction.status === 'approved' ? 'Approve' : 'Reject'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delivery Partner Action Confirmation Modal */}
+      {confirmDeliveryPartnerAction && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1002, padding: '1rem' }}>
+          <div style={{ background: 'white', borderRadius: '20px', padding: '2rem', maxWidth: '400px', width: '100%', boxShadow: '0 20px 60px rgba(0,0,0,0.3)', textAlign: 'center' }}>
+            <div style={{ fontSize: '2.5rem', marginBottom: '0.75rem' }}>
+              {confirmDeliveryPartnerAction.action === 'approve' ? '🛵' : '❌'}
+            </div>
+            <h3 style={{ margin: '0 0 0.5rem', color: '#111827', fontSize: '1.2rem', fontWeight: '700' }}>
+              {confirmDeliveryPartnerAction.label}
+            </h3>
+            <p style={{ color: '#6b7280', fontSize: '0.9rem', margin: '0 0 1.5rem', lineHeight: '1.5' }}>
+              Are you sure you want to <strong>{confirmDeliveryPartnerAction.action}</strong> this delivery partner application?
+            </p>
+            <div style={{ display: 'flex', gap: '0.75rem' }}>
+              <button onClick={() => setConfirmDeliveryPartnerAction(null)}
+                style={{ flex: 1, padding: '0.75rem', background: '#f3f4f6', color: '#374151', border: 'none', borderRadius: '10px', fontWeight: '600', cursor: 'pointer' }}>
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  const action = confirmDeliveryPartnerAction;
+                  setConfirmDeliveryPartnerAction(null);
+                  handleDeliveryAction(action.id, action.action);
+                }}
+                style={{ flex: 1, padding: '0.75rem', background: confirmDeliveryPartnerAction.action === 'approve' ? '#10b981' : '#ef4444', color: 'white', border: 'none', borderRadius: '10px', fontWeight: '700', cursor: 'pointer' }}>
+                Yes, {confirmDeliveryPartnerAction.action === 'approve' ? 'Approve' : 'Reject'}
+              </button>
             </div>
           </div>
         </div>

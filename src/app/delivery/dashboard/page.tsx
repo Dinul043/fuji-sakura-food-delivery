@@ -65,6 +65,7 @@ export default function DeliveryDashboard() {
   const [showIssueModal, setShowIssueModal] = useState(false);
   const [issueText, setIssueText] = useState('');
   const [isSubmittingIssue, setIsSubmittingIssue] = useState(false);
+  const [confirmDeliveryAction, setConfirmDeliveryAction] = useState<{ type: 'pickup' | 'deliver'; label: string; message: string } | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
 
   const showToast = (msg: string, type: 'success' | 'error' = 'success') => {
@@ -427,21 +428,7 @@ export default function DeliveryDashboard() {
 
             {/* Phase 1: Heading to restaurant — show "Food Picked Up" button */}
             {activeOrder.status === 'ready' && (
-              <button onClick={async () => {
-                try {
-                  const res = await fetch(`${API_BASE_URL}/api/delivery/pickup-order/${activeOrder.id}`, {
-                    method: 'POST', headers: { 'Authorization': `Bearer ${getToken()}` }
-                  });
-                  if (res.ok) {
-                    const data = await res.json();
-                    setActiveOrder(data.order);
-                    showToast('📦 Food picked up! Head to the customer.');
-                  } else {
-                    const d = await res.json();
-                    showToast(d.detail || 'Failed to mark pickup', 'error');
-                  }
-                } catch { showToast('Network error', 'error'); }
-              }}
+              <button onClick={() => setConfirmDeliveryAction({ type: 'pickup', label: 'Food Picked Up', message: 'Confirm that you have picked up the food from the restaurant?' })}
                 style={{ width: '100%', padding: '0.875rem', borderRadius: '12px', border: 'none', background: 'linear-gradient(135deg, #f59e0b, #d97706)', color: 'white', fontWeight: '700', fontSize: '1rem', cursor: 'pointer', boxShadow: '0 4px 12px rgba(245,158,11,0.3)' }}>
                 📦 Food Picked Up — Start Delivery
               </button>
@@ -480,7 +467,7 @@ export default function DeliveryDashboard() {
 
                 {/* Mark as Delivered — for COD only show after cash collected, always show for online */}
                 {(activeOrder.payment_method?.toLowerCase() !== 'cod' || activeOrder.cod_collected) ? (
-                  <button onClick={completeOrder}
+                  <button onClick={() => setConfirmDeliveryAction({ type: 'deliver', label: 'Mark as Delivered', message: 'Confirm that you have delivered the order to the customer?' })}
                     style={{ width: '100%', padding: '0.875rem', borderRadius: '12px', border: 'none', background: 'linear-gradient(135deg, #10b981, #059669)', color: 'white', fontWeight: '700', fontSize: '1rem', cursor: 'pointer', boxShadow: '0 4px 12px rgba(16,185,129,0.3)' }}>
                     ✅ Mark as Delivered
                   </button>
@@ -543,6 +530,54 @@ export default function DeliveryDashboard() {
             )}
           </div>
       </div>
+
+      {/* Confirm Delivery Action Modal */}
+      {confirmDeliveryAction && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: '1.5rem' }}>
+          <div style={{ background: 'white', borderRadius: '20px', padding: '2rem', maxWidth: '380px', width: '100%', boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}>
+            <div style={{ fontSize: '2.5rem', textAlign: 'center', marginBottom: '0.75rem' }}>
+              {confirmDeliveryAction.type === 'pickup' ? '📦' : '✅'}
+            </div>
+            <h3 style={{ textAlign: 'center', margin: '0 0 0.5rem', color: '#111827', fontSize: '1.2rem', fontWeight: '700' }}>
+              {confirmDeliveryAction.label}
+            </h3>
+            <p style={{ textAlign: 'center', color: '#6b7280', fontSize: '0.9rem', margin: '0 0 1.5rem', lineHeight: '1.5' }}>
+              {confirmDeliveryAction.message}
+            </p>
+            <div style={{ display: 'flex', gap: '0.75rem' }}>
+              <button onClick={() => setConfirmDeliveryAction(null)}
+                style={{ flex: 1, padding: '0.75rem', background: '#f3f4f6', color: '#374151', border: 'none', borderRadius: '10px', fontWeight: '600', cursor: 'pointer' }}>
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  const action = confirmDeliveryAction;
+                  setConfirmDeliveryAction(null);
+                  if (action.type === 'pickup') {
+                    try {
+                      const res = await fetch(`${API_BASE_URL}/api/delivery/pickup-order/${activeOrder!.id}`, {
+                        method: 'POST', headers: { 'Authorization': `Bearer ${getToken()}` }
+                      });
+                      if (res.ok) {
+                        const data = await res.json();
+                        setActiveOrder(data.order);
+                        showToast('📦 Food picked up! Head to the customer.');
+                      } else {
+                        const d = await res.json();
+                        showToast(d.detail || 'Failed to mark pickup', 'error');
+                      }
+                    } catch { showToast('Network error', 'error'); }
+                  } else {
+                    await completeOrder();
+                  }
+                }}
+                style={{ flex: 1, padding: '0.75rem', background: confirmDeliveryAction.type === 'pickup' ? 'linear-gradient(135deg, #f59e0b, #d97706)' : 'linear-gradient(135deg, #10b981, #059669)', color: 'white', border: 'none', borderRadius: '10px', fontWeight: '700', cursor: 'pointer' }}>
+                Yes, Confirm
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -45,6 +45,8 @@ export default function RestaurantOrders() {
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [orderToCancel, setOrderToCancel] = useState<number | null>(null);
   const [isCancelling, setIsCancelling] = useState(false);
+  // Confirm action modal for status updates
+  const [confirmAction, setConfirmAction] = useState<{ orderId: number; status: string; label: string; message: string } | null>(null);
   const [toasts, setToasts] = useState<ToastNotification[]>([]);
   const wsRef = useRef<WebSocket | null>(null);
   const router = useRouter();
@@ -781,7 +783,7 @@ export default function RestaurantOrders() {
                   {order.status === 'confirmed' && (
                     <>
                       <button 
-                        onClick={() => updateOrderStatus(order.order_id, 'preparing')}
+                        onClick={() => setConfirmAction({ orderId: order.order_id, status: 'preparing', label: 'Start Preparing', message: 'Are you sure you want to start preparing this order?' })}
                         style={{
                           display: 'flex',
                           alignItems: 'center',
@@ -840,7 +842,7 @@ export default function RestaurantOrders() {
                   )}
                   {order.status === 'preparing' && (
                     <button 
-                      onClick={() => updateOrderStatus(order.order_id, 'ready')}
+                      onClick={() => setConfirmAction({ orderId: order.order_id, status: 'ready', label: 'Ready for Pickup', message: 'Mark this order as ready for pickup?' })}
                       style={{
                         display: 'flex',
                         alignItems: 'center',
@@ -936,6 +938,61 @@ export default function RestaurantOrders() {
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* Confirm Action Modal (Start Preparing / Ready for Pickup) */}
+      {confirmAction && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          zIndex: 9999, padding: '2rem'
+        }}>
+          <div style={{
+            background: 'white', borderRadius: '20px', padding: '2.5rem',
+            maxWidth: '420px', width: '100%',
+            boxShadow: '0 20px 60px rgba(0,0,0,0.3)',
+            animation: 'slideUp 0.3s ease-out'
+          }}>
+            <div style={{ fontSize: '3rem', textAlign: 'center', marginBottom: '1rem' }}>
+              {confirmAction.status === 'preparing' ? '🍳' : '📦'}
+            </div>
+            <h2 style={{ fontSize: '1.4rem', fontWeight: '700', color: '#1f2937', textAlign: 'center', margin: '0 0 0.75rem 0' }}>
+              {confirmAction.label}
+            </h2>
+            <p style={{ color: '#6b7280', textAlign: 'center', fontSize: '1rem', lineHeight: '1.6', margin: '0 0 2rem 0' }}>
+              {confirmAction.message}
+            </p>
+            <div style={{ display: 'flex', gap: '1rem' }}>
+              <button
+                onClick={() => setConfirmAction(null)}
+                style={{
+                  flex: 1, padding: '0.875rem', borderRadius: '12px',
+                  border: '2px solid #e5e7eb', background: 'white', color: '#374151',
+                  fontSize: '1rem', fontWeight: '600', cursor: 'pointer'
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  const action = confirmAction;
+                  setConfirmAction(null);
+                  await updateOrderStatus(action.orderId, action.status);
+                }}
+                style={{
+                  flex: 1, padding: '0.875rem', borderRadius: '12px', border: 'none',
+                  background: confirmAction.status === 'preparing'
+                    ? 'linear-gradient(135deg, #3b82f6, #1d4ed8)'
+                    : 'linear-gradient(135deg, #f59e0b, #d97706)',
+                  color: 'white', fontSize: '1rem', fontWeight: '700', cursor: 'pointer'
+                }}
+              >
+                Yes, Confirm
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
