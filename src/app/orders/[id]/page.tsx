@@ -33,11 +33,13 @@ interface Order {
   deliveryFee: number;
   tax: number;
   total: number;
-  status: 'confirmed' | 'preparing' | 'out_for_delivery' | 'delivered' | 'cancelled';
+  status: 'confirmed' | 'preparing' | 'ready' | 'out_for_delivery' | 'delivered' | 'cancelled';
   estimatedDelivery: string;
   orderTime: string;
   deliveredTime?: string;
   restaurantName?: string;
+  deliveryPartnerName?: string;
+  deliveryPartnerPhone?: string;
 }
 
 export default function OrderTrackingPage() {
@@ -97,7 +99,9 @@ export default function OrderTrackingPage() {
           estimatedDelivery: `${updatedOrder.estimated_delivery_time} mins`,
           orderTime: updatedOrder.created_at,
           deliveredTime: updatedOrder.delivered_at,
-          restaurantName: updatedOrder.restaurant_name
+          restaurantName: updatedOrder.restaurant_name,
+          deliveryPartnerName: updatedOrder.delivery_partner_name || null,
+          deliveryPartnerPhone: updatedOrder.delivery_partner_phone || null
         };
         
         setOrder(transformedOrder);
@@ -164,7 +168,9 @@ export default function OrderTrackingPage() {
           estimatedDelivery: `${data.estimated_delivery_time} mins`,
           orderTime: data.created_at,
           deliveredTime: data.delivered_at,
-          restaurantName: data.restaurant_name
+          restaurantName: data.restaurant_name,
+          deliveryPartnerName: data.delivery_partner_name || null,
+          deliveryPartnerPhone: data.delivery_partner_phone || null
         };
 
         setOrder(transformedOrder);
@@ -670,6 +676,33 @@ export default function OrderTrackingPage() {
               </div>
             )}
           </div>
+
+          {/* Delivery Partner Info — show when partner is assigned */}
+          {(order.status === 'ready' || order.status === 'out_for_delivery') && order.deliveryPartnerName && (
+            <div style={{
+              background: 'rgba(255,255,255,0.95)', backdropFilter: 'blur(10px)',
+              borderRadius: '20px', padding: '1.5rem 2rem',
+              border: '2px solid #ede9fe', boxShadow: '0 8px 32px rgba(0,0,0,0.08)'
+            }}>
+              <h3 style={{ margin: '0 0 1rem', fontSize: '1rem', fontWeight: '700', color: '#333', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <span>🛵</span> Your Delivery Partner
+              </h3>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div>
+                  <div style={{ fontWeight: '700', color: '#111827', fontSize: '1.05rem' }}>
+                    {order.deliveryPartnerName}
+                  </div>
+                  <div style={{ color: '#6b7280', fontSize: '0.875rem', marginTop: '0.2rem' }}>
+                    📞 {order.deliveryPartnerPhone}
+                  </div>
+                </div>
+                <a href={`tel:${order.deliveryPartnerPhone}`}
+                  style={{ padding: '0.5rem 1.25rem', borderRadius: '10px', background: 'linear-gradient(135deg, #8b5cf6, #7c3aed)', color: 'white', fontWeight: '600', fontSize: '0.875rem', textDecoration: 'none' }}>
+                  📞 Call
+                </a>
+              </div>
+            </div>
+          )}
 
           {/* Cancel Order — visible only within 1 minute of confirmed order */}
           {order.status === 'confirmed' && cancelSecondsLeft !== null && cancelSecondsLeft > 0 && (
