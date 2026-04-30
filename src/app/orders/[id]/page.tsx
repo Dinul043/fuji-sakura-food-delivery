@@ -65,7 +65,7 @@ export default function OrderTrackingPage() {
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
 
   // WebSocket connection for real-time updates
-  const { isConnected } = useWebSocket(
+  useWebSocket(
     `${WS_BASE_URL}/ws/orders/${orderId}`,
     (data) => {
       if (data.type === 'order_status_update' && data.order) {
@@ -502,34 +502,9 @@ export default function OrderTrackingPage() {
           fontSize: '1.8rem',
           fontWeight: '600',
           margin: 0,
-          textShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '1rem'
+          textShadow: '0 2px 4px rgba(0, 0, 0, 0.1)'
         }}>
           Track Order #{order.id}
-          {isConnected && (
-            <span style={{
-              fontSize: '0.75rem',
-              background: '#10b981',
-              color: 'white',
-              padding: '0.25rem 0.75rem',
-              borderRadius: '12px',
-              fontWeight: '500',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.25rem'
-            }}>
-              <span style={{
-                width: '6px',
-                height: '6px',
-                background: 'white',
-                borderRadius: '50%',
-                animation: 'pulse 2s infinite'
-              }} />
-              Live
-            </span>
-          )}
         </h1>
         
         <div style={{ width: '120px' }}></div>
