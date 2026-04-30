@@ -705,45 +705,41 @@ export default function AdminDashboard() {
           marginBottom: '2rem'
         }}>
           {[
-            { label: 'Total Applications', value: applications.length, icon: '📋', color: '#4CAF50' },
-            { label: 'Pending Review', value: applications.filter(app => app.status === 'pending').length, icon: '⏳', color: '#FF9800' },
-            { label: 'Approved Restaurants', value: applications.filter(app => app.status === 'approved').length, icon: '✅', color: '#2196F3' },
-            { label: 'Delivery Partners', value: deliveryPartners.length, icon: '🛵', color: '#9c27b0' }
+            { label: 'Total Applications', value: applications.length, icon: '📋', color: '#4CAF50', tab: 'restaurants' as const, filter: 'all' },
+            { label: 'Pending Review', value: applications.filter(app => app.status === 'pending').length, icon: '⏳', color: '#FF9800', tab: 'restaurants' as const, filter: 'pending' },
+            { label: 'Approved Restaurants', value: applications.filter(app => app.status === 'approved').length, icon: '✅', color: '#2196F3', tab: 'restaurants' as const, filter: 'approved' },
+            { label: 'Delivery Partners', value: deliveryPartners.length, icon: '🛵', color: '#9c27b0', tab: 'delivery' as const, filter: 'all' }
           ].map((stat, index) => (
-            <div key={index} style={{
-              background: 'white',
-              borderRadius: '16px',
-              padding: '2rem',
-              textAlign: 'center',
-              boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
-              border: '1px solid rgba(255, 255, 255, 0.3)',
-              cursor: 'pointer',
-              transition: 'transform 0.2s ease, box-shadow 0.2s ease'
-            }}
-            onMouseOver={(e) => {
-              e.currentTarget.style.transform = 'translateY(-4px)';
-              e.currentTarget.style.boxShadow = '0 12px 40px rgba(0, 0, 0, 0.15)';
-            }}
-            onMouseOut={(e) => {
-              e.currentTarget.style.transform = 'translateY(0)';
-              e.currentTarget.style.boxShadow = '0 8px 32px rgba(0, 0, 0, 0.1)';
-            }}
+            <div key={index}
+              onClick={() => { setActiveTab(stat.tab); setSelectedStatus(stat.filter); }}
+              style={{
+                background: 'white',
+                borderRadius: '16px',
+                padding: '2rem',
+                textAlign: 'center',
+                boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
+                border: '1px solid rgba(255, 255, 255, 0.3)',
+                cursor: 'pointer',
+                transition: 'transform 0.2s ease, box-shadow 0.2s ease'
+              }}
+              onMouseOver={(e) => {
+                e.currentTarget.style.transform = 'translateY(-4px)';
+                e.currentTarget.style.boxShadow = '0 12px 40px rgba(0, 0, 0, 0.15)';
+              }}
+              onMouseOut={(e) => {
+                e.currentTarget.style.transform = 'translateY(0)';
+                e.currentTarget.style.boxShadow = '0 8px 32px rgba(0, 0, 0, 0.1)';
+              }}
             >
               <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>{stat.icon}</div>
-              <div style={{ 
-                fontSize: '2.5rem', 
-                fontWeight: '700', 
-                color: stat.color, 
-                marginBottom: '0.5rem' 
-              }}>
+              <div style={{ fontSize: '2.5rem', fontWeight: '700', color: stat.color, marginBottom: '0.5rem' }}>
                 {stat.value}
               </div>
-              <div style={{ 
-                fontSize: '1rem', 
-                color: '#666', 
-                fontWeight: '600' 
-              }}>
+              <div style={{ fontSize: '1rem', color: '#666', fontWeight: '600' }}>
                 {stat.label}
+              </div>
+              <div style={{ fontSize: '0.75rem', color: '#aaa', marginTop: '0.4rem' }}>
+                Click to view →
               </div>
             </div>
           ))}

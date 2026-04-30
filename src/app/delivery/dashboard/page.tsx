@@ -115,8 +115,9 @@ export default function DeliveryDashboard() {
     };
     window.addEventListener('popstate', handlePopState);
 
-    // WebSocket for new order notifications
-    const ws = new WebSocket(`ws://localhost:8000/ws/restaurant-dashboard/0`);
+    // WebSocket for new order notifications (delivery partner channel = 0)
+    const wsUrl = (API_BASE_URL || 'http://localhost:8000').replace(/^http/, 'ws');
+    const ws = new WebSocket(`${wsUrl}/ws/restaurant-dashboard/0`);
     wsRef.current = ws;
     ws.onmessage = (e) => {
       try {
@@ -218,6 +219,11 @@ export default function DeliveryDashboard() {
   };
 
   const toggleOnline = async () => {
+    // Block going offline if partner has an active order in progress
+    if (isOnline && activeOrder) {
+      showToast('⚠️ Cannot go offline — you have an active delivery in progress', 'error');
+      return;
+    }
     try {
       const res = await fetch(`${API_BASE_URL}/api/delivery/toggle-availability`, {
         method: 'PUT',
