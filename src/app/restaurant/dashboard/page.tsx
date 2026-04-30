@@ -154,7 +154,8 @@ export default function RestaurantDashboard() {
       wsRef.current.close();
     }
 
-    const ws = new WebSocket(`ws://localhost:8000/ws/restaurant-dashboard/${restaurantId}`);
+    const wsUrl = API_BASE_URL.replace(/^http/, 'ws');
+    const ws = new WebSocket(`${wsUrl}/ws/restaurant-dashboard/${restaurantId}`);
     
     ws.onopen = () => {
       console.log('WebSocket connected to dashboard');
