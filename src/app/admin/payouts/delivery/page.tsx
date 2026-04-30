@@ -97,7 +97,8 @@ export default function DeliveryPayoutsPage() {
     try {
       const res = await fetch(`${API_BASE_URL}/api/admin/delivery-payout/mark-paid/${partnerId}`, {
         method: 'PUT',
-        headers: { 'Authorization': `Bearer ${getToken()}`, 'Content-Type': 'application/json' }
+        headers: { 'Authorization': `Bearer ${getToken()}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ partner_id: partnerId })
       });
       if (res.ok) {
         const data = await res.json();
