@@ -150,6 +150,16 @@ export default function DeliveryDashboard() {
             return prev;
           });
         }
+
+        // Admin paid delivery earnings — refresh earnings instantly
+        if (msg.type === 'payout_paid') {
+          const stored = sessionStorage.getItem('deliveryPartner');
+          const myId = stored ? JSON.parse(stored).id : null;
+          if (myId && msg.partner_id === myId) {
+            showToast(`🎉 ₹${msg.amount_paid} delivery earnings paid to your UPI!`, 'success');
+            fetchEarnings();
+          }
+        }
       } catch {}
     };
     ws.onclose = () => {};

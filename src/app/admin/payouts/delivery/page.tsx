@@ -240,7 +240,7 @@ export default function DeliveryPayoutsPage() {
                 {/* COD warning banner */}
                 {p.net_cod_to_return > 0 && (
                   <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '8px', padding: '0.6rem 0.875rem', marginBottom: '0.875rem', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.8rem', color: '#dc2626', fontWeight: '600' }}>
-                    ⚠️ Partner has ₹{p.net_cod_to_return} COD cash to return to platform
+                    🔒 Partner must return ₹{p.net_cod_to_return} COD cash before earnings can be paid
                   </div>
                 )}
 
@@ -248,10 +248,10 @@ export default function DeliveryPayoutsPage() {
                 <div style={{ display: 'flex', gap: '0.75rem' }}>
                   {p.pending_payout > 0 && (
                     <button
-                      onClick={() => setConfirmPay(p)}
+                      onClick={() => p.net_cod_to_return > 0 ? showToast(`Cannot pay — partner still has ₹${p.net_cod_to_return} COD to return first`, 'error') : setConfirmPay(p)}
                       disabled={isMarkingPaid === p.id}
-                      style={{ flex: 1, padding: '0.7rem', borderRadius: '10px', border: 'none', background: isMarkingPaid === p.id ? '#9ca3af' : 'linear-gradient(135deg, #FF5722, #FF7043)', color: 'white', fontWeight: '700', fontSize: '0.85rem', cursor: isMarkingPaid === p.id ? 'not-allowed' : 'pointer' }}>
-                      {isMarkingPaid === p.id ? 'Processing...' : `💸 Mark ₹${p.pending_payout} as Paid via UPI`}
+                      style={{ flex: 1, padding: '0.7rem', borderRadius: '10px', border: 'none', background: isMarkingPaid === p.id ? '#9ca3af' : p.net_cod_to_return > 0 ? '#9ca3af' : 'linear-gradient(135deg, #FF5722, #FF7043)', color: 'white', fontWeight: '700', fontSize: '0.85rem', cursor: isMarkingPaid === p.id || p.net_cod_to_return > 0 ? 'not-allowed' : 'pointer' }}>
+                      {isMarkingPaid === p.id ? 'Processing...' : p.net_cod_to_return > 0 ? `🔒 Blocked — COD Pending` : `💸 Mark ₹${p.pending_payout} as Paid via UPI`}
                     </button>
                   )}
                   <button
