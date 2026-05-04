@@ -45,6 +45,7 @@ export default function RestaurantOrders() {
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [orderToCancel, setOrderToCancel] = useState<number | null>(null);
   const [isCancelling, setIsCancelling] = useState(false);
+  const [cancelReason, setCancelReason] = useState('');
   // Confirm action modal for status updates
   const [confirmAction, setConfirmAction] = useState<{ orderId: number; status: string; label: string; message: string } | null>(null);
   const [toasts, setToasts] = useState<ToastNotification[]>([]);
@@ -238,22 +239,42 @@ export default function RestaurantOrders() {
 
   const handleCancelOrder = (orderId: number) => {
     setOrderToCancel(orderId);
+    setCancelReason('');
     setShowCancelModal(true);
   };
 
   const confirmCancelOrder = async () => {
     if (!orderToCancel) return;
-    
     setIsCancelling(true);
-    const success = await updateOrderStatus(orderToCancel, 'cancelled');
-    setIsCancelling(false);
-    
-    if (success) {
-      // Close modal after successful cancellation
-      setShowCancelModal(false);
-      setOrderToCancel(null);
+    try {
+      const token = sessionStorage.getItem('restaurantToken');
+      const res = await fetch(`http://localhost:8000/api/restaurant/orders/${orderToCancel}/cancel`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ order_id: orderToCancel, cancel_reason: cancelReason.trim() })
+      });
+      if (res.ok) {
+        setOrders(prev => prev.map(o =>
+          o.order_id === orderToCancel ? { ...o, status: 'cancelled' } : o
+        ));
+        setShowCancelModal(false);
+        setOrderToCancel(null);
+        setCancelReason('');
+        const data = await res.json();
+        if (data.refund_initiated) {
+          showToast('success', 'Order Cancelled', 'Refund has been initiated for the customer.');
+        } else {
+          showToast('success', 'Order Cancelled', 'Order has been cancelled successfully.');
+        }
+      } else {
+        const d = await res.json();
+        showToast('error', 'Failed to Cancel', d.detail || 'Could not cancel order');
+      }
+    } catch {
+      showToast('error', 'Network Error', 'Please check your connection and try again');
+    } finally {
+      setIsCancelling(false);
     }
-    // If failed, keep modal open so user can try again
   };
 
   const getStatusInfo = (status: string) => {
@@ -841,34 +862,50 @@ export default function RestaurantOrders() {
                     </>
                   )}
                   {order.status === 'preparing' && (
-                    <button 
-                      onClick={() => setConfirmAction({ orderId: order.order_id, status: 'ready', label: 'Ready for Pickup', message: 'Mark this order as ready for pickup?' })}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '0.5rem',
-                        background: 'linear-gradient(135deg, #f59e0b, #d97706)',
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: '12px',
-                        padding: '0.75rem 1.5rem',
-                        fontSize: '0.9rem',
-                        fontWeight: '600',
-                        cursor: 'pointer',
-                        transition: 'all 0.2s ease'
-                      }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.background = 'linear-gradient(135deg, #d97706, #b45309)';
-                        e.currentTarget.style.transform = 'translateY(-2px)';
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.background = 'linear-gradient(135deg, #f59e0b, #d97706)';
-                        e.currentTarget.style.transform = 'translateY(0)';
-                      }}
-                    >
-                      <span>📦</span>
-                      <span>Ready for Pickup</span>
-                    </button>
+                    <>
+                      <button 
+                        onClick={() => setConfirmAction({ orderId: order.order_id, status: 'ready', label: 'Ready for Pickup', message: 'Mark this order as ready for pickup?' })}
+                        style={{
+                          display: 'flex', alignItems: 'center', gap: '0.5rem',
+                          background: 'linear-gradient(135deg, #f59e0b, #d97706)',
+                          color: 'white', border: 'none', borderRadius: '12px',
+                          padding: '0.75rem 1.5rem', fontSize: '0.9rem', fontWeight: '600',
+                          cursor: 'pointer', transition: 'all 0.2s ease'
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.background = 'linear-gradient(135deg, #d97706, #b45309)';
+                          e.currentTarget.style.transform = 'translateY(-2px)';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.background = 'linear-gradient(135deg, #f59e0b, #d97706)';
+                          e.currentTarget.style.transform = 'translateY(0)';
+                        }}
+                      >
+                        <span>📦</span>
+                        <span>Ready for Pickup</span>
+                      </button>
+                      <button
+                        onClick={() => handleCancelOrder(order.order_id)}
+                        style={{
+                          display: 'flex', alignItems: 'center', gap: '0.5rem',
+                          background: 'linear-gradient(135deg, #ef4444, #dc2626)',
+                          color: 'white', border: 'none', borderRadius: '12px',
+                          padding: '0.75rem 1.5rem', fontSize: '0.9rem', fontWeight: '600',
+                          cursor: 'pointer', transition: 'all 0.2s ease'
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.background = 'linear-gradient(135deg, #dc2626, #b91c1c)';
+                          e.currentTarget.style.transform = 'translateY(-2px)';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.background = 'linear-gradient(135deg, #ef4444, #dc2626)';
+                          e.currentTarget.style.transform = 'translateY(0)';
+                        }}
+                      >
+                        <span>✕</span>
+                        <span>Cancel Order</span>
+                      </button>
+                    </>
                   )}
                   {order.status === 'ready' && (
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem',
@@ -999,127 +1036,57 @@ export default function RestaurantOrders() {
       {/* Cancel Order Confirmation Modal */}
       {showCancelModal && (
         <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          background: 'rgba(0, 0, 0, 0.5)',
-          backdropFilter: 'blur(4px)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 9999,
-          padding: '2rem'
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(0, 0, 0, 0.5)', backdropFilter: 'blur(4px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          zIndex: 9999, padding: '2rem'
         }}>
           <div style={{
-            background: 'white',
-            borderRadius: '20px',
-            padding: '2.5rem',
-            maxWidth: '450px',
-            width: '100%',
+            background: 'white', borderRadius: '20px', padding: '2.5rem',
+            maxWidth: '450px', width: '100%',
             boxShadow: '0 20px 60px rgba(0, 0, 0, 0.3)',
             animation: 'slideUp 0.3s ease-out'
           }}>
-            <div style={{
-              fontSize: '3rem',
-              textAlign: 'center',
-              marginBottom: '1rem'
-            }}>
-              ⚠️
-            </div>
-            
-            <h2 style={{
-              fontSize: '1.5rem',
-              fontWeight: '700',
-              color: '#1f2937',
-              textAlign: 'center',
-              margin: '0 0 1rem 0'
-            }}>
+            <div style={{ fontSize: '3rem', textAlign: 'center', marginBottom: '1rem' }}>⚠️</div>
+
+            <h2 style={{ fontSize: '1.5rem', fontWeight: '700', color: '#1f2937', textAlign: 'center', margin: '0 0 0.5rem 0' }}>
               Cancel This Order?
             </h2>
-            
-            <p style={{
-              color: '#6b7280',
-              textAlign: 'center',
-              fontSize: '1rem',
-              lineHeight: '1.6',
-              margin: '0 0 2rem 0'
-            }}>
-              Are you sure you want to cancel this order? If the customer paid online, a refund will be automatically initiated.
+            <p style={{ color: '#6b7280', textAlign: 'center', fontSize: '0.95rem', lineHeight: '1.6', margin: '0 0 1.5rem 0' }}>
+              If the customer paid online, a refund will be automatically initiated.
             </p>
-            
-            <div style={{
-              display: 'flex',
-              gap: '1rem',
-              justifyContent: 'center'
-            }}>
+
+            {/* Cancel reason */}
+            <div style={{ marginBottom: '1.5rem' }}>
+              <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '600', color: '#374151', marginBottom: '0.5rem' }}>
+                Reason (optional)
+              </label>
+              <select
+                value={cancelReason}
+                onChange={(e) => setCancelReason(e.target.value)}
+                style={{ width: '100%', padding: '0.75rem', borderRadius: '10px', border: '2px solid #e5e7eb', fontSize: '0.95rem', outline: 'none', background: 'white', color: '#374151' }}
+              >
+                <option value="">Select a reason...</option>
+                <option value="Item unavailable">Item unavailable</option>
+                <option value="Restaurant too busy">Restaurant too busy</option>
+                <option value="Closing soon">Closing soon</option>
+                <option value="Customer request">Customer request</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+
+            <div style={{ display: 'flex', gap: '1rem' }}>
               <button
-                onClick={() => {
-                  setShowCancelModal(false);
-                  setOrderToCancel(null);
-                }}
+                onClick={() => { setShowCancelModal(false); setOrderToCancel(null); setCancelReason(''); }}
                 disabled={isCancelling}
-                style={{
-                  flex: 1,
-                  padding: '0.875rem 1.5rem',
-                  borderRadius: '12px',
-                  border: '2px solid #e5e7eb',
-                  background: 'white',
-                  color: '#374151',
-                  fontSize: '1rem',
-                  fontWeight: '600',
-                  cursor: isCancelling ? 'not-allowed' : 'pointer',
-                  transition: 'all 0.2s ease',
-                  opacity: isCancelling ? 0.5 : 1
-                }}
-                onMouseEnter={(e) => {
-                  if (!isCancelling) {
-                    e.currentTarget.style.background = '#f9fafb';
-                    e.currentTarget.style.borderColor = '#d1d5db';
-                  }
-                }}
-                onMouseLeave={(e) => {
-                  if (!isCancelling) {
-                    e.currentTarget.style.background = 'white';
-                    e.currentTarget.style.borderColor = '#e5e7eb';
-                  }
-                }}
+                style={{ flex: 1, padding: '0.875rem', borderRadius: '12px', border: '2px solid #e5e7eb', background: 'white', color: '#374151', fontSize: '1rem', fontWeight: '600', cursor: isCancelling ? 'not-allowed' : 'pointer', opacity: isCancelling ? 0.5 : 1 }}
               >
                 No, Keep Order
               </button>
-              
               <button
                 onClick={confirmCancelOrder}
                 disabled={isCancelling}
-                style={{
-                  flex: 1,
-                  padding: '0.875rem 1.5rem',
-                  borderRadius: '12px',
-                  border: 'none',
-                  background: isCancelling ? '#9ca3af' : 'linear-gradient(135deg, #ef4444, #dc2626)',
-                  color: 'white',
-                  fontSize: '1rem',
-                  fontWeight: '600',
-                  cursor: isCancelling ? 'not-allowed' : 'pointer',
-                  transition: 'all 0.2s ease',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '0.5rem'
-                }}
-                onMouseEnter={(e) => {
-                  if (!isCancelling) {
-                    e.currentTarget.style.background = 'linear-gradient(135deg, #dc2626, #b91c1c)';
-                    e.currentTarget.style.transform = 'translateY(-2px)';
-                  }
-                }}
-                onMouseLeave={(e) => {
-                  if (!isCancelling) {
-                    e.currentTarget.style.background = 'linear-gradient(135deg, #ef4444, #dc2626)';
-                    e.currentTarget.style.transform = 'translateY(0)';
-                  }
-                }}
+                style={{ flex: 1, padding: '0.875rem', borderRadius: '12px', border: 'none', background: isCancelling ? '#9ca3af' : 'linear-gradient(135deg, #ef4444, #dc2626)', color: 'white', fontSize: '1rem', fontWeight: '600', cursor: isCancelling ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}
               >
                 {isCancelling ? (
                   <>

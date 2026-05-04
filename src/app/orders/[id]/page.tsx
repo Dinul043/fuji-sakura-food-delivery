@@ -61,8 +61,8 @@ export default function OrderTrackingPage() {
 
   // Cancel order state
   const [isCancelling, setIsCancelling] = useState(false);
-  const [cancelSecondsLeft, setCancelSecondsLeft] = useState<number | null>(null);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+  const [cancelError, setCancelError] = useState<string | null>(null);
 
   // WebSocket connection for real-time updates
   useWebSocket(
@@ -207,22 +207,10 @@ export default function OrderTrackingPage() {
     }
   }, [orderId]);
 
-  // 1-minute cancellation countdown timer
-  useEffect(() => {
-    if (!order || order.status !== 'confirmed' || !order.orderTime) return;
-    const updateTimer = () => {
-      const elapsed = (Date.now() - new Date(order.orderTime).getTime()) / 1000;
-      const remaining = Math.max(0, 60 - Math.floor(elapsed));
-      setCancelSecondsLeft(remaining);
-    };
-    updateTimer();
-    const interval = setInterval(updateTimer, 1000);
-    return () => clearInterval(interval);
-  }, [order?.orderTime, order?.status]);
-
   // Cancel order handler
   const handleCancelOrder = async () => {
     setIsCancelling(true);
+    setCancelError(null);
     try {
       const token = localStorage.getItem('token');
       const res = await fetch(`${API_BASE_URL}/api/orders/${orderId}/cancel`, {
@@ -230,15 +218,21 @@ export default function OrderTrackingPage() {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (res.ok) {
+        const data = await res.json();
         setShowCancelConfirm(false);
         setOrder(prev => prev ? { ...prev, status: 'cancelled' } : prev);
         setCurrentStep(-1);
+        if (data.refund_initiated) {
+          // Show refund message via reviewToast (reusing existing toast)
+          setReviewToast('Order cancelled. Refund will be processed in 5-7 business days.');
+          setTimeout(() => setReviewToast(null), 6000);
+        }
       } else {
         const err = await res.json();
-        alert(err.detail || 'Failed to cancel order');
+        setCancelError(err.detail || 'Failed to cancel order');
       }
     } catch {
-      alert('Network error. Please try again.');
+      setCancelError('Network error. Please try again.');
     } finally {
       setIsCancelling(false);
     }
@@ -679,8 +673,8 @@ export default function OrderTrackingPage() {
             </div>
           )}
 
-          {/* Cancel Order — visible only within 1 minute of confirmed order */}
-          {order.status === 'confirmed' && cancelSecondsLeft !== null && cancelSecondsLeft > 0 && (
+          {/* Cancel Order — visible only while status is CONFIRMED (restaurant hasn't started yet) */}
+          {order.status === 'confirmed' && (
             <div style={{
               background: 'rgba(255,255,255,0.95)', backdropFilter: 'blur(10px)',
               borderRadius: '20px', padding: '1.5rem 2rem',
@@ -689,14 +683,19 @@ export default function OrderTrackingPage() {
             }}>
               <div>
                 <p style={{ margin: 0, fontWeight: '600', color: '#374151', fontSize: '0.95rem' }}>
-                  Cancel window closes in <span style={{ color: '#ef4444', fontWeight: '700' }}>{cancelSecondsLeft}s</span>
+                  Need to cancel?
                 </p>
                 <p style={{ margin: '0.25rem 0 0', fontSize: '0.82rem', color: '#9ca3af' }}>
-                  Orders can only be cancelled within 1 minute of placement
+                  You can cancel until the restaurant starts preparing your order
                 </p>
+                {cancelError && (
+                  <p style={{ margin: '0.25rem 0 0', fontSize: '0.82rem', color: '#ef4444', fontWeight: '600' }}>
+                    {cancelError}
+                  </p>
+                )}
               </div>
               <button
-                onClick={() => setShowCancelConfirm(true)}
+                onClick={() => { setCancelError(null); setShowCancelConfirm(true); }}
                 style={{
                   padding: '0.6rem 1.25rem', background: 'linear-gradient(135deg, #ef4444, #dc2626)',
                   color: 'white', border: 'none', borderRadius: '10px',

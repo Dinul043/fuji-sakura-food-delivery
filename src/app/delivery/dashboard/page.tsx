@@ -65,7 +65,7 @@ export default function DeliveryDashboard() {
   const [showIssueModal, setShowIssueModal] = useState(false);
   const [issueText, setIssueText] = useState('');
   const [isSubmittingIssue, setIsSubmittingIssue] = useState(false);
-  const [confirmDeliveryAction, setConfirmDeliveryAction] = useState<{ type: 'pickup' | 'deliver'; label: string; message: string } | null>(null);
+  const [confirmDeliveryAction, setConfirmDeliveryAction] = useState<{ type: 'deliver'; label: string; message: string } | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
 
   const showToast = (msg: string, type: 'success' | 'error' = 'success') => {
@@ -382,15 +382,11 @@ export default function DeliveryDashboard() {
 
         {/* Active Delivery Card */}
         {activeOrder && (
-          <div style={{ background: 'white', borderRadius: '16px', padding: '1.5rem', marginBottom: '1.5rem', boxShadow: '0 4px 20px rgba(0,0,0,0.1)', borderLeft: `4px solid ${activeOrder.status === 'ready' ? '#f59e0b' : '#10b981'}` }}>
+          <div style={{ background: 'white', borderRadius: '16px', padding: '1.5rem', marginBottom: '1.5rem', boxShadow: '0 4px 20px rgba(0,0,0,0.1)', borderLeft: '4px solid #10b981' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem' }}>
               <div>
                 {/* Phase indicator */}
-                {activeOrder.status === 'ready' ? (
-                  <div style={{ fontSize: '0.75rem', fontWeight: '700', color: '#f59e0b', textTransform: 'uppercase', marginBottom: '0.25rem' }}>🏍️ Head to Restaurant</div>
-                ) : (
-                  <div style={{ fontSize: '0.75rem', fontWeight: '700', color: '#10b981', textTransform: 'uppercase', marginBottom: '0.25rem' }}>🚚 Out for Delivery</div>
-                )}
+                <div style={{ fontSize: '0.75rem', fontWeight: '700', color: '#10b981', textTransform: 'uppercase', marginBottom: '0.25rem' }}>🚚 Out for Delivery</div>
                 <div style={{ fontWeight: '700', color: '#111827', fontSize: '1.1rem' }}>{activeOrder.order_number}</div>
                 <div style={{ color: '#6b7280', fontSize: '0.875rem' }}>{activeOrder.restaurant_name}</div>
               </div>
@@ -401,21 +397,20 @@ export default function DeliveryDashboard() {
             <div style={{ display: 'flex', alignItems: 'center', gap: '0', marginBottom: '1rem' }}>
               {[
                 { label: 'Accepted', done: true },
-                { label: 'Picked Up', done: activeOrder.status === 'out_for_delivery' },
                 { label: 'Delivered', done: false }
               ].map((step, i) => (
                 <div key={i} style={{ display: 'flex', alignItems: 'center', flex: 1 }}>
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1 }}>
                     <div style={{
                       width: '28px', height: '28px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      background: step.done ? '#10b981' : (i === 1 && activeOrder.status === 'ready' ? '#f59e0b' : '#e5e7eb'),
+                      background: step.done ? '#10b981' : '#e5e7eb',
                       color: 'white', fontSize: '0.75rem', fontWeight: '700'
                     }}>
                       {step.done ? '✓' : i + 1}
                     </div>
                     <div style={{ fontSize: '0.65rem', color: step.done ? '#10b981' : '#9ca3af', marginTop: '0.2rem', fontWeight: '600' }}>{step.label}</div>
                   </div>
-                  {i < 2 && <div style={{ height: '2px', flex: 1, background: step.done ? '#10b981' : '#e5e7eb', marginBottom: '1rem' }} />}
+                  {i < 1 && <div style={{ height: '2px', flex: 1, background: step.done ? '#10b981' : '#e5e7eb', marginBottom: '1rem' }} />}
                 </div>
               ))}
             </div>
@@ -432,15 +427,7 @@ export default function DeliveryDashboard() {
               </div>
             )}
 
-            {/* Phase 1: Heading to restaurant — show "Food Picked Up" button */}
-            {activeOrder.status === 'ready' && (
-              <button onClick={() => setConfirmDeliveryAction({ type: 'pickup', label: 'Food Picked Up', message: 'Confirm that you have picked up the food from the restaurant?' })}
-                style={{ width: '100%', padding: '0.875rem', borderRadius: '12px', border: 'none', background: 'linear-gradient(135deg, #f59e0b, #d97706)', color: 'white', fontWeight: '700', fontSize: '1rem', cursor: 'pointer', boxShadow: '0 4px 12px rgba(245,158,11,0.3)' }}>
-                📦 Food Picked Up — Start Delivery
-              </button>
-            )}
-
-            {/* Phase 2: Out for delivery — COD + Mark Delivered */}
+            {/* Active order is always OUT_FOR_DELIVERY — head to customer and deliver */}
             {activeOrder.status === 'out_for_delivery' && (
               <>
                 {activeOrder.payment_method?.toLowerCase() === 'cod' && !activeOrder.cod_collected && (
@@ -541,9 +528,7 @@ export default function DeliveryDashboard() {
       {confirmDeliveryAction && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: '1.5rem' }}>
           <div style={{ background: 'white', borderRadius: '20px', padding: '2rem', maxWidth: '380px', width: '100%', boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}>
-            <div style={{ fontSize: '2.5rem', textAlign: 'center', marginBottom: '0.75rem' }}>
-              {confirmDeliveryAction.type === 'pickup' ? '📦' : '✅'}
-            </div>
+            <div style={{ fontSize: '2.5rem', textAlign: 'center', marginBottom: '0.75rem' }}>✅</div>
             <h3 style={{ textAlign: 'center', margin: '0 0 0.5rem', color: '#111827', fontSize: '1.2rem', fontWeight: '700' }}>
               {confirmDeliveryAction.label}
             </h3>
@@ -559,25 +544,9 @@ export default function DeliveryDashboard() {
                 onClick={async () => {
                   const action = confirmDeliveryAction;
                   setConfirmDeliveryAction(null);
-                  if (action.type === 'pickup') {
-                    try {
-                      const res = await fetch(`${API_BASE_URL}/api/delivery/pickup-order/${activeOrder!.id}`, {
-                        method: 'POST', headers: { 'Authorization': `Bearer ${getToken()}` }
-                      });
-                      if (res.ok) {
-                        const data = await res.json();
-                        setActiveOrder(data.order);
-                        showToast('📦 Food picked up! Head to the customer.');
-                      } else {
-                        const d = await res.json();
-                        showToast(d.detail || 'Failed to mark pickup', 'error');
-                      }
-                    } catch { showToast('Network error', 'error'); }
-                  } else {
-                    await completeOrder();
-                  }
+                  await completeOrder();
                 }}
-                style={{ flex: 1, padding: '0.75rem', background: confirmDeliveryAction.type === 'pickup' ? 'linear-gradient(135deg, #f59e0b, #d97706)' : 'linear-gradient(135deg, #10b981, #059669)', color: 'white', border: 'none', borderRadius: '10px', fontWeight: '700', cursor: 'pointer' }}>
+                style={{ flex: 1, padding: '0.75rem', background: 'linear-gradient(135deg, #10b981, #059669)', color: 'white', border: 'none', borderRadius: '10px', fontWeight: '700', cursor: 'pointer' }}>
                 Yes, Confirm
               </button>
             </div>
