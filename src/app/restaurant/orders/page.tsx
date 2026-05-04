@@ -1062,17 +1062,26 @@ export default function RestaurantOrders() {
                 Reason (optional)
               </label>
               <select
-                value={cancelReason}
-                onChange={(e) => setCancelReason(e.target.value)}
-                style={{ width: '100%', padding: '0.75rem', borderRadius: '10px', border: '2px solid #e5e7eb', fontSize: '0.95rem', outline: 'none', background: 'white', color: '#374151' }}
+                value={cancelReason.startsWith('Other:') ? 'Other' : cancelReason}
+                onChange={(e) => setCancelReason(e.target.value === 'Other' ? 'Other: ' : e.target.value)}
+                style={{ width: '100%', padding: '0.75rem', borderRadius: '10px', border: '2px solid #e5e7eb', fontSize: '0.95rem', outline: 'none', background: 'white', color: '#374151', marginBottom: '0.5rem' }}
               >
                 <option value="">Select a reason...</option>
                 <option value="Item unavailable">Item unavailable</option>
                 <option value="Restaurant too busy">Restaurant too busy</option>
                 <option value="Closing soon">Closing soon</option>
                 <option value="Customer request">Customer request</option>
-                <option value="Other">Other</option>
+                <option value="Other">Other (type below)</option>
               </select>
+              {cancelReason.startsWith('Other:') && (
+                <input
+                  type="text"
+                  placeholder="Describe the reason..."
+                  value={cancelReason.replace('Other: ', '')}
+                  onChange={(e) => setCancelReason(`Other: ${e.target.value}`)}
+                  style={{ width: '100%', padding: '0.75rem', borderRadius: '10px', border: '2px solid #e5e7eb', fontSize: '0.95rem', outline: 'none', boxSizing: 'border-box' }}
+                />
+              )}
             </div>
 
             <div style={{ display: 'flex', gap: '1rem' }}>
