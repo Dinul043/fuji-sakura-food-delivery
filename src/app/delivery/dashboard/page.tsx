@@ -117,54 +117,68 @@ export default function DeliveryDashboard() {
 
     // WebSocket for new order notifications (delivery partner channel = 0)
     const wsUrl = (API_BASE_URL || 'http://localhost:8000').replace(/^http/, 'ws');
-    const ws = new WebSocket(`${wsUrl}/ws/restaurant-dashboard/0`);
-    wsRef.current = ws;
-    ws.onmessage = (e) => {
-      try {
-        const msg = JSON.parse(e.data);
-        if (msg === 'pong') return;
 
-        // New order available or order ready for pickup — refresh available orders
-        if (msg.type === 'order_ready_for_pickup' || msg.type === 'new_order') {
-          const currentPartner = sessionStorage.getItem('deliveryPartner');
-          const isCurrentlyOnline = currentPartner ? JSON.parse(currentPartner).is_available : false;
-          if (isCurrentlyOnline) {
-            showToast(msg.type === 'order_ready_for_pickup' ? '📦 Order ready for pickup!' : '🛵 New order available!', 'success');
+    const connectWs = () => {
+      const ws = new WebSocket(`${wsUrl}/ws/restaurant-dashboard/0`);
+      wsRef.current = ws;
+
+      ws.onmessage = (e) => {
+        try {
+          const msg = JSON.parse(e.data);
+          if (msg === 'pong') return;
+
+          // New order available or order ready for pickup — refresh available orders
+          // Use React state (isOnline) via ref to avoid stale closure
+          if (msg.type === 'order_ready_for_pickup' || msg.type === 'new_order') {
+            // Always fetch — fetchAvailableOrders already checks is_available on backend
+            showToast(msg.type === 'order_ready_for_pickup' ? '📦 New order ready for pickup!' : '🛵 New order available!', 'success');
             fetchAvailableOrders();
           }
-        }
 
-        // Another delivery partner took an order — remove it from our list
-        if (msg.type === 'order_taken') {
-          setAvailableOrders(prev => prev.filter(o => o.id !== msg.order_id));
-        }
-
-        // Order was cancelled by customer — remove from active order and available list
-        if (msg.type === 'order_cancelled') {
-          setAvailableOrders(prev => prev.filter(o => o.id !== msg.order_id));
-          setActiveOrder(prev => {
-            if (prev && prev.id === msg.order_id) {
-              showToast(`Order #${msg.order_id} was cancelled by the customer`, 'error');
-              return null;
-            }
-            return prev;
-          });
-        }
-
-        // Admin paid delivery earnings — refresh earnings instantly
-        if (msg.type === 'payout_paid') {
-          const stored = sessionStorage.getItem('deliveryPartner');
-          const myId = stored ? JSON.parse(stored).id : null;
-          if (myId && msg.partner_id === myId) {
-            showToast(`🎉 ₹${msg.amount_paid} delivery earnings paid to your UPI!`, 'success');
-            fetchEarnings();
+          // Another delivery partner took an order — remove it from our list
+          if (msg.type === 'order_taken') {
+            setAvailableOrders(prev => prev.filter(o => o.id !== msg.order_id));
           }
-        }
-      } catch {}
+
+          // Order was cancelled by customer — remove from active order and available list
+          if (msg.type === 'order_cancelled') {
+            setAvailableOrders(prev => prev.filter(o => o.id !== msg.order_id));
+            setActiveOrder(prev => {
+              if (prev && prev.id === msg.order_id) {
+                showToast(`Order #${msg.order_id} was cancelled by the customer`, 'error');
+                return null;
+              }
+              return prev;
+            });
+          }
+
+          // Admin paid delivery earnings — refresh earnings instantly
+          if (msg.type === 'payout_paid') {
+            const stored = sessionStorage.getItem('deliveryPartner');
+            const myId = stored ? JSON.parse(stored).id : null;
+            if (myId && msg.partner_id === myId) {
+              showToast(`🎉 ₹${msg.amount_paid} delivery earnings paid to your UPI!`, 'success');
+              fetchEarnings();
+            }
+          }
+        } catch {}
+      };
+
+      ws.onclose = () => {
+        // Auto-reconnect after 3 seconds
+        setTimeout(() => {
+          if (wsRef.current === ws) connectWs();
+        }, 3000);
+      };
+
+      ws.onerror = () => {};
     };
-    ws.onclose = () => {};
+
+    connectWs();
     return () => {
-      ws.close();
+      const currentWs = wsRef.current;
+      wsRef.current = null; // prevent auto-reconnect
+      currentWs?.close();
       window.removeEventListener('popstate', handlePopState);
     };
   }, []);
