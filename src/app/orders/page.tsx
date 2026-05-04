@@ -43,6 +43,7 @@ export default function OrdersPage() {
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [orderToCancel, setOrderToCancel] = useState<number | null>(null);
   const [isCancelling, setIsCancelling] = useState(false);
+  const [cancelError, setCancelError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchOrders = async () => {
@@ -183,29 +184,24 @@ export default function OrdersPage() {
     if (!orderToCancel) return;
 
     setIsCancelling(true);
+    setCancelError(null);
     try {
       const token = localStorage.getItem('token');
       const response = await fetch(`${API_BASE_URL}/api/orders/${orderToCancel}/cancel`, {
         method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
+        headers: { 'Authorization': `Bearer ${token}` }
       });
 
       if (!response.ok) {
-        // Failed to cancel - silently close modal
-        setShowCancelModal(false);
-        setOrderToCancel(null);
+        const err = await response.json();
+        setCancelError(err.detail || 'Failed to cancel order');
         return;
       }
 
       // Refresh orders list
       const ordersResponse = await fetch(`${API_BASE_URL}/api/orders/`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
+        headers: { 'Authorization': `Bearer ${token}` }
       });
-
       if (ordersResponse.ok) {
         const data = await ordersResponse.json();
         setOrders(data);
@@ -213,26 +209,18 @@ export default function OrdersPage() {
 
       setShowCancelModal(false);
       setOrderToCancel(null);
-    } catch (error) {
-      // Silently handle error
-      setShowCancelModal(false);
-      setOrderToCancel(null);
+      setCancelError(null);
+    } catch {
+      setCancelError('Network error. Please try again.');
     } finally {
       setIsCancelling(false);
     }
   };
 
   // Check if order can be cancelled (within 5 minutes)
+  // Cancel only allowed while status is CONFIRMED — status-based, no timer
   const canCancelOrder = (order: Order) => {
-    if (order.status === 'cancelled' || order.status === 'delivered') {
-      return false;
-    }
-    
-    const orderTime = new Date(order.created_at).getTime();
-    const currentTime = new Date().getTime();
-    const timeDiff = (currentTime - orderTime) / 1000 / 60; // in minutes
-    
-    return timeDiff <= 5;
+    return order.status === 'confirmed';
   };
 
   if (isLoading) {
@@ -335,10 +323,20 @@ export default function OrdersPage() {
               marginTop: 0,
               marginLeft: 0,
               marginRight: 0,
-              marginBottom: '2rem'
+              marginBottom: cancelError ? '0.75rem' : '2rem'
             }}>
               Are you sure you want to cancel this order? This action cannot be undone.
             </p>
+
+            {cancelError && (
+              <div style={{
+                background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '10px',
+                padding: '0.75rem 1rem', marginBottom: '1.5rem', textAlign: 'center',
+                color: '#dc2626', fontSize: '0.9rem', fontWeight: '600'
+              }}>
+                ⚠️ {cancelError}
+              </div>
+            )}
             
             <div style={{
               display: 'flex',
@@ -349,6 +347,7 @@ export default function OrdersPage() {
                 onClick={() => {
                   setShowCancelModal(false);
                   setOrderToCancel(null);
+                  setCancelError(null);
                 }}
                 disabled={isCancelling}
                 style={{
