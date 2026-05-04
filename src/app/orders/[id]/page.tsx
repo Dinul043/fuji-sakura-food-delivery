@@ -68,6 +68,16 @@ export default function OrderTrackingPage() {
   useWebSocket(
     `${WS_BASE_URL}/ws/orders/${orderId}`,
     (data) => {
+      // Handle order cancelled by restaurant
+      if (data.type === 'order_cancelled') {
+        setOrder(prev => prev ? { ...prev, status: 'cancelled' } : prev);
+        setCurrentStep(-1);
+        const reason = data.message || 'Your order was cancelled by the restaurant.';
+        setReviewToast(reason);
+        setTimeout(() => setReviewToast(null), 6000);
+        return;
+      }
+
       if (data.type === 'order_status_update' && data.order) {
         // Update order with new data from WebSocket
         const updatedOrder = data.order;
