@@ -38,7 +38,6 @@ interface ToastNotification {
 
 export default function RestaurantOrders() {
   const [orders, setOrders] = useState<Order[]>([]);
-  const [isConnected, setIsConnected] = useState(false);
   const [restaurantId, setRestaurantId] = useState<number | null>(null);
   const [showNotification, setShowNotification] = useState(false);
   const [latestOrder, setLatestOrder] = useState<Order | null>(null);
@@ -114,7 +113,6 @@ export default function RestaurantOrders() {
       const ws = new WebSocket(`${API_BASE_URL.replace(/^http/, 'ws')}/ws/restaurant-dashboard/${restaurantId}`);
       
       ws.onopen = () => {
-        setIsConnected(true);
         const heartbeat = setInterval(() => {
           if (ws.readyState === WebSocket.OPEN) {
             ws.send('ping');
@@ -158,9 +156,8 @@ export default function RestaurantOrders() {
         }
       };
       
-      ws.onerror = () => setIsConnected(false);
+      ws.onerror = () => {};
       ws.onclose = () => {
-        setIsConnected(false);
         setTimeout(() => connectWebSocket(), 3000);
       };
       
