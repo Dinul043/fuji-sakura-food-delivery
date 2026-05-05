@@ -47,7 +47,7 @@ export default function RestaurantReviewsPage() {
   };
 
   const connectWS = (id: number) => {
-    const ws = new WebSocket(`ws://localhost:8000/ws/restaurant/${id}`);
+    const ws = new WebSocket(`${API_BASE_URL.replace(/^http/, 'ws')}/ws/restaurant/${id}`);
     wsRef.current = ws;
     ws.onmessage = (e) => {
       try {

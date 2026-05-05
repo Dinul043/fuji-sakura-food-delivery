@@ -150,7 +150,7 @@ export default function HomePage() {
 
     // Create WebSocket connection for each restaurant
     restaurants.forEach((restaurant) => {
-      const ws = new WebSocket(`ws://localhost:8000/ws/restaurant/${restaurant.id}`);
+      const ws = new WebSocket(`${API_BASE_URL.replace(/^http/, 'ws')}/ws/restaurant/${restaurant.id}`);
 
       ws.onmessage = (event) => {
         try {

@@ -116,7 +116,7 @@ export default function DeliveryDashboard() {
     window.addEventListener('popstate', handlePopState);
 
     // WebSocket for new order notifications (delivery partner channel = 0)
-    const wsUrl = (API_BASE_URL || 'http://localhost:8000').replace(/^http/, 'ws');
+    const wsUrl = API_BASE_URL.replace(/^http/, 'ws');
 
     const connectWs = () => {
       const ws = new WebSocket(`${wsUrl}/ws/restaurant-dashboard/0`);

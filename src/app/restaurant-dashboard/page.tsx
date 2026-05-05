@@ -3,6 +3,8 @@
 import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+
 interface OrderItem {
   name: string;
   quantity: number;
@@ -51,7 +53,7 @@ export default function RestaurantDashboard() {
 
     // Connect to WebSocket
     const connectWebSocket = () => {
-      const ws = new WebSocket(`ws://localhost:8000/ws/restaurant-dashboard/${restaurantId}`);
+      const ws = new WebSocket(`${API_BASE_URL.replace(/^http/, 'ws')}/ws/restaurant-dashboard/${restaurantId}`);
       
       ws.onopen = () => {
         console.log('✅ Connected to restaurant notifications');

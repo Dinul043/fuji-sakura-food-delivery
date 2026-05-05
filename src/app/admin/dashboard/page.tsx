@@ -311,7 +311,7 @@ export default function AdminDashboard() {
 
   // WebSocket — live delivery partner application notifications + COD settlement updates
   useEffect(() => {
-    const ws = new WebSocket('ws://localhost:8000/ws/admin');
+    const ws = new WebSocket(`${API_BASE_URL.replace(/^http/, 'ws')}/ws/admin`);
     ws.onmessage = (e) => {
       try {
         const msg = JSON.parse(e.data);
