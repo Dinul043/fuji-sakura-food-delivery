@@ -3,8 +3,6 @@
 import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
-
 interface OrderItem {
   name: string;
   quantity: number;
@@ -38,6 +36,7 @@ interface ToastNotification {
 
 export default function RestaurantOrders() {
   const [orders, setOrders] = useState<Order[]>([]);
+  const [isConnected, setIsConnected] = useState(false);
   const [restaurantId, setRestaurantId] = useState<number | null>(null);
   const [showNotification, setShowNotification] = useState(false);
   const [latestOrder, setLatestOrder] = useState<Order | null>(null);
@@ -87,7 +86,7 @@ export default function RestaurantOrders() {
 
   const fetchOrders = async (restId: number) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/orders/restaurant/${restId}`);
+      const response = await fetch(`http://localhost:8000/api/orders/restaurant/${restId}`);
       if (response.ok) {
         const data = await response.json();
         // Transform the data to match our interface
@@ -110,9 +109,10 @@ export default function RestaurantOrders() {
     if (!restaurantId) return;
 
     const connectWebSocket = () => {
-      const ws = new WebSocket(`${API_BASE_URL.replace(/^http/, 'ws')}/ws/restaurant-dashboard/${restaurantId}`);
+      const ws = new WebSocket(`ws://localhost:8000/ws/restaurant-dashboard/${restaurantId}`);
       
       ws.onopen = () => {
+        setIsConnected(true);
         const heartbeat = setInterval(() => {
           if (ws.readyState === WebSocket.OPEN) {
             ws.send('ping');
@@ -156,8 +156,9 @@ export default function RestaurantOrders() {
         }
       };
       
-      ws.onerror = () => {};
+      ws.onerror = () => setIsConnected(false);
       ws.onclose = () => {
+        setIsConnected(false);
         setTimeout(() => connectWebSocket(), 3000);
       };
       
@@ -195,7 +196,7 @@ export default function RestaurantOrders() {
       
       console.log(`Updating order ${actualId} (order_id: ${orderId}) to status: ${newStatus}`);
       
-      const response = await fetch(`${API_BASE_URL}/api/orders/${actualId}/status`, {
+      const response = await fetch(`http://localhost:8000/api/orders/${actualId}/status`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: newStatus })
@@ -247,7 +248,7 @@ export default function RestaurantOrders() {
     setIsCancelling(true);
     try {
       const token = sessionStorage.getItem('restaurantToken');
-      const res = await fetch(`${API_BASE_URL}/api/restaurant/orders/${orderToCancel}/cancel`, {
+      const res = await fetch(`http://localhost:8000/api/restaurant/orders/${orderToCancel}/cancel`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ order_id: orderToCancel, cancel_reason: cancelReason.trim() })

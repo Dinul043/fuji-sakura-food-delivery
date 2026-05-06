@@ -6,8 +6,6 @@ import Image from 'next/image';
 import { useCart } from '../../contexts/CartContext';
 import AuthPopup from '../../components/AuthPopup';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
-
 export default function CheckoutPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -45,7 +43,11 @@ export default function CheckoutPage() {
     const storedName = localStorage.getItem('userName') || '';
 
     if (token) {
-      fetch(`${API_BASE_URL}/api/auth/me`, {
+      fetch('http://localhost:8000/api/auth/me', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+        .then(r => r.ok ? r.json() : null)
+        .then(profile => {
           if (profile) {
             setDeliveryAddress(prev => ({
               ...prev,
@@ -164,7 +166,7 @@ export default function CheckoutPage() {
       // Sync phone & address back to user profile in DB
       const authToken = localStorage.getItem('token');
       const userName = localStorage.getItem('userName') || deliveryAddress.fullName;
-      fetch(`${API_BASE_URL}/api/auth/me`, {
+      fetch('http://localhost:8000/api/auth/me', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authToken}` },
         body: JSON.stringify({ name: userName, phone: deliveryAddress.phone, address: deliveryAddress.address })
@@ -181,7 +183,7 @@ export default function CheckoutPage() {
       
       // Create order via API
       const token = localStorage.getItem('token');
-      const response = await fetch(`${API_BASE_URL}/api/orders/create`, {
+      const response = await fetch('http://localhost:8000/api/orders/create', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -247,7 +249,7 @@ export default function CheckoutPage() {
       console.log('Creating Razorpay order for:', orderId, 'amount:', amount);
       
       // Step 1: Create Razorpay order
-      const response = await fetch(`${API_BASE_URL}/api/payments/razorpay/create-order`, {
+      const response = await fetch('http://localhost:8000/api/payments/razorpay/create-order', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -325,7 +327,7 @@ export default function CheckoutPage() {
       setIsLoading(true);
       const token = localStorage.getItem('token');
       
-      const response = await fetch(`${API_BASE_URL}/api/payments/razorpay/verify`, {
+      const response = await fetch('http://localhost:8000/api/payments/razorpay/verify', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -362,7 +364,7 @@ export default function CheckoutPage() {
     try {
       const token = localStorage.getItem('token');
       
-      await fetch(`${API_BASE_URL}/api/payments/failure`, {
+      await fetch('http://localhost:8000/api/payments/failure', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
