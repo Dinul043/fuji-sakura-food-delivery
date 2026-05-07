@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+
 export default function OrderSuccessPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -25,7 +27,7 @@ export default function OrderSuccessPage() {
         const token = localStorage.getItem('token');
         
         // Fetch order details
-        const orderResponse = await fetch(`http://localhost:8000/api/orders/${orderId}`, {
+        const orderResponse = await fetch(`${API_BASE_URL}/api/orders/${orderId}`, {
           headers: {
             'Authorization': `Bearer ${token}`
           }
@@ -40,7 +42,7 @@ export default function OrderSuccessPage() {
 
         // Fetch payment details
         try {
-          const paymentResponse = await fetch(`http://localhost:8000/api/payments/status/${orderId}`, {
+          const paymentResponse = await fetch(`${API_BASE_URL}/api/payments/status/${orderId}`, {
             headers: {
               'Authorization': `Bearer ${token}`
             }

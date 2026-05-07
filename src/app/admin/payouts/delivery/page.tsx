@@ -62,7 +62,7 @@ export default function DeliveryPayoutsPage() {
 
   const connectWebSocket = () => {
     try {
-      const ws = new WebSocket('ws://localhost:8000/ws/admin');
+      const ws = new WebSocket(`${API_BASE_URL.replace(/^http/, 'ws')}/ws/admin`);
       wsRef.current = ws;
       ws.onmessage = (e) => {
         try {
