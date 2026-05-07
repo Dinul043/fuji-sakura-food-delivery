@@ -120,9 +120,8 @@ export default function LoginPage() {
       cleanValue = value.replace(/\D/g, '').slice(0, 10);
     }
     setFormData(prev => ({ ...prev, [name]: cleanValue }));
-    if (errors[name as keyof typeof errors]) {
-      setErrors(prev => ({ ...prev, [name]: '' }));
-    }
+    // Clear this field's error AND any API-level error (which lands on password field)
+    setErrors(prev => ({ ...prev, [name]: '', password: '' }));
   };
 
   const handleOtpChange = (index: number, value: string) => {

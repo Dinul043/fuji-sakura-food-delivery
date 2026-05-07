@@ -60,11 +60,8 @@ export default function RestaurantLogin() {
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
-    
-    // Clear error when user starts typing
-    if (errors[name]) {
-      setErrors(prev => ({ ...prev, [name]: '' }));
-    }
+    // Clear this field's error AND any API-level error (which lands on password field)
+    setErrors(prev => ({ ...prev, [name]: '', password: '' }));
   };
 
   const handleLogin = async (e: React.FormEvent) => {
