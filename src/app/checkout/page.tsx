@@ -296,6 +296,24 @@ export default function CheckoutPage() {
           name: deliveryAddress.fullName,
           contact: deliveryAddress.phone
         },
+        config: {
+          display: {
+            blocks: {
+              upi: {
+                name: "Pay via UPI",
+                instruments: [
+                  { method: "upi", flows: ["collect", "intent", "qr"] }
+                ]
+              },
+              card: {
+                name: "Pay via Card",
+                instruments: [{ method: "card" }]
+              }
+            },
+            sequence: ["block.upi", "block.card"],
+            preferences: { show_default_blocks: true }
+          }
+        },
         theme: {
           color: "#ff6b6b"
         },
