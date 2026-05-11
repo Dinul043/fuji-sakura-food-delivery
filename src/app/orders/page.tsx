@@ -28,6 +28,8 @@ interface Order {
   tax_amount: number;
   total_amount: number;
   status: string;
+  payment_status: string;
+  payment_method: string;
   estimated_delivery_time: number;
   created_at: string;
   delivered_at?: string;
@@ -788,6 +790,28 @@ export default function OrdersPage() {
                     </div>
                   </div>
                 ))}
+
+                {/* Refund Banner — show for cancelled online orders */}
+                {order.status === 'cancelled' &&
+                  order.payment_method?.toLowerCase() === 'online' &&
+                  order.payment_status?.toLowerCase() === 'refunded' && (
+                  <div style={{
+                    background: '#f0fdf4', border: '1px solid #bbf7d0',
+                    borderRadius: '12px', padding: '0.875rem 1rem',
+                    marginBottom: '1rem',
+                    display: 'flex', alignItems: 'flex-start', gap: '0.75rem'
+                  }}>
+                    <span style={{ fontSize: '1.3rem', flexShrink: 0 }}>💸</span>
+                    <div>
+                      <div style={{ fontWeight: '700', color: '#166534', fontSize: '0.875rem' }}>
+                        Refund Initiated
+                      </div>
+                      <div style={{ color: '#15803d', fontSize: '0.8rem', marginTop: '0.15rem' }}>
+                        ₹{order.total_amount.toFixed(2)} will be refunded to your original payment method within 5–7 business days.
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 {/* Order Actions */}
                 <div style={{
