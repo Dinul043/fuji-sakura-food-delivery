@@ -63,6 +63,7 @@ export default function OrderTrackingPage() {
   const [isCancelling, setIsCancelling] = useState(false);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [cancelError, setCancelError] = useState<string | null>(null);
+  const [refundInitiated, setRefundInitiated] = useState(false);
 
   // WebSocket connection for real-time updates
   useWebSocket(
@@ -184,7 +185,12 @@ export default function OrderTrackingPage() {
         };
 
         setOrder(transformedOrder);
-        
+
+        // Detect if refund was already initiated (payment_status = refunded)
+        if (data.payment_status && data.payment_status.toLowerCase() === 'refunded') {
+          setRefundInitiated(true);
+        }
+
         // Set current step based on status
         const stepMap: Record<string, number> = {
           'confirmed': 0,
@@ -233,7 +239,7 @@ export default function OrderTrackingPage() {
         setOrder(prev => prev ? { ...prev, status: 'cancelled' } : prev);
         setCurrentStep(-1);
         if (data.refund_initiated) {
-          // Show refund message via reviewToast (reusing existing toast)
+          setRefundInitiated(true);
           setReviewToast('Order cancelled. Refund will be processed in 5-7 business days.');
           setTimeout(() => setReviewToast(null), 6000);
         }
@@ -555,25 +561,35 @@ export default function OrderTrackingPage() {
             </h2>
 
             {order.status === 'cancelled' ? (
-              <div style={{
-                textAlign: 'center',
-                padding: '2rem'
-              }}>
+              <div style={{ textAlign: 'center', padding: '2rem' }}>
                 <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>❌</div>
                 <h3 style={{
-                  fontSize: '1.3rem',
-                  fontWeight: '600',
-                  color: '#ef4444',
-                  marginTop: 0,
-                  marginLeft: 0,
-                  marginRight: 0,
-                  marginBottom: '0.5rem'
+                  fontSize: '1.3rem', fontWeight: '600', color: '#ef4444',
+                  marginTop: 0, marginLeft: 0, marginRight: 0, marginBottom: '0.5rem'
                 }}>
                   Order Cancelled
                 </h3>
-                <p style={{ color: '#666', marginTop: 0, marginLeft: 0, marginRight: 0, marginBottom: 0 }}>
+                <p style={{ color: '#666', marginTop: 0, marginLeft: 0, marginRight: 0, marginBottom: refundInitiated ? '1.25rem' : 0 }}>
                   This order has been cancelled
                 </p>
+                {refundInitiated && (
+                  <div style={{
+                    background: '#f0fdf4', border: '1px solid #bbf7d0',
+                    borderRadius: '12px', padding: '1rem 1.25rem',
+                    display: 'flex', alignItems: 'flex-start', gap: '0.75rem',
+                    textAlign: 'left'
+                  }}>
+                    <span style={{ fontSize: '1.5rem', flexShrink: 0 }}>💸</span>
+                    <div>
+                      <div style={{ fontWeight: '700', color: '#166534', fontSize: '0.95rem', marginBottom: '0.25rem' }}>
+                        Refund Initiated
+                      </div>
+                      <div style={{ color: '#15803d', fontSize: '0.85rem', lineHeight: '1.5' }}>
+                        Your payment of <strong>₹{order.total}</strong> will be refunded to your original payment method within <strong>5–7 business days</strong>.
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             ) : (
               <div style={{
