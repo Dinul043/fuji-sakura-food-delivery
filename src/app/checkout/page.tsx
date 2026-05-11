@@ -294,7 +294,8 @@ export default function CheckoutPage() {
         },
         prefill: {
           name: deliveryAddress.fullName,
-          contact: deliveryAddress.phone
+          contact: deliveryAddress.phone,
+          email: localStorage.getItem('userEmail') || 'customer@fujisakura.com'
         },
         config: {
           display: {
@@ -302,7 +303,8 @@ export default function CheckoutPage() {
               upi: {
                 name: "Pay via UPI",
                 instruments: [
-                  { method: "upi", flows: ["collect", "intent", "qr"] }
+                  { method: "upi", flows: ["collect"] },
+                  { method: "upi", flows: ["qr"] }
                 ]
               },
               card: {
