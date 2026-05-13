@@ -49,7 +49,7 @@ export default function AdminDashboard() {
   const [isLoading, setIsLoading] = useState(false);
 
   // Tab + Delivery Partners state
-  const [activeTab, setActiveTab] = useState<'restaurants' | 'delivery' | 'payouts' | 'live'>('restaurants');
+  const [activeTab, setActiveTab] = useState<'restaurants' | 'delivery' | 'payouts' | 'live' | 'refunds'>('restaurants');
   const [deliveryPartners, setDeliveryPartners] = useState<any[]>([]);
   const [deliveryFilter, setDeliveryFilter] = useState('all');
   const [deliveryNotes, setDeliveryNotes] = useState('');
@@ -61,6 +61,9 @@ export default function AdminDashboard() {
   const [partnerSettlements, setPartnerSettlements] = useState<any[]>([]);
   const [isRefunding, setIsRefunding] = useState<number | null>(null); // settlement id being refunded
   const [liveOrders, setLiveOrders] = useState<any[]>([]);
+  const [refunds, setRefunds] = useState<any[]>([]);
+  const [refundSummary, setRefundSummary] = useState<any>(null);
+  const [refundFilter, setRefundFilter] = useState<string>('all');
   const [isUpdatingDelivery, setIsUpdatingDelivery] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
   const [adminNotes, setAdminNotes] = useState('');
@@ -225,6 +228,7 @@ export default function AdminDashboard() {
     if (activeTab === 'delivery') fetchDeliveryPartners(deliveryFilter);
     if (activeTab === 'payouts') fetchPayouts();
     if (activeTab === 'live') fetchLiveOrders();
+    if (activeTab === 'refunds') fetchRefunds();
   }, [activeTab, deliveryFilter]);
 
   const fetchLiveOrders = async () => {
@@ -238,6 +242,20 @@ export default function AdminDashboard() {
         setLiveOrders(data.orders || []);
       }
     } catch { showNotification('error', 'Error', 'Failed to fetch live orders'); }
+  };
+
+  const fetchRefunds = async () => {
+    try {
+      const token = localStorage.getItem('adminToken');
+      const res = await fetch(`${API_BASE_URL}/api/admin/refunds`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setRefunds(data.refunds || []);
+        setRefundSummary(data.summary);
+      }
+    } catch { showNotification('error', 'Error', 'Failed to fetch refunds'); }
   };
 
   const fetchPayouts = async () => {
@@ -764,6 +782,18 @@ export default function AdminDashboard() {
               {tab.label} ({tab.count})
             </button>
           ))}
+          {/* Refunds Tab */}
+          <button
+            onClick={() => setActiveTab('refunds')}
+            style={{
+              padding: '0.75rem 1.5rem', borderRadius: '12px', border: 'none', cursor: 'pointer',
+              fontWeight: '600', fontSize: '0.95rem', transition: 'all 0.2s',
+              background: activeTab === 'refunds' ? 'linear-gradient(135deg, #ef4444, #dc2626)' : 'white',
+              color: activeTab === 'refunds' ? 'white' : '#555',
+              boxShadow: activeTab === 'refunds' ? '0 4px 15px rgba(239,68,68,0.3)' : '0 2px 8px rgba(0,0,0,0.08)'
+            }}>
+            💸 Refunds {refunds.length > 0 && `(${refunds.length})`}
+          </button>
           {/* Restaurant Payouts — separate screen */}
           <button
             onClick={() => router.push('/admin/payouts/restaurant')}
@@ -1275,6 +1305,105 @@ export default function AdminDashboard() {
         )}
 
         {/* Settings Tab removed — company UPI no longer needed, using Razorpay directly */}
+
+        {/* Refunds Tab */}
+        {activeTab === 'refunds' && (
+          <div style={{ background: 'white', borderRadius: '16px', padding: '2rem', boxShadow: '0 8px 32px rgba(0,0,0,0.1)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+              <h3 style={{ fontSize: '1.3rem', fontWeight: '700', color: '#333', margin: 0 }}>
+                💸 Refund Management
+              </h3>
+              <button onClick={fetchRefunds} style={{ background: 'none', border: '1px solid #e5e7eb', borderRadius: '8px', padding: '0.4rem 0.75rem', cursor: 'pointer', fontSize: '0.8rem', color: '#6b7280' }}>
+                🔄 Refresh
+              </button>
+            </div>
+
+            {/* Summary Cards */}
+            {refundSummary && (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
+                <div style={{ background: '#f0fdf4', borderRadius: '12px', padding: '1rem', border: '1px solid #bbf7d0' }}>
+                  <div style={{ fontSize: '0.7rem', color: '#166534', fontWeight: '700', textTransform: 'uppercase', marginBottom: '0.3rem' }}>✅ Refunded</div>
+                  <div style={{ fontSize: '1.4rem', fontWeight: '800', color: '#16a34a' }}>₹{refundSummary.total_refunded_amount}</div>
+                  <div style={{ fontSize: '0.72rem', color: '#4ade80' }}>{refundSummary.refunded_count} orders</div>
+                </div>
+                <div style={{ background: '#fef3c7', borderRadius: '12px', padding: '1rem', border: '1px solid #fde68a' }}>
+                  <div style={{ fontSize: '0.7rem', color: '#92400e', fontWeight: '700', textTransform: 'uppercase', marginBottom: '0.3rem' }}>⏳ Processing</div>
+                  <div style={{ fontSize: '1.4rem', fontWeight: '800', color: '#d97706' }}>₹{refundSummary.total_processing_amount}</div>
+                  <div style={{ fontSize: '0.72rem', color: '#fbbf24' }}>{refundSummary.processing_count} orders</div>
+                </div>
+                <div style={{ background: '#f8fafc', borderRadius: '12px', padding: '1rem', border: '1px solid #e5e7eb' }}>
+                  <div style={{ fontSize: '0.7rem', color: '#374151', fontWeight: '700', textTransform: 'uppercase', marginBottom: '0.3rem' }}>📋 Total</div>
+                  <div style={{ fontSize: '1.4rem', fontWeight: '800', color: '#111827' }}>{refundSummary.total_count}</div>
+                  <div style={{ fontSize: '0.72rem', color: '#9ca3af' }}>cancelled online orders</div>
+                </div>
+              </div>
+            )}
+
+            {/* Filter */}
+            <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.25rem', flexWrap: 'wrap' }}>
+              {['all', 'refunded', 'processing', 'failed'].map(f => (
+                <button key={f} onClick={() => setRefundFilter(f)}
+                  style={{ padding: '0.4rem 0.875rem', borderRadius: '8px', border: 'none', cursor: 'pointer', fontWeight: '600', fontSize: '0.82rem', background: refundFilter === f ? '#ef4444' : '#f3f4f6', color: refundFilter === f ? 'white' : '#555' }}>
+                  {f.charAt(0).toUpperCase() + f.slice(1)}
+                </button>
+              ))}
+            </div>
+
+            {/* Refunds Table */}
+            {refunds.filter(r => refundFilter === 'all' || r.refund_status === refundFilter).length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '3rem', color: '#9ca3af' }}>
+                <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>💸</div>
+                <p style={{ margin: 0 }}>No refunds found</p>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                {/* Header */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1.2fr 1fr 0.8fr 0.8fr 0.9fr', gap: '0.5rem', padding: '0.5rem 0.75rem', background: '#f9fafb', borderRadius: '8px', fontSize: '0.7rem', color: '#9ca3af', fontWeight: '700', textTransform: 'uppercase' }}>
+                  <span>Order</span>
+                  <span>Customer</span>
+                  <span>Restaurant</span>
+                  <span style={{ textAlign: 'right' }}>Amount</span>
+                  <span style={{ textAlign: 'center' }}>Cancelled By</span>
+                  <span style={{ textAlign: 'center' }}>Refund Status</span>
+                </div>
+                {refunds
+                  .filter(r => refundFilter === 'all' || r.refund_status === refundFilter)
+                  .map((r: any) => (
+                  <div key={r.order_id} style={{ display: 'grid', gridTemplateColumns: '1.5fr 1.2fr 1fr 0.8fr 0.8fr 0.9fr', gap: '0.5rem', padding: '0.875rem 0.75rem', background: '#f9fafb', borderRadius: '10px', borderLeft: `3px solid ${r.refund_status === 'refunded' ? '#10b981' : r.refund_status === 'processing' ? '#f59e0b' : '#ef4444'}`, alignItems: 'center' }}>
+                    <div>
+                      <div style={{ fontWeight: '700', color: '#111827', fontSize: '0.875rem' }}>{r.order_number}</div>
+                      <div style={{ fontSize: '0.7rem', color: '#9ca3af', marginTop: '0.1rem' }}>
+                        {r.cancelled_at ? new Date(r.cancelled_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}
+                      </div>
+                      {r.gateway_payment_id && (
+                        <div style={{ fontSize: '0.65rem', color: '#9ca3af', fontFamily: 'monospace' }}>{r.gateway_payment_id}</div>
+                      )}
+                    </div>
+                    <div>
+                      <div style={{ fontWeight: '600', color: '#374151', fontSize: '0.82rem' }}>{r.customer_name}</div>
+                      <div style={{ fontSize: '0.72rem', color: '#9ca3af' }}>{r.customer_email}</div>
+                    </div>
+                    <div style={{ fontSize: '0.82rem', color: '#374151' }}>{r.restaurant_name}</div>
+                    <div style={{ textAlign: 'right', fontWeight: '800', color: '#111827', fontSize: '0.95rem' }}>₹{r.total_amount}</div>
+                    <div style={{ textAlign: 'center' }}>
+                      <span style={{ fontSize: '0.72rem', fontWeight: '600', padding: '0.2rem 0.5rem', borderRadius: '6px', background: r.cancelled_by === 'restaurant' ? '#fef3c7' : '#ede9fe', color: r.cancelled_by === 'restaurant' ? '#92400e' : '#6d28d9' }}>
+                        {r.cancelled_by === 'restaurant' ? '🏪 Restaurant' : '👤 User'}
+                      </span>
+                    </div>
+                    <div style={{ textAlign: 'center' }}>
+                      <span style={{ fontSize: '0.72rem', fontWeight: '700', padding: '0.2rem 0.5rem', borderRadius: '6px', background: r.refund_status === 'refunded' ? '#d1fae5' : r.refund_status === 'processing' ? '#fef3c7' : '#fee2e2', color: r.refund_status === 'refunded' ? '#065f46' : r.refund_status === 'processing' ? '#92400e' : '#991b1b' }}>
+                        {r.refund_status === 'refunded' ? '✅ Refunded' : r.refund_status === 'processing' ? '⏳ Processing' : '❌ Failed'}
+                      </span>
+                      {r.cancel_reason && (
+                        <div style={{ fontSize: '0.65rem', color: '#9ca3af', marginTop: '0.2rem' }}>{r.cancel_reason}</div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
       </div>
       {selectedApplication && (
