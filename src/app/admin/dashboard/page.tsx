@@ -64,6 +64,7 @@ export default function AdminDashboard() {
   const [refunds, setRefunds] = useState<any[]>([]);
   const [refundSummary, setRefundSummary] = useState<any>(null);
   const [refundFilter, setRefundFilter] = useState<string>('all');
+  const [isRetryingRefund, setIsRetryingRefund] = useState<number | null>(null);
   const [isUpdatingDelivery, setIsUpdatingDelivery] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
   const [adminNotes, setAdminNotes] = useState('');
@@ -256,6 +257,26 @@ export default function AdminDashboard() {
         setRefundSummary(data.summary);
       }
     } catch { showNotification('error', 'Error', 'Failed to fetch refunds'); }
+  };
+
+  const retryRefund = async (orderId: number, orderNumber: string) => {
+    setIsRetryingRefund(orderId);
+    try {
+      const token = localStorage.getItem('adminToken');
+      const res = await fetch(`${API_BASE_URL}/api/admin/orders/${orderId}/retry-refund`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        showNotification('success', '✅ Refund Initiated', `₹${data.amount} refund initiated for ${orderNumber}`);
+        fetchRefunds();
+      } else {
+        const d = await res.json();
+        showNotification('error', 'Refund Failed', d.detail || 'Failed to initiate refund');
+      }
+    } catch { showNotification('error', 'Error', 'Network error'); }
+    finally { setIsRetryingRefund(null); }
   };
 
   const fetchPayouts = async () => {
@@ -1396,6 +1417,14 @@ export default function AdminDashboard() {
                       </span>
                       {r.cancel_reason && (
                         <div style={{ fontSize: '0.65rem', color: '#9ca3af', marginTop: '0.2rem' }}>{r.cancel_reason}</div>
+                      )}
+                      {r.refund_status === 'processing' && (
+                        <button
+                          onClick={() => retryRefund(r.order_id, r.order_number)}
+                          disabled={isRetryingRefund === r.order_id}
+                          style={{ marginTop: '0.3rem', padding: '0.2rem 0.5rem', background: isRetryingRefund === r.order_id ? '#9ca3af' : '#ef4444', color: 'white', border: 'none', borderRadius: '6px', fontSize: '0.65rem', fontWeight: '600', cursor: isRetryingRefund === r.order_id ? 'not-allowed' : 'pointer' }}>
+                          {isRetryingRefund === r.order_id ? 'Processing...' : '↩ Retry Refund'}
+                        </button>
                       )}
                     </div>
                   </div>
