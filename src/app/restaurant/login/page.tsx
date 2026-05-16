@@ -96,6 +96,7 @@ export default function RestaurantLogin() {
         // Store restaurant info
         sessionStorage.setItem('restaurantInfo', JSON.stringify(data.restaurant));
         sessionStorage.setItem('restaurantToken', data.access_token);
+        if (data.refresh_token) sessionStorage.setItem('restaurantRefreshToken', data.refresh_token);
         localStorage.setItem('restaurantName', data.restaurant.business_name);
         localStorage.setItem('restaurantEmail', data.restaurant.email);
         localStorage.setItem('restaurantOwner', data.restaurant.owner_name);

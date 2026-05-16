@@ -110,6 +110,7 @@ export default function AdminLoginPage() {
           localStorage.setItem('adminEmail', data.admin.email);
           localStorage.setItem('isAdmin', 'true');
           localStorage.setItem('adminToken', data.access_token);
+          if (data.refresh_token) localStorage.setItem('adminRefreshToken', data.refresh_token);
           localStorage.setItem('userRole', 'admin');
           
           // Redirect to admin dashboard

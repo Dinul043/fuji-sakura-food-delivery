@@ -47,6 +47,7 @@ export default function DeliveryLoginPage() {
       const data = await res.json();
       if (res.ok) {
         sessionStorage.setItem('deliveryToken', data.access_token);
+        if (data.refresh_token) sessionStorage.setItem('deliveryRefreshToken', data.refresh_token);
         sessionStorage.setItem('deliveryPartner', JSON.stringify(data.partner));
         router.push('/delivery/dashboard');
       } else {

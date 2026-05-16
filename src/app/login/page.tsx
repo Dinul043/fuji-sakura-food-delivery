@@ -244,6 +244,7 @@ export default function LoginPage() {
           localStorage.setItem('userEmail', data.user.email);
           localStorage.setItem('isGuest', 'false');
           localStorage.setItem('token', data.access_token);
+          if (data.refresh_token) localStorage.setItem('refreshToken', data.refresh_token);
           localStorage.setItem('rememberMe', rememberMe.toString());
           
           // Dispatch custom event to notify CartContext of token change
@@ -311,6 +312,7 @@ export default function LoginPage() {
         localStorage.setItem('userEmail', data.user.email);
         localStorage.setItem('isGuest', 'false');
         localStorage.setItem('token', data.access_token);
+        if (data.refresh_token) localStorage.setItem('refreshToken', data.refresh_token);
         
         // Dispatch custom event to notify CartContext of token change
         window.dispatchEvent(new Event('tokenChanged'));
@@ -490,6 +492,7 @@ export default function LoginPage() {
             if (loginResponse.ok) {
               const loginData = await loginResponse.json();
               localStorage.setItem('token', loginData.access_token);
+              if (loginData.refresh_token) localStorage.setItem('refreshToken', loginData.refresh_token);
               localStorage.setItem('userName', loginData.user.name);
             } else {
               localStorage.setItem('userName', formData.firstName + ' ' + formData.lastName);
