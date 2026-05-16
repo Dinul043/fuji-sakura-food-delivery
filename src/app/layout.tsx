@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter, Noto_Sans_JP } from "next/font/google";
 import "./globals.css";
 import { CartProvider } from "../contexts/CartContext";
+import FetchInterceptor from "../components/FetchInterceptor";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -40,7 +41,9 @@ export default function RootLayout({
         className={`${inter.variable} ${notoSansJP.variable} font-sans antialiased`}
       >
         <CartProvider>
-          {children}
+          <FetchInterceptor>
+            {children}
+          </FetchInterceptor>
         </CartProvider>
       </body>
     </html>
