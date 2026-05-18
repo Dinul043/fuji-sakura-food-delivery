@@ -26,6 +26,14 @@ function getRole(): string | null {
   return null;
 }
 
+function getRoleFromUrl(url: string): string | null {
+  if (url.includes('/api/admin/')) return 'admin';
+  if (url.includes('/api/restaurant/')) return 'restaurant';
+  if (url.includes('/api/delivery/')) return 'delivery';
+  // Default to user for /api/auth/, /api/cart/, /api/orders/, etc.
+  return 'user';
+}
+
 function getRefreshToken(role: string): string | null {
   switch (role) {
     case 'user': return localStorage.getItem('refreshToken');
@@ -107,8 +115,8 @@ export default function FetchInterceptor({ children }: { children: React.ReactNo
         return response;
       }
 
-      // Detect role
-      const role = getRole();
+      // Detect role based on the URL being called (not just which tokens exist)
+      const role = getRoleFromUrl(url);
       if (!role) return response;
 
       const refreshToken = getRefreshToken(role);
