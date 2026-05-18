@@ -95,22 +95,19 @@ export default function RestaurantDashboard() {
         // Update localStorage with fresh data
         sessionStorage.setItem('restaurantInfo', JSON.stringify(profileData));
       } else {
-        // If profile fetch fails, redirect to login
-        // Silent fallback - no console errors
-        sessionStorage.removeItem('restaurantToken');
-        sessionStorage.removeItem('restaurantInfo');
-        router.push('/restaurant/login');
-        return;
+        // If profile fetch fails after interceptor tried refresh, session is truly invalid
+        if (response.status === 401) {
+          router.push('/restaurant/login');
+          return;
+        }
       }
       
       // Load dashboard stats (mock data for now)
       loadDashboardStats();
       
     } catch (error) {
-      // Silent fallback - no console errors
-      sessionStorage.removeItem('restaurantToken');
-      sessionStorage.removeItem('restaurantInfo');
-      router.push('/restaurant/login');
+      // Network error - don't clear tokens, might just be connectivity issue
+      // Silent fallback
     } finally {
       setIsLoading(false);
     }
@@ -138,9 +135,7 @@ export default function RestaurantDashboard() {
           connectWebSocket(restaurantData.id);
         }
       } else if (response.status === 401) {
-        // Session expired - redirect to login
-        sessionStorage.removeItem('restaurantToken');
-        sessionStorage.removeItem('restaurantInfo');
+        // FetchInterceptor handles refresh — if still 401, session is truly gone
         router.push('/restaurant/login');
       }
       // On other errors, keep existing stats (don't zero out)

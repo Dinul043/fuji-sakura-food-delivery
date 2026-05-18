@@ -157,12 +157,13 @@ export default function AdminDashboard() {
           // Load applications after successful authentication
           fetchApplications();
         } else {
-          // Clear invalid session
+          // FetchInterceptor tried refresh — if still failing, session is truly invalid
           localStorage.removeItem('adminToken');
           localStorage.removeItem('isAdmin');
           localStorage.removeItem('userRole');
           localStorage.removeItem('adminEmail');
           localStorage.removeItem('adminName');
+          localStorage.removeItem('adminRefreshToken');
           
           
           setIsAuthenticating(false);
