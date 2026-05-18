@@ -1107,7 +1107,7 @@ export default function AdminDashboard() {
               🟢 <strong>Delivery Earnings</strong> = ₹40 per order — partner keeps this, company pays via UPI<br />
               🔴 <strong>COD Collected</strong> = Full cash received from customer — partner holds this temporarily<br />
               💳 <strong>Platform Received</strong> = Amount partner already paid back via Razorpay<br />
-              🔵 <strong>Still Pending</strong> = COD Collected − Delivery Earnings − Platform Received (still owed to company)
+              🔵 <strong>Still Pending</strong> = COD Collected − Platform Received (still owed to company)
             </div>
 
             {payouts.length === 0 ? (
@@ -1159,7 +1159,7 @@ export default function AdminDashboard() {
 
                       {amountToReturn > 0 && (
                         <div style={{ background: '#fef3c7', borderRadius: '8px', padding: '0.6rem 0.875rem', marginBottom: '0.875rem', fontSize: '0.82rem', color: '#92400e', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                          ⚠️ Partner must return <strong>₹{amountToReturn}</strong> to platform (COD collected − delivery earnings)
+                          ⚠️ Partner must return <strong>₹{amountToReturn}</strong> to platform (unsettled COD)
                         </div>
                       )}
 

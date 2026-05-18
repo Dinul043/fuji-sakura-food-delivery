@@ -28,7 +28,7 @@ export default function DeliverySettlePage() {
     const s = (localStorage.getItem('deliveryPartner') || sessionStorage.getItem('deliveryPartner'));
     return s ? JSON.parse(s) : null;
   };
-  const amountToReturn = Math.max(0, codPending - myEarnings);
+  const amountToReturn = codPending; // COD and delivery earnings are INDEPENDENT — partner returns FULL COD
 
   const showToast = (msg: string, type: 'success' | 'error' = 'success') => {
     setToast({ msg, type });
@@ -256,25 +256,27 @@ export default function DeliverySettlePage() {
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem', background: '#fef2f2', borderRadius: '10px' }}>
                   <div>
                     <div style={{ fontWeight: '600', color: '#991b1b', fontSize: '0.875rem' }}>💵 COD Collected from Customers</div>
-                    <div style={{ fontSize: '0.75rem', color: '#9ca3af', marginTop: '0.1rem' }}>Total cash you received</div>
+                    <div style={{ fontSize: '0.75rem', color: '#9ca3af', marginTop: '0.1rem' }}>Total cash you received from deliveries</div>
                   </div>
                   <div style={{ fontWeight: '800', color: '#dc2626', fontSize: '1.2rem' }}>₹{codPending}</div>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem', background: '#f0fdf4', borderRadius: '10px' }}>
-                  <div>
-                    <div style={{ fontWeight: '600', color: '#166534', fontSize: '0.875rem' }}>🟢 Your Delivery Earnings</div>
-                    <div style={{ fontSize: '0.75rem', color: '#9ca3af', marginTop: '0.1rem' }}>₹40 per delivery — you keep this</div>
-                  </div>
-                  <div style={{ fontWeight: '800', color: '#16a34a', fontSize: '1.2rem' }}>₹{myEarnings}</div>
                 </div>
                 <div style={{ height: '1px', background: '#e5e7eb' }} />
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.875rem', background: '#fef3c7', borderRadius: '10px', border: '1px solid #fde68a' }}>
                   <div>
-                    <div style={{ fontWeight: '700', color: '#92400e', fontSize: '0.95rem' }}>🔵 Amount to Return to Company</div>
-                    <div style={{ fontSize: '0.75rem', color: '#9ca3af', marginTop: '0.1rem' }}>COD collected − your earnings</div>
+                    <div style={{ fontWeight: '700', color: '#92400e', fontSize: '0.95rem' }}>� Amount to Return to Company</div>
+                    <div style={{ fontSize: '0.75rem', color: '#9ca3af', marginTop: '0.1rem' }}>Full COD amount — settle via Razorpay</div>
                   </div>
                   <div style={{ fontWeight: '800', color: '#d97706', fontSize: '1.4rem' }}>₹{amountToReturn}</div>
                 </div>
+                {myEarnings > 0 && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem', background: '#f0fdf4', borderRadius: '10px' }}>
+                    <div>
+                      <div style={{ fontWeight: '600', color: '#166534', fontSize: '0.875rem' }}>� Your Delivery Earnings (Separate)</div>
+                      <div style={{ fontSize: '0.75rem', color: '#9ca3af', marginTop: '0.1rem' }}>Paid to your UPI by admin — not deducted from COD</div>
+                    </div>
+                    <div style={{ fontWeight: '800', color: '#16a34a', fontSize: '1.2rem' }}>₹{myEarnings}</div>
+                  </div>
+                )}
               </div>
 
               {/* Progress bar */}
