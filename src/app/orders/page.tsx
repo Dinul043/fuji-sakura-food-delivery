@@ -68,9 +68,9 @@ export default function OrdersPage() {
           const data = await response.json();
           setOrders(data || []); // Handle empty array
         } else if (response.status === 401) {
-          // Token expired or invalid
-          localStorage.removeItem('token');
-          router.push('/login');
+          // FetchInterceptor handles token refresh automatically
+          // If we still get 401 here, refresh failed — interceptor redirects to login
+          setOrders([]);
         } else {
           // Other errors - just set empty orders, no console error
           setOrders([]);

@@ -142,7 +142,7 @@ export default function OrderSuccessPage() {
           <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>
             <Image src="/icons/actions/close.svg" alt="Error" width={64} height={64} />
           </div>
-          <h2 style={{ fontSize: '1.5rem', fontWeight: '600', color: '#333', marginBottom: '1rem', margin: 0 }}>
+          <h2 style={{ fontSize: '1.5rem', fontWeight: '600', color: '#333', marginTop: 0, marginLeft: 0, marginRight: 0, marginBottom: '1rem' }}>
             {error || 'Order not found'}
           </h2>
           <button

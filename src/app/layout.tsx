@@ -40,11 +40,11 @@ export default function RootLayout({
       <body
         className={`${inter.variable} ${notoSansJP.variable} font-sans antialiased`}
       >
-        <CartProvider>
-          <FetchInterceptor>
+        <FetchInterceptor>
+          <CartProvider>
             {children}
-          </FetchInterceptor>
-        </CartProvider>
+          </CartProvider>
+        </FetchInterceptor>
       </body>
     </html>
   );

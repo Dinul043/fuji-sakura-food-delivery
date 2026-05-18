@@ -118,10 +118,9 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setCartItems(data);
       } else {
         if (response.status === 401) {
-          // Token might be invalid, clear it and switch to guest mode
-          localStorage.removeItem('token');
-          localStorage.removeItem('userEmail');
-          localStorage.removeItem('userName');
+          // FetchInterceptor handles token refresh — if we still get 401,
+          // it means refresh failed and interceptor will redirect to login.
+          // Just switch to guest mode locally without clearing tokens.
           setIsAuthenticated(false);
           setCurrentUser('guest');
           loadGuestCart('guest');
@@ -176,13 +175,9 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (response.ok) {
           await fetchCartFromDatabase();
         } else if (response.status === 401) {
-          localStorage.removeItem('token');
-          localStorage.removeItem('userEmail');
-          localStorage.removeItem('userName');
+          // FetchInterceptor handles refresh — if still 401, refresh failed
           setIsAuthenticated(false);
           setCurrentUser('guest');
-          // Retry as guest
-          await addToCart(item);
         }
       } catch (error) {
         // Silent error handling - network might be down
@@ -233,10 +228,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
           if (response.ok) {
             await fetchCartFromDatabase();
           } else if (response.status === 401) {
-            // Token invalid, clear auth and switch to guest mode
-            localStorage.removeItem('token');
-            localStorage.removeItem('userEmail');
-            localStorage.removeItem('userName');
+            // FetchInterceptor handles refresh — if still 401, refresh failed
             setIsAuthenticated(false);
             setCurrentUser('guest');
           }
