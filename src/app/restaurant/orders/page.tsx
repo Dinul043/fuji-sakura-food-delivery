@@ -56,10 +56,10 @@ export default function RestaurantOrders() {
 
   useEffect(() => {
     // Get restaurant ID from sessionStorage (restaurantInfo set during login)
-    const token = sessionStorage.getItem('restaurantToken');
+    const token = (localStorage.getItem('restaurantToken') || sessionStorage.getItem('restaurantToken'));
     if (!token) { router.push('/restaurant/login'); return; }
 
-    const info = sessionStorage.getItem('restaurantInfo');
+    const info = (localStorage.getItem('restaurantInfo') || sessionStorage.getItem('restaurantInfo'));
     if (info) {
       try {
         const parsed = JSON.parse(info);
@@ -249,7 +249,7 @@ export default function RestaurantOrders() {
     if (!orderToCancel) return;
     setIsCancelling(true);
     try {
-      const token = sessionStorage.getItem('restaurantToken');
+      const token = (localStorage.getItem('restaurantToken') || sessionStorage.getItem('restaurantToken'));
       const res = await fetch(`${API_BASE_URL}/api/restaurant/orders/${orderToCancel}/cancel`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },

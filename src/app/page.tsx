@@ -11,7 +11,23 @@ export default function SplashScreen() {
     const timer = setTimeout(() => {
       setIsVisible(false);
       setTimeout(() => {
-        router.push('/login');
+        // Check if any user is already logged in (remember me)
+        const userToken = localStorage.getItem('token');
+        const restaurantToken = localStorage.getItem('restaurantToken') || sessionStorage.getItem('restaurantToken');
+        const adminToken = localStorage.getItem('adminToken');
+        const deliveryToken = localStorage.getItem('deliveryToken') || sessionStorage.getItem('deliveryToken');
+
+        if (restaurantToken) {
+          router.push('/restaurant/dashboard');
+        } else if (adminToken) {
+          router.push('/admin/dashboard');
+        } else if (deliveryToken) {
+          router.push('/delivery/dashboard');
+        } else if (userToken) {
+          router.push('/home');
+        } else {
+          router.push('/login');
+        }
       }, 500);
     }, 3000);
 

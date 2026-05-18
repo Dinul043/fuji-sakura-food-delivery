@@ -62,8 +62,8 @@ export default function MenuManagement() {
 
   const checkAuthAndLoadMenu = async () => {
     try {
-      const token = sessionStorage.getItem('restaurantToken');
-      const restaurantInfo = sessionStorage.getItem('restaurantInfo');
+      const token = (localStorage.getItem('restaurantToken') || sessionStorage.getItem('restaurantToken'));
+      const restaurantInfo = (localStorage.getItem('restaurantInfo') || sessionStorage.getItem('restaurantInfo'));
       
       if (!token || !restaurantInfo) {
         router.push('/restaurant/login');
@@ -141,7 +141,7 @@ export default function MenuManagement() {
     if (!newItem.item_name || !newItem.price) return;
     
     try {
-      const token = sessionStorage.getItem('restaurantToken');
+      const token = (localStorage.getItem('restaurantToken') || sessionStorage.getItem('restaurantToken'));
       if (!token) {
         router.push('/restaurant/login');
         return;
@@ -190,7 +190,7 @@ export default function MenuManagement() {
     if (!editingItem || !newItem.item_name || !newItem.price) return;
     
     try {
-      const token = sessionStorage.getItem('restaurantToken');
+      const token = (localStorage.getItem('restaurantToken') || sessionStorage.getItem('restaurantToken'));
       if (!token) {
         router.push('/restaurant/login');
         return;
@@ -242,7 +242,7 @@ export default function MenuManagement() {
       const formData = new FormData();
       formData.append('file', file);  // Changed from 'image' to 'file'
 
-      const token = sessionStorage.getItem('restaurantToken');
+      const token = (localStorage.getItem('restaurantToken') || sessionStorage.getItem('restaurantToken'));
       
       const response = await fetch(`${API_BASE_URL}/api/menu/upload-image`, {
         method: 'POST',
@@ -315,7 +315,7 @@ export default function MenuManagement() {
 
   const toggleAvailability = async (itemId: number) => {
     try {
-      const token = sessionStorage.getItem('restaurantToken');
+      const token = (localStorage.getItem('restaurantToken') || sessionStorage.getItem('restaurantToken'));
       if (!token) {
         router.push('/restaurant/login');
         return;
@@ -352,7 +352,7 @@ export default function MenuManagement() {
 
     setIsDeleting(true);
     try {
-      const token = sessionStorage.getItem('restaurantToken');
+      const token = (localStorage.getItem('restaurantToken') || sessionStorage.getItem('restaurantToken'));
       if (!token) {
         router.push('/restaurant/login');
         return;

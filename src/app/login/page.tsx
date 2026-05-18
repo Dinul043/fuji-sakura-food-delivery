@@ -16,6 +16,12 @@ export default function LoginPage() {
     link.href = 'https://fonts.googleapis.com/css2?family=Anuphan:wght@400;500;600;700&display=swap';
     link.rel = 'stylesheet';
     document.head.appendChild(link);
+
+    // Check if already logged in — redirect to home
+    const existingToken = localStorage.getItem('token');
+    if (existingToken) {
+      router.push('/home');
+    }
   }, []);
   const [currentStep, setCurrentStep] = useState<AuthStep>('welcome');
   const [showPassword, setShowPassword] = useState(false);

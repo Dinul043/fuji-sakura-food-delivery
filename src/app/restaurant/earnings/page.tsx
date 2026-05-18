@@ -37,7 +37,7 @@ export default function RestaurantEarningsPage() {
   const [payouts, setPayouts] = useState<PayoutRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  const getToken = () => sessionStorage.getItem('restaurantToken');
+  const getToken = () => (localStorage.getItem('restaurantToken') || sessionStorage.getItem('restaurantToken'));
 
   useEffect(() => {
     const token = getToken();

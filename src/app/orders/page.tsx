@@ -29,7 +29,6 @@ interface Order {
   total_amount: number;
   status: string;
   payment_status: string;
-  payment_method: string;
   estimated_delivery_time: number;
   created_at: string;
   delivered_at?: string;

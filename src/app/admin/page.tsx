@@ -23,6 +23,7 @@ export default function AdminLoginPage() {
   const [formData, setFormData] = useState({ email: '', password: '', newPassword: '' });
   const [errors, setErrors] = useState({ email: '', password: '', newPassword: '', otp: '' });
   const [isLoading, setIsLoading] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
   const router = useRouter();
 
   // Auto redirect after success
@@ -95,7 +96,8 @@ export default function AdminLoginPage() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             email: cleanEmail.toLowerCase(),
-            password: formData.password
+            password: formData.password,
+            rememberMe: rememberMe
           }),
           signal: controller.signal
         });
@@ -583,6 +585,12 @@ export default function AdminLoginPage() {
                   </button>
                 </div>
                 {errors.password && <p style={{ color: '#ef4444', fontSize: '0.875rem', marginTop: '0.5rem', fontFamily: 'Anuphan, system-ui, sans-serif' }}>{errors.password}</p>}
+              </div>
+
+              {/* Remember Me */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                <input type="checkbox" checked={rememberMe} onChange={(e) => setRememberMe(e.target.checked)} style={{ width: '16px', height: '16px', cursor: 'pointer' }} />
+                <span style={{ color: '#666', fontSize: '0.9rem', fontFamily: 'Anuphan, system-ui, sans-serif' }}>Remember me</span>
               </div>
               
               <button 

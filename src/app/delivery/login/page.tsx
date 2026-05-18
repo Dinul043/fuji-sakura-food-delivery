@@ -9,7 +9,7 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
@@ -24,6 +24,7 @@ export default function DeliveryLoginPage() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
 
   // Forgot password state
   const [step, setStep] = useState<Step>('login');
@@ -34,6 +35,14 @@ export default function DeliveryLoginPage() {
   const [forgotLoading, setForgotLoading] = useState(false);
   const [forgotError, setForgotError] = useState('');
 
+  // Check if already logged in (remember me case) — redirect to dashboard
+  useEffect(() => {
+    const existingToken = localStorage.getItem('deliveryToken') || sessionStorage.getItem('deliveryToken');
+    if (existingToken) {
+      router.push('/delivery/dashboard');
+    }
+  }, [router]);
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email.trim() || !password.trim()) { setError('Please enter email and password'); return; }
@@ -42,13 +51,16 @@ export default function DeliveryLoginPage() {
       const res = await fetch(`${API_BASE_URL}/api/delivery/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: email.trim().toLowerCase(), password: password.trim() })
+        body: JSON.stringify({ email: email.trim().toLowerCase(), password: password.trim(), rememberMe: rememberMe })
       });
       const data = await res.json();
       if (res.ok) {
-        sessionStorage.setItem('deliveryToken', data.access_token);
-        if (data.refresh_token) sessionStorage.setItem('deliveryRefreshToken', data.refresh_token);
-        sessionStorage.setItem('deliveryPartner', JSON.stringify(data.partner));
+        // Store tokens — use localStorage if rememberMe, sessionStorage otherwise
+        const storage = rememberMe ? localStorage : sessionStorage;
+        storage.setItem('deliveryToken', data.access_token);
+        if (data.refresh_token) storage.setItem('deliveryRefreshToken', data.refresh_token);
+        storage.setItem('deliveryPartner', JSON.stringify(data.partner));
+        localStorage.setItem('deliveryRememberMe', rememberMe.toString());
         router.push('/delivery/dashboard');
       } else {
         setError(data.detail || 'Login failed. Please try again.');
@@ -186,7 +198,11 @@ export default function DeliveryLoginPage() {
                 onFocus={e => { e.currentTarget.style.borderColor = '#FF5722'; e.currentTarget.style.backgroundColor = '#fff'; }}
                 onBlur={e => { e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.backgroundColor = '#fafafa'; }} />
             </div>
-            <div style={{ textAlign: 'right' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
+                <input type="checkbox" checked={rememberMe} onChange={(e) => setRememberMe(e.target.checked)} style={{ width: '16px', height: '16px', cursor: 'pointer' }} />
+                <span style={{ color: '#666', fontSize: '0.85rem' }}>Remember me</span>
+              </label>
               <button type="button" onClick={() => { setStep('forgot'); setForgotEmail(email); setForgotError(''); }}
                 style={{ background: 'none', border: 'none', color: '#FF5722', cursor: 'pointer', fontSize: '0.85rem', fontWeight: '500', textDecoration: 'underline' }}>
                 Forgot Password?

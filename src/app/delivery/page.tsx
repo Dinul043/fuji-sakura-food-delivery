@@ -11,6 +11,12 @@ export default function DeliveryPortal() {
     link.href = 'https://fonts.googleapis.com/css2?family=Anuphan:wght@400;500;600;700&display=swap';
     link.rel = 'stylesheet';
     document.head.appendChild(link);
+
+    // Check if already logged in (remember me) — redirect to dashboard
+    const existingToken = localStorage.getItem('deliveryToken') || sessionStorage.getItem('deliveryToken');
+    if (existingToken) {
+      router.push('/delivery/dashboard');
+    }
   }, []);
 
   return (

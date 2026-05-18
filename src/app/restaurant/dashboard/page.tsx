@@ -66,8 +66,8 @@ export default function RestaurantDashboard() {
 
   const checkAuthAndLoadData = async () => {
     try {
-      // Check if restaurant is logged in
-      const token = sessionStorage.getItem('restaurantToken');
+      // Check if restaurant is logged in (check both storages for remember me support)
+      const token = localStorage.getItem('restaurantToken') || sessionStorage.getItem('restaurantToken');
       
       if (!token) {
         router.push('/restaurant/login');
@@ -118,7 +118,7 @@ export default function RestaurantDashboard() {
 
   const loadDashboardStats = async () => {
     try {
-      const token = sessionStorage.getItem('restaurantToken');
+      const token = localStorage.getItem('restaurantToken') || sessionStorage.getItem('restaurantToken');
       if (!token) return;
 
       const response = await fetch(`${API_BASE_URL}/api/restaurant/stats`, {
@@ -258,7 +258,7 @@ export default function RestaurantDashboard() {
 
   const confirmLogout = async () => {
     try {
-      const token = sessionStorage.getItem('restaurantToken');
+      const token = localStorage.getItem('restaurantToken') || sessionStorage.getItem('restaurantToken');
       
       if (token) {
         // Call backend logout API to clear session
@@ -274,9 +274,14 @@ export default function RestaurantDashboard() {
       // Silent fallback - no console errors
       // Continue with logout even if API call fails
     } finally {
-      // Always clear local storage and redirect
+      // Always clear both storages and redirect
       sessionStorage.removeItem('restaurantToken');
       sessionStorage.removeItem('restaurantInfo');
+      localStorage.removeItem('restaurantToken');
+      localStorage.removeItem('restaurantInfo');
+      localStorage.removeItem('restaurantRefreshToken');
+      sessionStorage.removeItem('restaurantRefreshToken');
+      localStorage.removeItem('restaurantRememberMe');
       setShowLogoutConfirm(false);
       router.push('/restaurant/login');
     }
@@ -288,7 +293,7 @@ export default function RestaurantDashboard() {
 
   const toggleOnlineStatus = async () => {
     try {
-      const token = sessionStorage.getItem('restaurantToken');
+      const token = localStorage.getItem('restaurantToken') || sessionStorage.getItem('restaurantToken');
       if (!token) {
         router.push('/restaurant/login');
         return;

@@ -12,6 +12,12 @@ export default function RestaurantPortal() {
     link.href = 'https://fonts.googleapis.com/css2?family=Anuphan:wght@400;500;600;700&display=swap';
     link.rel = 'stylesheet';
     document.head.appendChild(link);
+
+    // Check if already logged in (remember me) — redirect to dashboard
+    const existingToken = localStorage.getItem('restaurantToken') || sessionStorage.getItem('restaurantToken');
+    if (existingToken) {
+      router.push('/restaurant/dashboard');
+    }
   }, []);
 
   return (

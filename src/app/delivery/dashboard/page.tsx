@@ -73,11 +73,11 @@ export default function DeliveryDashboard() {
     setTimeout(() => setToast(null), 4000);
   };
 
-  const getToken = () => sessionStorage.getItem('deliveryToken');
+  const getToken = () => localStorage.getItem('deliveryToken') || sessionStorage.getItem('deliveryToken');
 
   useEffect(() => {
     const token = getToken();
-    const stored = sessionStorage.getItem('deliveryPartner');
+    const stored = localStorage.getItem('deliveryPartner') || sessionStorage.getItem('deliveryPartner');
     if (!token || !stored) { router.push('/delivery/login'); return; }
     const p = JSON.parse(stored);
     setPartner(p);
@@ -154,7 +154,7 @@ export default function DeliveryDashboard() {
 
           // Admin paid delivery earnings — refresh earnings instantly
           if (msg.type === 'payout_paid') {
-            const stored = sessionStorage.getItem('deliveryPartner');
+            const stored = localStorage.getItem('deliveryPartner') || sessionStorage.getItem('deliveryPartner');
             const myId = stored ? JSON.parse(stored).id : null;
             if (myId && msg.partner_id === myId) {
               showToast(`🎉 ₹${msg.amount_paid} delivery earnings paid to your UPI!`, 'success');
@@ -307,6 +307,11 @@ export default function DeliveryDashboard() {
   const handleLogout = () => {
     sessionStorage.removeItem('deliveryToken');
     sessionStorage.removeItem('deliveryPartner');
+    sessionStorage.removeItem('deliveryRefreshToken');
+    localStorage.removeItem('deliveryToken');
+    localStorage.removeItem('deliveryPartner');
+    localStorage.removeItem('deliveryRefreshToken');
+    localStorage.removeItem('deliveryRememberMe');
     router.push('/delivery/login');
   };
 

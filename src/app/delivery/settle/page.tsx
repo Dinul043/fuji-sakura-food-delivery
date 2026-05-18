@@ -23,9 +23,9 @@ export default function DeliverySettlePage() {
   const [toast, setToast] = useState<{ msg: string; type: 'success' | 'error' } | null>(null);
   const [settlements, setSettlements] = useState<any[]>([]);
 
-  const getToken = () => sessionStorage.getItem('deliveryToken');
+  const getToken = () => (localStorage.getItem('deliveryToken') || sessionStorage.getItem('deliveryToken'));
   const getPartner = () => {
-    const s = sessionStorage.getItem('deliveryPartner');
+    const s = (localStorage.getItem('deliveryPartner') || sessionStorage.getItem('deliveryPartner'));
     return s ? JSON.parse(s) : null;
   };
   const amountToReturn = Math.max(0, codPending - myEarnings);

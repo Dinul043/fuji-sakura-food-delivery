@@ -15,6 +15,7 @@ export default function RestaurantLogin() {
   });
   const [errors, setErrors] = useState<{[key: string]: string}>({});
   const [isLoading, setIsLoading] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
 
   // Forgot password state
   const [step, setStep] = useState<'login' | 'forgot' | 'verify-code' | 'new-password' | 'success'>('login');
@@ -32,28 +33,12 @@ export default function RestaurantLogin() {
     link.rel = 'stylesheet';
     document.head.appendChild(link);
 
-    // Clear any stale restaurant tokens when landing on login page
-    // This prevents session conflicts when users navigate away without proper logout
-    const existingToken = sessionStorage.getItem('restaurantToken');
+    // Check if already logged in (remember me case) — redirect to dashboard
+    const existingToken = localStorage.getItem('restaurantToken') || sessionStorage.getItem('restaurantToken');
     if (existingToken) {
-      // Try to logout from backend (best effort)
-      fetch(`${API_BASE_URL}/api/restaurant/logout`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${existingToken}`,
-          'Content-Type': 'application/json'
-        }
-      }).catch(() => {
-        // Silently ignore errors - we're cleaning up anyway
-      });
-      
-      // Clear local storage
-      sessionStorage.removeItem('restaurantToken');
-      sessionStorage.removeItem('restaurantInfo');
-      localStorage.removeItem('restaurantName');
-      localStorage.removeItem('restaurantEmail');
-      localStorage.removeItem('restaurantOwner');
-      localStorage.removeItem('isRestaurant');
+      // Token exists — user is already logged in, redirect to dashboard
+      router.push('/restaurant/dashboard');
+      return;
     }
   }, []);
 
@@ -86,25 +71,28 @@ export default function RestaurantLogin() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           email: formData.email.trim(),
-          password: formData.password
+          password: formData.password,
+          rememberMe: rememberMe
         })
       });
       
       if (response.ok) {
         const data = await response.json();
         
-        // Store restaurant info
-        sessionStorage.setItem('restaurantInfo', JSON.stringify(data.restaurant));
-        sessionStorage.setItem('restaurantToken', data.access_token);
-        if (data.refresh_token) sessionStorage.setItem('restaurantRefreshToken', data.refresh_token);
+        // Store restaurant info — use localStorage if rememberMe, sessionStorage otherwise
+        const storage = rememberMe ? localStorage : sessionStorage;
+        storage.setItem('restaurantInfo', JSON.stringify(data.restaurant));
+        storage.setItem('restaurantToken', data.access_token);
+        if (data.refresh_token) storage.setItem('restaurantRefreshToken', data.refresh_token);
         localStorage.setItem('restaurantName', data.restaurant.business_name);
         localStorage.setItem('restaurantEmail', data.restaurant.email);
         localStorage.setItem('restaurantOwner', data.restaurant.owner_name);
         localStorage.setItem('isRestaurant', 'true');
+        localStorage.setItem('restaurantRememberMe', rememberMe.toString());
         
-        // Redirect to restaurant dashboard - don't set loading to false here
+        // Redirect to restaurant dashboard
         router.push('/restaurant/dashboard');
-        return; // Exit early to prevent setIsLoading(false)
+        return;
       } else {
         const error = await response.json();
         let errorMessage = 'Login failed. Please try again.';
@@ -510,6 +498,12 @@ export default function RestaurantLogin() {
                   }}
                 />
                 {errors.password && <p style={{ color: '#ef4444', fontSize: '0.875rem', marginTop: '0.5rem' }}>{errors.password}</p>}
+              </div>
+
+              {/* Remember Me */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
+                <input type="checkbox" checked={rememberMe} onChange={(e) => setRememberMe(e.target.checked)} style={{ width: '16px', height: '16px', cursor: 'pointer' }} />
+                <span style={{ color: '#666', fontSize: '0.9rem' }}>Remember me</span>
               </div>
 
               {/* Login Button */}

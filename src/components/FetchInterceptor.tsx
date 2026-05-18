@@ -20,18 +20,18 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 function getRole(): string | null {
   if (typeof window === 'undefined') return null;
   if (localStorage.getItem('token')) return 'user';
-  if (sessionStorage.getItem('restaurantToken')) return 'restaurant';
+  if (sessionStorage.getItem('restaurantToken') || localStorage.getItem('restaurantToken')) return 'restaurant';
   if (localStorage.getItem('adminToken')) return 'admin';
-  if (sessionStorage.getItem('deliveryToken')) return 'delivery';
+  if (sessionStorage.getItem('deliveryToken') || localStorage.getItem('deliveryToken')) return 'delivery';
   return null;
 }
 
 function getRefreshToken(role: string): string | null {
   switch (role) {
     case 'user': return localStorage.getItem('refreshToken');
-    case 'restaurant': return sessionStorage.getItem('restaurantRefreshToken');
+    case 'restaurant': return localStorage.getItem('restaurantRefreshToken') || sessionStorage.getItem('restaurantRefreshToken');
     case 'admin': return localStorage.getItem('adminRefreshToken');
-    case 'delivery': return sessionStorage.getItem('deliveryRefreshToken');
+    case 'delivery': return localStorage.getItem('deliveryRefreshToken') || sessionStorage.getItem('deliveryRefreshToken');
     default: return null;
   }
 }
@@ -52,18 +52,24 @@ function setTokens(role: string, accessToken: string, refreshToken: string) {
       localStorage.setItem('token', accessToken);
       localStorage.setItem('refreshToken', refreshToken);
       break;
-    case 'restaurant':
-      sessionStorage.setItem('restaurantToken', accessToken);
-      sessionStorage.setItem('restaurantRefreshToken', refreshToken);
+    case 'restaurant': {
+      // Check which storage has the token (remember me = localStorage)
+      const rStorage = localStorage.getItem('restaurantRememberMe') === 'true' ? localStorage : sessionStorage;
+      rStorage.setItem('restaurantToken', accessToken);
+      rStorage.setItem('restaurantRefreshToken', refreshToken);
       break;
+    }
     case 'admin':
       localStorage.setItem('adminToken', accessToken);
       localStorage.setItem('adminRefreshToken', refreshToken);
       break;
-    case 'delivery':
-      sessionStorage.setItem('deliveryToken', accessToken);
-      sessionStorage.setItem('deliveryRefreshToken', refreshToken);
+    case 'delivery': {
+      // Check which storage has the token (remember me = localStorage)
+      const dStorage = localStorage.getItem('deliveryRememberMe') === 'true' ? localStorage : sessionStorage;
+      dStorage.setItem('deliveryToken', accessToken);
+      dStorage.setItem('deliveryRefreshToken', refreshToken);
       break;
+    }
   }
 }
 
@@ -145,9 +151,9 @@ export default function FetchInterceptor({ children }: { children: React.ReactNo
         let newToken: string | null = null;
         switch (role) {
           case 'user': newToken = localStorage.getItem('token'); break;
-          case 'restaurant': newToken = sessionStorage.getItem('restaurantToken'); break;
+          case 'restaurant': newToken = localStorage.getItem('restaurantToken') || sessionStorage.getItem('restaurantToken'); break;
           case 'admin': newToken = localStorage.getItem('adminToken'); break;
-          case 'delivery': newToken = sessionStorage.getItem('deliveryToken'); break;
+          case 'delivery': newToken = localStorage.getItem('deliveryToken') || sessionStorage.getItem('deliveryToken'); break;
         }
 
         if (newToken) {

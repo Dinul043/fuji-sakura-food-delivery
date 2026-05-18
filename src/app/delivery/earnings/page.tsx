@@ -31,7 +31,7 @@ export default function DeliveryEarningsPage() {
   const [data, setData] = useState<EarningsSummary | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  const getToken = () => sessionStorage.getItem('deliveryToken');
+  const getToken = () => (localStorage.getItem('deliveryToken') || sessionStorage.getItem('deliveryToken'));
 
   useEffect(() => {
     const token = getToken();

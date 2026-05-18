@@ -41,7 +41,7 @@ export default function DeliveryProfilePage() {
   const [area, setArea] = useState('');
   const [upiId, setUpiId] = useState('');
 
-  const getToken = () => sessionStorage.getItem('deliveryToken');
+  const getToken = () => (localStorage.getItem('deliveryToken') || sessionStorage.getItem('deliveryToken'));
 
   const showToast = (msg: string, type: 'success' | 'error' = 'success') => {
     setToast({ msg, type });
@@ -94,7 +94,7 @@ export default function DeliveryProfilePage() {
         const data = await res.json();
         setPartner(data.partner);
         // Update sessionStorage
-        const stored = sessionStorage.getItem('deliveryPartner');
+        const stored = (localStorage.getItem('deliveryPartner') || sessionStorage.getItem('deliveryPartner'));
         if (stored) {
           const p = JSON.parse(stored);
           sessionStorage.setItem('deliveryPartner', JSON.stringify({ ...p, upi_id: upiId.trim(), area: area.trim(), phone: phone.trim() }));

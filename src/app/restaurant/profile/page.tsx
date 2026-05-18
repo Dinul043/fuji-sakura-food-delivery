@@ -97,7 +97,7 @@ export default function RestaurantProfile() {
 
     setIsUploadingImage(true);
     try {
-      const token = sessionStorage.getItem('restaurantToken');
+      const token = (localStorage.getItem('restaurantToken') || sessionStorage.getItem('restaurantToken'));
       if (!token) {
         router.push('/restaurant/login');
         return;
@@ -143,7 +143,7 @@ export default function RestaurantProfile() {
 
   const fetchProfile = async () => {
     try {
-      const token = sessionStorage.getItem('restaurantToken');
+      const token = (localStorage.getItem('restaurantToken') || sessionStorage.getItem('restaurantToken'));
       
       if (!token) {
         router.push('/restaurant/login');
@@ -185,7 +185,7 @@ export default function RestaurantProfile() {
   const handleSave = async () => {
     try {
       setIsSaving(true);
-      const token = sessionStorage.getItem('restaurantToken');
+      const token = (localStorage.getItem('restaurantToken') || sessionStorage.getItem('restaurantToken'));
 
       const response = await fetch(`${API_BASE_URL}/api/restaurant/profile`, {
         method: 'PUT',

@@ -24,8 +24,8 @@ export default function RestaurantReviewsPage() {
   const wsRef = useRef<WebSocket | null>(null);
 
   useEffect(() => {
-    const info = sessionStorage.getItem('restaurantInfo');
-    const token = sessionStorage.getItem('restaurantToken');
+    const info = (localStorage.getItem('restaurantInfo') || sessionStorage.getItem('restaurantInfo'));
+    const token = (localStorage.getItem('restaurantToken') || sessionStorage.getItem('restaurantToken'));
     if (!token || !info) { router.push('/restaurant/login'); return; }
     const parsed = JSON.parse(info);
     setRestaurantId(parsed.id);
