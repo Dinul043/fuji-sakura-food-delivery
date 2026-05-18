@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 
@@ -40,6 +40,9 @@ export default function RestaurantApplicationPage() {
   const [errors, setErrors] = useState<{[key: string]: string}>({});
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
+  const licenseTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const permitTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const phoneTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   const validateEmail = (email: string) => {
     const cleanEmail = email.trim();
@@ -105,17 +108,20 @@ export default function RestaurantApplicationPage() {
       setFormData(prev => ({ ...prev, [name]: numbersOnly }));
       
       // Real-time phone validation (debounced)
+      if (phoneTimerRef.current) clearTimeout(phoneTimerRef.current);
       if (numbersOnly.length >= 10) {
-        setTimeout(() => checkPhoneAvailability(numbersOnly), 500);
+        phoneTimerRef.current = setTimeout(() => checkPhoneAvailability(numbersOnly), 500);
       }
     } else {
       setFormData(prev => ({ ...prev, [name]: value }));
       
-      // Real-time validation for business license and food permit
+      // Real-time validation for business license and food permit (debounced)
       if (name === 'businessLicense' && value.trim().length >= 3) {
-        setTimeout(() => checkLicenseAvailability(value.trim()), 500);
+        if (licenseTimerRef.current) clearTimeout(licenseTimerRef.current);
+        licenseTimerRef.current = setTimeout(() => checkLicenseAvailability(value.trim()), 500);
       } else if (name === 'foodPermit' && value.trim().length >= 3) {
-        setTimeout(() => checkPermitAvailability(value.trim()), 500);
+        if (permitTimerRef.current) clearTimeout(permitTimerRef.current);
+        permitTimerRef.current = setTimeout(() => checkPermitAvailability(value.trim()), 500);
       }
     }
     
@@ -337,14 +343,11 @@ export default function RestaurantApplicationPage() {
               } else if (errorText.includes('phone')) {
                 setErrors(prev => ({ ...prev, phone: errorText }));
                 setCurrentStep(1); // Go back to step 1 for phone error
-              } else if (errorText.includes('business license')) {
+              } else if (errorText.includes('business license') || errorText.includes('license')) {
                 setErrors(prev => ({ ...prev, businessLicense: errorText }));
-                // Stay on current step (step 3) for license error
-              } else if (errorText.includes('food permit')) {
+              } else if (errorText.includes('food permit') || errorText.includes('permit')) {
                 setErrors(prev => ({ ...prev, foodPermit: errorText }));
-                // Stay on current step (step 3) for permit error
               } else {
-                // Generic conflict error
                 setErrors(prev => ({ ...prev, businessLicense: errorText }));
               }
               return;
@@ -352,12 +355,14 @@ export default function RestaurantApplicationPage() {
               if (typeof error.detail === 'string') {
                 errorMessage = error.detail;
               } else if (Array.isArray(error.detail)) {
-                errorMessage = error.detail[0]?.msg || errorMessage;
+                // Pydantic validation errors
+                const firstError = error.detail[0];
+                errorMessage = firstError?.msg || firstError?.message || errorMessage;
               }
             }
           } catch (parseError) {
-            // Error parsing response, use default message
-            errorMessage = `Server error (${response.status}). Please try again.`;
+            // Error parsing response, use status-based message
+            errorMessage = `Server error (${response.status}). Please try again later.`;
           }
           
           // Show error in business license field for other errors
