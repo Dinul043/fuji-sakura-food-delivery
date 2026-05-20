@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 
@@ -40,68 +40,12 @@ export default function RestaurantApplicationPage() {
   const [errors, setErrors] = useState<{[key: string]: string}>({});
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
-  const licenseTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const permitTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const phoneTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const formDataRef = useRef(formData);
-  formDataRef.current = formData; // Always keep ref in sync
 
   const validateEmail = (email: string) => {
     const cleanEmail = email.trim();
     // Requires: something@something.something (min 2 chars in domain, min 2 chars in TLD)
     const emailRegex = /^[^\s@]+@[a-zA-Z0-9-]{2,}\.[a-zA-Z]{2,}$/;
     return emailRegex.test(cleanEmail);
-  };
-
-  const checkPhoneAvailability = async (phone: string) => {
-    if (!phone || phone.length < 10) return;
-    
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/restaurant/check-phone/${phone}`);
-      if (response.ok) {
-        const data = await response.json();
-        // Only set error if the field STILL has this value (user hasn't changed it)
-        if (formDataRef.current.phone === phone && !data.available) {
-          setErrors(e => ({ ...e, phone: data.message }));
-        }
-      }
-    } catch {
-      // Silently fail - don't show network errors for real-time validation
-    }
-  };
-
-  const checkLicenseAvailability = async (license: string) => {
-    if (!license || license.length < 3) return;
-    
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/restaurant/check-license/${encodeURIComponent(license)}`);
-      if (response.ok) {
-        const data = await response.json();
-        // Only set error if the field STILL has this value (user hasn't changed it)
-        if (formDataRef.current.businessLicense.trim() === license && !data.available) {
-          setErrors(e => ({ ...e, businessLicense: data.message }));
-        }
-      }
-    } catch {
-      // Silently fail - don't show network errors for real-time validation
-    }
-  };
-
-  const checkPermitAvailability = async (permit: string) => {
-    if (!permit || permit.length < 3) return;
-    
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/restaurant/check-permit/${encodeURIComponent(permit)}`);
-      if (response.ok) {
-        const data = await response.json();
-        // Only set error if the field STILL has this value (user hasn't changed it)
-        if (formDataRef.current.foodPermit.trim() === permit && !data.available) {
-          setErrors(e => ({ ...e, foodPermit: data.message }));
-        }
-      }
-    } catch {
-      // Silently fail - don't show network errors for real-time validation
-    }
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
@@ -111,23 +55,8 @@ export default function RestaurantApplicationPage() {
     if (name === 'phone') {
       const numbersOnly = value.replace(/\D/g, ''); // Remove all non-digits
       setFormData(prev => ({ ...prev, [name]: numbersOnly }));
-      
-      // Real-time phone validation (debounced)
-      if (phoneTimerRef.current) clearTimeout(phoneTimerRef.current);
-      if (numbersOnly.length >= 10) {
-        phoneTimerRef.current = setTimeout(() => checkPhoneAvailability(numbersOnly), 500);
-      }
     } else {
       setFormData(prev => ({ ...prev, [name]: value }));
-      
-      // Real-time validation for business license and food permit (debounced)
-      if (name === 'businessLicense' && value.trim().length >= 3) {
-        if (licenseTimerRef.current) clearTimeout(licenseTimerRef.current);
-        licenseTimerRef.current = setTimeout(() => checkLicenseAvailability(value.trim()), 500);
-      } else if (name === 'foodPermit' && value.trim().length >= 3) {
-        if (permitTimerRef.current) clearTimeout(permitTimerRef.current);
-        permitTimerRef.current = setTimeout(() => checkPermitAvailability(value.trim()), 500);
-      }
     }
     
     // Always clear error for this field when user types (unconditional)
