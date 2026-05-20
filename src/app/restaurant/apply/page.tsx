@@ -59,7 +59,13 @@ export default function RestaurantApplicationPage() {
       if (response.ok) {
         const data = await response.json();
         if (!data.available) {
-          setErrors(prev => ({ ...prev, phone: data.message }));
+          // Only set error if the field still has this value (prevent stale updates)
+          setFormData(prev => {
+            if (prev.phone === phone) {
+              setErrors(e => ({ ...e, phone: data.message }));
+            }
+            return prev;
+          });
         }
       }
     } catch (error) {
@@ -75,7 +81,13 @@ export default function RestaurantApplicationPage() {
       if (response.ok) {
         const data = await response.json();
         if (!data.available) {
-          setErrors(prev => ({ ...prev, businessLicense: data.message }));
+          // Only set error if the field still has this value (prevent stale updates)
+          setFormData(prev => {
+            if (prev.businessLicense.trim() === license) {
+              setErrors(e => ({ ...e, businessLicense: data.message }));
+            }
+            return prev;
+          });
         }
       }
     } catch (error) {
@@ -91,7 +103,13 @@ export default function RestaurantApplicationPage() {
       if (response.ok) {
         const data = await response.json();
         if (!data.available) {
-          setErrors(prev => ({ ...prev, foodPermit: data.message }));
+          // Only set error if the field still has this value (prevent stale updates)
+          setFormData(prev => {
+            if (prev.foodPermit.trim() === permit) {
+              setErrors(e => ({ ...e, foodPermit: data.message }));
+            }
+            return prev;
+          });
         }
       }
     } catch (error) {
