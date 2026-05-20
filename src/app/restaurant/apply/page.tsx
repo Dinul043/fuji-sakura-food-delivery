@@ -43,6 +43,8 @@ export default function RestaurantApplicationPage() {
   const licenseTimerRef = useRef<NodeJS.Timeout | null>(null);
   const permitTimerRef = useRef<NodeJS.Timeout | null>(null);
   const phoneTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const formDataRef = useRef(formData);
+  formDataRef.current = formData; // Always keep ref in sync
 
   const validateEmail = (email: string) => {
     const cleanEmail = email.trim();
@@ -58,17 +60,12 @@ export default function RestaurantApplicationPage() {
       const response = await fetch(`${API_BASE_URL}/api/restaurant/check-phone/${phone}`);
       if (response.ok) {
         const data = await response.json();
-        if (!data.available) {
-          // Only set error if the field still has this value (prevent stale updates)
-          setFormData(prev => {
-            if (prev.phone === phone) {
-              setErrors(e => ({ ...e, phone: data.message }));
-            }
-            return prev;
-          });
+        // Only set error if the field STILL has this value (user hasn't changed it)
+        if (formDataRef.current.phone === phone && !data.available) {
+          setErrors(e => ({ ...e, phone: data.message }));
         }
       }
-    } catch (error) {
+    } catch {
       // Silently fail - don't show network errors for real-time validation
     }
   };
@@ -80,17 +77,12 @@ export default function RestaurantApplicationPage() {
       const response = await fetch(`${API_BASE_URL}/api/restaurant/check-license/${encodeURIComponent(license)}`);
       if (response.ok) {
         const data = await response.json();
-        if (!data.available) {
-          // Only set error if the field still has this value (prevent stale updates)
-          setFormData(prev => {
-            if (prev.businessLicense.trim() === license) {
-              setErrors(e => ({ ...e, businessLicense: data.message }));
-            }
-            return prev;
-          });
+        // Only set error if the field STILL has this value (user hasn't changed it)
+        if (formDataRef.current.businessLicense.trim() === license && !data.available) {
+          setErrors(e => ({ ...e, businessLicense: data.message }));
         }
       }
-    } catch (error) {
+    } catch {
       // Silently fail - don't show network errors for real-time validation
     }
   };
@@ -102,17 +94,12 @@ export default function RestaurantApplicationPage() {
       const response = await fetch(`${API_BASE_URL}/api/restaurant/check-permit/${encodeURIComponent(permit)}`);
       if (response.ok) {
         const data = await response.json();
-        if (!data.available) {
-          // Only set error if the field still has this value (prevent stale updates)
-          setFormData(prev => {
-            if (prev.foodPermit.trim() === permit) {
-              setErrors(e => ({ ...e, foodPermit: data.message }));
-            }
-            return prev;
-          });
+        // Only set error if the field STILL has this value (user hasn't changed it)
+        if (formDataRef.current.foodPermit.trim() === permit && !data.available) {
+          setErrors(e => ({ ...e, foodPermit: data.message }));
         }
       }
-    } catch (error) {
+    } catch {
       // Silently fail - don't show network errors for real-time validation
     }
   };
@@ -143,9 +130,8 @@ export default function RestaurantApplicationPage() {
       }
     }
     
-    if (errors[name as keyof typeof errors]) {
-      setErrors(prev => ({ ...prev, [name]: '' }));
-    }
+    // Always clear error for this field when user types (unconditional)
+    setErrors(prev => ({ ...prev, [name]: '' }));
   };
 
   const handleNextStep = () => {
