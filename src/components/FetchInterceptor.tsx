@@ -148,7 +148,6 @@ export default function FetchInterceptor({ children }: { children: React.ReactNo
       }
 
       const refreshed = await refreshPromise;
-      refreshPromise = null;
 
       if (refreshed) {
         // Retry original request with new token
@@ -171,7 +170,25 @@ export default function FetchInterceptor({ children }: { children: React.ReactNo
 
         return originalFetch(input, newInit);
       } else {
-        // Refresh failed — redirect to login
+        // Refresh failed — clear tokens and redirect to login
+        // This prevents the login page from redirecting back (loop)
+        if (role === 'user') {
+          localStorage.removeItem('token');
+          localStorage.removeItem('refreshToken');
+        } else if (role === 'restaurant') {
+          localStorage.removeItem('restaurantToken');
+          sessionStorage.removeItem('restaurantToken');
+          localStorage.removeItem('restaurantRefreshToken');
+          sessionStorage.removeItem('restaurantRefreshToken');
+        } else if (role === 'admin') {
+          localStorage.removeItem('adminToken');
+          localStorage.removeItem('adminRefreshToken');
+        } else if (role === 'delivery') {
+          localStorage.removeItem('deliveryToken');
+          sessionStorage.removeItem('deliveryToken');
+          localStorage.removeItem('deliveryRefreshToken');
+          sessionStorage.removeItem('deliveryRefreshToken');
+        }
         window.location.href = getLoginRoute(role);
         return response;
       }
