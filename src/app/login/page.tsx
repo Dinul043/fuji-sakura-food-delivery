@@ -105,9 +105,46 @@ export default function LoginPage() {
   };
 
   const validateEmail = (email: string) => {
-    const cleanEmail = email.trim();
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return emailRegex.test(cleanEmail) && cleanEmail.includes('@') && cleanEmail.split('@').length === 2;
+    const cleanEmail = email.trim().toLowerCase();
+    // Basic format check
+    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+    if (!emailRegex.test(cleanEmail)) return false;
+    
+    // Domain must have at least 2 chars before dot and valid TLD
+    const domain = cleanEmail.split('@')[1];
+    if (!domain || domain.length < 4) return false; // minimum: "a.co"
+    
+    // Check for common typos in popular domains
+    const commonTypos: Record<string, string> = {
+      'gnail.com': 'gmail.com', 'gmal.com': 'gmail.com', 'gmial.com': 'gmail.com',
+      'gamil.com': 'gmail.com', 'gmaill.com': 'gmail.com', 'gmil.com': 'gmail.com',
+      'yaho.com': 'yahoo.com', 'yahooo.com': 'yahoo.com', 'yhaoo.com': 'yahoo.com',
+      'hotmal.com': 'hotmail.com', 'hotmial.com': 'hotmail.com',
+      'outlok.com': 'outlook.com', 'outllook.com': 'outlook.com',
+    };
+    if (commonTypos[domain]) return false; // Will show "did you mean" in error
+    
+    // TLD must be valid (at least 2 chars, common ones)
+    const tld = domain.split('.').pop() || '';
+    if (tld.length < 2) return false;
+    
+    return true;
+  };
+
+  // Get email typo suggestion
+  const getEmailSuggestion = (email: string): string | null => {
+    const domain = email.trim().toLowerCase().split('@')[1];
+    const typos: Record<string, string> = {
+      'gnail.com': 'gmail.com', 'gmal.com': 'gmail.com', 'gmial.com': 'gmail.com',
+      'gamil.com': 'gmail.com', 'gmaill.com': 'gmail.com', 'gmil.com': 'gmail.com',
+      'yaho.com': 'yahoo.com', 'yahooo.com': 'yahoo.com', 'yhaoo.com': 'yahoo.com',
+      'hotmal.com': 'hotmail.com', 'hotmial.com': 'hotmail.com',
+      'outlok.com': 'outlook.com', 'outllook.com': 'outlook.com',
+    };
+    if (domain && typos[domain]) {
+      return email.split('@')[0] + '@' + typos[domain];
+    }
+    return null;
   };
 
   const validatePassword = (password: string) => {
@@ -220,7 +257,7 @@ export default function LoginPage() {
     if (!cleanEmail) {
       newErrors.email = 'Email is required';
     } else if (!validateEmail(cleanEmail)) {
-      newErrors.email = 'Please enter a valid email address';
+      const suggestion = getEmailSuggestion(cleanEmail); newErrors.email = suggestion ? `Invalid email. Did you mean ${suggestion}?` : 'Please enter a valid email address';
     }
     if (!formData.password.trim()) {
       newErrors.password = 'Password is required';
@@ -352,7 +389,7 @@ export default function LoginPage() {
     if (!cleanEmail) {
       newErrors.email = 'Email is required';
     } else if (!validateEmail(cleanEmail)) {
-      newErrors.email = 'Please enter a valid email address';
+      const suggestion = getEmailSuggestion(cleanEmail); newErrors.email = suggestion ? `Invalid email. Did you mean ${suggestion}?` : 'Please enter a valid email address';
     }
     setErrors(newErrors);
     if (!newErrors.email) {
@@ -536,7 +573,7 @@ export default function LoginPage() {
     if (!cleanEmail) {
       newErrors.email = 'Email is required';
     } else if (!validateEmail(cleanEmail)) {
-      newErrors.email = 'Please enter a valid email address';
+      const suggestion = getEmailSuggestion(cleanEmail); newErrors.email = suggestion ? `Invalid email. Did you mean ${suggestion}?` : 'Please enter a valid email address';
     }
     setErrors(newErrors);
     

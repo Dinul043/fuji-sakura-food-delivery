@@ -44,10 +44,14 @@ export default function RestaurantApplicationPage() {
   const router = useRouter();
 
   const validateEmail = (email: string) => {
-    const cleanEmail = email.trim();
-    // Requires: something@something.something (min 2 chars in domain, min 2 chars in TLD)
-    const emailRegex = /^[^\s@]+@[a-zA-Z0-9-]{2,}\.[a-zA-Z]{2,}$/;
-    return emailRegex.test(cleanEmail);
+    const cleanEmail = email.trim().toLowerCase();
+    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+    if (!emailRegex.test(cleanEmail)) return false;
+    const domain = cleanEmail.split('@')[1];
+    // Check common typos
+    const typos = ['gnail.com','gmal.com','gmial.com','gamil.com','yaho.com','hotmal.com','outlok.com'];
+    if (typos.includes(domain)) return false;
+    return true;
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
