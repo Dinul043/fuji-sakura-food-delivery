@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { useCart } from '../../contexts/CartContext';
 import AuthPopup from '../../components/AuthPopup';
-import { getFullImageUrl } from '../../config/constants';
+import { getFullImageUrl, API_BASE_URL } from '../../config/constants';
 
 export default function CartPage() {
   const router = useRouter();
@@ -21,8 +21,25 @@ export default function CartPage() {
     const storedName = localStorage.getItem('userName') || 'Guest';
     setUserName(storedName);
     
-    // Mock delivery address
-    setDeliveryAddress('123 Sakura Street, Tokyo District, City 12345');
+    // Load delivery address from detected location or profile
+    const savedLocationAddress = localStorage.getItem('userLocationAddress');
+    if (savedLocationAddress) {
+      setDeliveryAddress(savedLocationAddress);
+    } else {
+      // Fetch from profile as fallback
+      const token = localStorage.getItem('token');
+      if (token) {
+        fetch(`${API_BASE_URL}/api/auth/me`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        }).then(r => r.ok ? r.json() : null)
+          .then(profile => {
+            if (profile?.address) setDeliveryAddress(profile.address);
+            else setDeliveryAddress('Set your delivery location from the home page');
+          }).catch(() => {});
+      } else {
+        setDeliveryAddress('Set your delivery location from the home page');
+      }
+    }
   }, []);
 
   // Separate effect for cart-dependent operations
@@ -46,7 +63,7 @@ export default function CartPage() {
     return getSelectedItems().reduce((total, item) => total + item.quantity, 0);
   };
 
-  const deliveryFee = 2.99;
+  const deliveryFee = 40;
   const taxRate = 0.08; // 8% tax
   const subtotal = getTotalPrice();
   const selectedSubtotal = getSelectedTotal();
@@ -807,7 +824,7 @@ export default function CartPage() {
               fontSize: '0.9rem',
               margin: 0
             }}>
-              25-35 minutes
+              15-30 minutes
             </p>
           </div>
         </div>

@@ -29,6 +29,7 @@ export default function CheckoutPage() {
     city: 'Chennai',
     pincode: ''
   });
+  const [deliveryCoords, setDeliveryCoords] = useState<{lat: number; lng: number} | null>(null);
   const [paymentMethod, setPaymentMethod] = useState('');
   const [orderInstructions, setOrderInstructions] = useState('');
 
@@ -146,6 +147,9 @@ export default function CheckoutPage() {
       newErrors.pincode = 'Please enter a valid pincode';
     }
     
+    // Delivery coordinates check — user must use "Use Current Location" or we geocode on submit
+    // If no coords, we'll geocode the typed address during order placement
+    
     // Payment method validation
     if (!paymentMethod) {
       newErrors.paymentMethod = 'Please select a payment method';
@@ -165,6 +169,24 @@ export default function CheckoutPage() {
     setIsLoading(true);
     
     try {
+      // If no delivery coordinates yet (user typed address manually), geocode it
+      let finalCoords = deliveryCoords;
+      if (!finalCoords) {
+        try {
+          const geocodeQuery = `${deliveryAddress.address}, ${deliveryAddress.city}, ${deliveryAddress.pincode}`;
+          const geoRes = await fetch(`${API_BASE_URL}/api/geocode/search?q=${encodeURIComponent(geocodeQuery)}&limit=1`);
+          if (geoRes.ok) {
+            const geoData = await geoRes.json();
+            if (geoData.suggestions && geoData.suggestions.length > 0) {
+              finalCoords = { lat: geoData.suggestions[0].latitude, lng: geoData.suggestions[0].longitude };
+              setDeliveryCoords(finalCoords);
+            }
+          }
+        } catch {
+          // Geocoding failed — proceed without coords, backend will handle
+        }
+      }
+
       // Sync phone & address back to user profile in DB
       const authToken = localStorage.getItem('token');
       const userName = localStorage.getItem('userName') || deliveryAddress.fullName;
@@ -193,6 +215,8 @@ export default function CheckoutPage() {
         },
         body: JSON.stringify({
           delivery_address: deliveryAddress,
+          delivery_latitude: finalCoords?.lat || null,
+          delivery_longitude: finalCoords?.lng || null,
           payment_method: paymentMethod,
           special_instructions: orderInstructions,
           cart_items: cartItemIds
@@ -588,6 +612,84 @@ export default function CheckoutPage() {
               <Image src="/icons/delivery/location.svg" alt="Location" width={24} height={24} />
               Delivery Address
             </h2>
+
+            {/* Quick location fill button */}
+            <div style={{ marginBottom: '1.5rem' }}>
+              <button
+                type="button"
+                onClick={async () => {
+                  // Try to use saved location first
+                  const savedAddress = localStorage.getItem('userLocationAddress');
+                  const savedLat = localStorage.getItem('userLat');
+                  const savedLng = localStorage.getItem('userLng');
+                  
+                  if (savedAddress && savedLat && savedLng) {
+                    // Use saved location — reverse geocode for full details
+                    try {
+                      const res = await fetch(`${API_BASE_URL}/api/geocode/reverse?lat=${savedLat}&lng=${savedLng}`);
+                      if (res.ok) {
+                        const data = await res.json();
+                        setDeliveryAddress(prev => ({
+                          ...prev,
+                          address: data.full_address || savedAddress,
+                          city: data.city || prev.city,
+                          pincode: data.postcode || prev.pincode,
+                        }));
+                        setDeliveryCoords({ lat: parseFloat(savedLat), lng: parseFloat(savedLng) });
+                        setErrors(prev => ({ ...prev, address: '' }));
+                        return;
+                      }
+                    } catch { /* fall through to GPS */ }
+                  }
+                  
+                  // No saved location — detect via GPS
+                  if (!navigator.geolocation) return;
+                  navigator.geolocation.getCurrentPosition(
+                    async (position) => {
+                      const { latitude, longitude } = position.coords;
+                      try {
+                        const res = await fetch(`${API_BASE_URL}/api/geocode/reverse?lat=${latitude}&lng=${longitude}`);
+                        if (res.ok) {
+                          const data = await res.json();
+                          setDeliveryAddress(prev => ({
+                            ...prev,
+                            address: data.full_address || `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`,
+                            city: data.city || prev.city,
+                            pincode: data.postcode || prev.pincode,
+                          }));
+                          setDeliveryCoords({ lat: latitude, lng: longitude });
+                          setErrors(prev => ({ ...prev, address: '' }));
+                          // Also save as delivery location
+                          const label = data.area ? `${data.area}, ${data.city}` : data.city;
+                          localStorage.setItem('userLat', latitude.toString());
+                          localStorage.setItem('userLng', longitude.toString());
+                          localStorage.setItem('userLocationAddress', label);
+                        }
+                      } catch { /* silent */ }
+                    },
+                    () => { /* GPS denied — do nothing */ },
+                    { enableHighAccuracy: true, timeout: 10000 }
+                  );
+                }}
+                style={{
+                  width: '100%',
+                  padding: '0.75rem 1rem',
+                  borderRadius: '10px',
+                  border: '2px solid #FF5722',
+                  background: 'linear-gradient(135deg, #fff5f2, #ffffff)',
+                  color: '#FF5722',
+                  fontWeight: '600',
+                  fontSize: '0.9rem',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '0.5rem',
+                }}
+              >
+                📍 Use Current Location
+              </button>
+            </div>
 
             <div style={{
               display: 'grid',
@@ -1459,15 +1561,25 @@ export default function CheckoutPage() {
             </div>
             <p style={{
               color: '#0369a1',
-              fontSize: '1rem', // Larger
+              fontSize: '1rem',
               margin: 0,
-              fontWeight: '600', // Bolder
+              fontWeight: '600',
               background: 'rgba(3, 105, 161, 0.1)',
               borderRadius: '8px',
               padding: '0.5rem 1rem',
               display: 'inline-block'
             }}>
-              ⚡ 25-35 minutes
+              ⚡ {(() => {
+                const savedLat = localStorage.getItem('userLat');
+                const savedLng = localStorage.getItem('userLng');
+                if (savedLat && savedLng && cart.length > 0) {
+                  // Rough estimate: 10 min cooking + distance-based travel
+                  // We don't have restaurant coords here, so use a reasonable default
+                  // based on the fact that user can only order from nearby restaurants (15km max)
+                  return '15-30 minutes';
+                }
+                return '25-35 minutes';
+              })()}
             </p>
             <div style={{
               marginTop: '0.75rem',

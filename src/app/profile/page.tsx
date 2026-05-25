@@ -479,12 +479,12 @@ export default function ProfilePage() {
               </div>
               <div>
                 <label style={{ fontSize:  '0.85rem', fontWeight: '600', color: '#374151', display: 'block', marginBottom: '0.4rem' }}>
-                  📍 Delivery Address
+                  📍 Default Delivery Address
                 </label>
                 <textarea
                   value={newAddress}
                   onChange={(e) => setNewAddress(e.target.value)}
-                  placeholder="Enter your delivery address..."
+                  placeholder="Enter your default delivery address (auto-fills at checkout)..."
                   rows={3}
                   style={{
                     width: '100%', padding: '0.75rem 1rem', borderRadius: '10px',
@@ -494,25 +494,6 @@ export default function ProfilePage() {
                   onFocus={(e) => { e.currentTarget.style.borderColor = '#ff6b6b'; }}
                   onBlur={(e) => { e.currentTarget.style.borderColor = '#e5e7eb'; }}
                 />
-              </div>
-              {/* Find by Map - coming soon */}
-              <div style={{
-                display: 'flex', alignItems: 'center', gap: '0.75rem',
-                padding: '0.875rem 1rem', borderRadius: '12px',
-                background: 'linear-gradient(135deg, rgba(255,107,107,0.06), rgba(95,39,205,0.06))',
-                border: '1.5px dashed rgba(255,107,107,0.35)',
-                cursor: 'not-allowed'
-              }}>
-                <span style={{ fontSize: '1.3rem' }}>🗺️</span>
-                <div>
-                  <p style={{ margin: 0, fontSize: '0.9rem', fontWeight: '600', color: '#374151' }}>Find by Map</p>
-                  <p style={{ margin: 0, fontSize: '0.75rem', color: '#9ca3af' }}>Coming soon — pin your location on the map</p>
-                </div>
-                <span style={{
-                  marginLeft: 'auto', fontSize: '0.7rem', fontWeight: '700',
-                  background: 'linear-gradient(135deg, #ff6b6b, #5f27cd)',
-                  color: 'white', padding: '0.2rem 0.6rem', borderRadius: '20px'
-                }}>Soon</span>
               </div>
               <div style={{ display: 'flex', gap: '0.75rem' }}>
                 <button
@@ -563,6 +544,92 @@ export default function ProfilePage() {
               ))}
             </div>
           )}
+        </div>
+
+        {/* Delivery Location Card */}
+        <div style={{
+          background: 'rgba(255,255,255,0.97)', borderRadius: '20px',
+          padding: '1.75rem', boxShadow: '0 8px 32px rgba(0,0,0,0.1)'
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
+            <h3 style={{ fontSize: '1.1rem', fontWeight: '700', color: '#1f2937', margin: 0 }}>
+              📍 Delivery Location
+            </h3>
+          </div>
+          
+          <p style={{ fontSize: '0.82rem', color: '#6b7280', margin: '0 0 1rem' }}>
+            Where should we deliver? This is separate from your profile address.
+          </p>
+
+          {/* Current delivery location */}
+          {typeof window !== 'undefined' && localStorage.getItem('userLocationAddress') ? (
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: '0.75rem',
+              background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '12px',
+              padding: '0.875rem 1rem', marginBottom: '1rem'
+            }}>
+              <span style={{ fontSize: '1.3rem' }}>✅</span>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: '0.75rem', color: '#166534', fontWeight: '600' }}>Current Delivery Location</div>
+                <div style={{ fontSize: '0.9rem', color: '#1f2937', fontWeight: '600', marginTop: '0.15rem' }}>
+                  {localStorage.getItem('userLocationAddress')}
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: '0.75rem',
+              background: '#fef3c7', border: '1px solid #fde68a', borderRadius: '12px',
+              padding: '0.875rem 1rem', marginBottom: '1rem'
+            }}>
+              <span style={{ fontSize: '1.3rem' }}>⚠️</span>
+              <div>
+                <div style={{ fontSize: '0.85rem', color: '#92400e', fontWeight: '600' }}>No delivery location set</div>
+                <div style={{ fontSize: '0.75rem', color: '#a16207' }}>Detect your location to see nearby restaurants</div>
+              </div>
+            </div>
+          )}
+
+          {/* Detect location button */}
+          <button
+            onClick={async () => {
+              if (!navigator.geolocation) { showToast('error', 'Geolocation not supported'); return; }
+              const btn = document.getElementById('profile-detect-btn');
+              if (btn) { btn.textContent = '⏳ Detecting...'; (btn as HTMLButtonElement).disabled = true; }
+              try {
+                const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+                  navigator.geolocation.getCurrentPosition(resolve, reject, {
+                    enableHighAccuracy: true, timeout: 10000, maximumAge: 60000,
+                  });
+                });
+                const { latitude, longitude } = position.coords;
+                const res = await fetch(`${API_BASE_URL}/api/geocode/reverse?lat=${latitude}&lng=${longitude}`);
+                let label = `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`;
+                if (res.ok) {
+                  const data = await res.json();
+                  label = data.area ? `${data.area}, ${data.city}` : data.city || data.full_address;
+                }
+                localStorage.setItem('userLat', latitude.toString());
+                localStorage.setItem('userLng', longitude.toString());
+                localStorage.setItem('userLocationAddress', label);
+                showToast('success', `📍 Location updated: ${label}`);
+                setProfile(prev => prev ? { ...prev } : null); // Force re-render
+              } catch {
+                showToast('error', 'Could not detect location. Please allow GPS access in browser settings.');
+              } finally {
+                const btn = document.getElementById('profile-detect-btn');
+                if (btn) { btn.textContent = '📍 Detect My Location'; (btn as HTMLButtonElement).disabled = false; }
+              }
+            }}
+            id="profile-detect-btn"
+            style={{
+              width: '100%', padding: '0.875rem', borderRadius: '12px', border: '2px solid #FF5722',
+              background: 'linear-gradient(135deg, #fff5f2, #ffffff)', color: '#FF5722',
+              fontWeight: '700', fontSize: '0.95rem', cursor: 'pointer',
+            }}
+          >
+            📍 Detect My Location
+          </button>
         </div>
 
         {/* Change Password Card */}

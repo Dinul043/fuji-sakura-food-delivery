@@ -18,8 +18,8 @@ interface RealRestaurant {
   address: string;
   phone: string;
   email: string;
-  restaurant_image: string;  // Added restaurant image field
-  is_online: boolean;  // Restaurant online/offline status
+  restaurant_image: string;
+  is_online: boolean;
   menu_items_count: number;
   average_price: number;
   created_at: string;
@@ -30,6 +30,8 @@ interface RealRestaurant {
   image: string;
   tags: string[];
   category: string;
+  distance_km?: number | null;
+  is_deliverable?: boolean;
 }
 
 interface RealCategory {
@@ -59,6 +61,10 @@ export default function HomePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showSortDropdown, setShowSortDropdown] = useState(false);
+  const [userLat, setUserLat] = useState<number | null>(null);
+  const [userLng, setUserLng] = useState<number | null>(null);
+  const [locationLoading, setLocationLoading] = useState(false);
+  const [showLocationPrompt, setShowLocationPrompt] = useState(false);
   const router = useRouter();
   const restaurantsRef = useRef<HTMLDivElement>(null);
   const { getTotalItems } = useCart();
@@ -70,13 +76,19 @@ export default function HomePage() {
   ];
 
   // Fetch restaurants from backend with silent error handling
-  const fetchRestaurants = async () => {
+  const fetchRestaurants = async (lat?: number | null, lng?: number | null) => {
     try {
       setLoading(true);
       setError(null);
 
-      const response = await fetch(`${API_BASE_URL}/api/restaurant/public/restaurants`, {
-        signal: AbortSignal.timeout(5000) // 5 second timeout
+      // Build URL with optional location params
+      let url = `${API_BASE_URL}/api/restaurant/public/restaurants`;
+      if (lat && lng) {
+        url += `?lat=${lat}&lng=${lng}`;
+      }
+
+      const response = await fetch(url, {
+        signal: AbortSignal.timeout(8000) // 8 second timeout (geocoding may add latency)
       });
 
       if (!response.ok) {
@@ -90,7 +102,7 @@ export default function HomePage() {
       // Silent fallback - no console errors, just empty arrays
       setRestaurants([]);
       setFilteredRestaurants([]);
-      setError('Oops! There is a network issue. Please check your connection.'); // Show network error message
+      setError('Oops! There is a network issue. Please check your connection.');
     } finally {
       setLoading(false);
     }
@@ -123,7 +135,7 @@ export default function HomePage() {
     const storedName = localStorage.getItem('userName') || 'Guest';
     setUserName(storedName);
 
-    // Fetch user address from profile
+    // Fetch user profile image (NOT address — delivery location is separate)
     const token = localStorage.getItem('token');
     if (token) {
       fetch(`${API_BASE_URL}/api/auth/me`, {
@@ -131,16 +143,148 @@ export default function HomePage() {
       })
         .then(r => r.ok ? r.json() : null)
         .then(profile => {
-          if (profile?.address) setUserAddress(profile.address);
           if (profile?.profile_image) setUserProfileImage(profile.profile_image);
         })
         .catch(() => { });
     }
 
-    // Fetch data from backend
-    fetchRestaurants();
+    // Load saved DELIVERY location from localStorage (this is what the header shows)
+    const savedLat = localStorage.getItem('userLat');
+    const savedLng = localStorage.getItem('userLng');
+    const savedLocationAddress = localStorage.getItem('userLocationAddress');
+
+    if (savedLat && savedLng) {
+      const lat = parseFloat(savedLat);
+      const lng = parseFloat(savedLng);
+      setUserLat(lat);
+      setUserLng(lng);
+      if (savedLocationAddress) setUserAddress(savedLocationAddress);
+      fetchRestaurants(lat, lng);
+    } else if (token) {
+      // No localStorage location — try loading from DB (user_addresses)
+      fetch(`${API_BASE_URL}/api/geocode/addresses`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      }).then(r => r.ok ? r.json() : null)
+        .then(addresses => {
+          if (addresses && addresses.length > 0) {
+            // Use the default or first address
+            const defaultAddr = addresses.find((a: any) => a.is_default) || addresses[0];
+            const lat = defaultAddr.latitude;
+            const lng = defaultAddr.longitude;
+            const label = defaultAddr.area ? `${defaultAddr.area}, ${defaultAddr.city}` : defaultAddr.city || defaultAddr.full_address;
+            setUserLat(lat);
+            setUserLng(lng);
+            setUserAddress(label);
+            localStorage.setItem('userLat', lat.toString());
+            localStorage.setItem('userLng', lng.toString());
+            localStorage.setItem('userLocationAddress', label);
+            fetchRestaurants(lat, lng);
+          } else {
+            setShowLocationPrompt(true);
+            fetchRestaurants();
+          }
+        })
+        .catch(() => {
+          setShowLocationPrompt(true);
+          fetchRestaurants();
+        });
+    } else {
+      // No saved delivery location — show prompt and fetch all restaurants
+      setShowLocationPrompt(true);
+      fetchRestaurants();
+    }
+
     fetchCategories();
   }, []);
+
+  // Detect user location via browser GPS + reverse geocode
+  const detectUserLocation = async () => {
+    if (!navigator.geolocation) return;
+    setLocationLoading(true);
+    try {
+      const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(resolve, reject, {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 60000,
+        });
+      });
+
+      const { latitude, longitude } = position.coords;
+
+      // Reverse geocode to get address
+      const res = await fetch(`${API_BASE_URL}/api/geocode/reverse?lat=${latitude}&lng=${longitude}`);
+      let locationLabel = `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`;
+      let fullAddress = locationLabel;
+      let city = '';
+      let area = '';
+      if (res.ok) {
+        const data = await res.json();
+        locationLabel = data.area ? `${data.area}, ${data.city}` : data.city || data.full_address;
+        fullAddress = data.full_address || locationLabel;
+        city = data.city || '';
+        area = data.area || '';
+      }
+
+      // Save to state and localStorage
+      setUserLat(latitude);
+      setUserLng(longitude);
+      setUserAddress(locationLabel);
+      setShowLocationPrompt(false);
+      localStorage.setItem('userLat', latitude.toString());
+      localStorage.setItem('userLng', longitude.toString());
+      localStorage.setItem('userLocationAddress', locationLabel);
+
+      // Save to DB (user_addresses table) — so it persists across devices
+      const token = localStorage.getItem('token');
+      if (token) {
+        // Update user profile address
+        fetch(`${API_BASE_URL}/api/auth/me`, {
+          method: 'PUT',
+          headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: localStorage.getItem('userName') || 'User',
+            address: fullAddress
+          })
+        }).catch(() => {});
+
+        // Also save to user_addresses for coordinate-based filtering
+        fetch(`${API_BASE_URL}/api/geocode/addresses`, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            label: 'Current',
+            full_address: fullAddress,
+            city: city,
+            area: area,
+            latitude: latitude,
+            longitude: longitude,
+            is_default: true
+          })
+        }).catch(() => {});
+      }
+
+      // Re-fetch restaurants with location
+      fetchRestaurants(latitude, longitude);
+    } catch {
+      // User denied or GPS failed — just dismiss prompt
+      setShowLocationPrompt(false);
+    } finally {
+      setLocationLoading(false);
+    }
+  };
+
+  // Clear location and show all restaurants
+  const clearLocation = () => {
+    setUserLat(null);
+    setUserLng(null);
+    setUserAddress(null);
+    setShowLocationPrompt(true);
+    localStorage.removeItem('userLat');
+    localStorage.removeItem('userLng');
+    localStorage.removeItem('userLocationAddress');
+    fetchRestaurants();
+  };
 
   // WebSocket for real-time restaurant status updates
   useEffect(() => {
@@ -214,7 +358,7 @@ export default function HomePage() {
             result = b.rating - a.rating; // High to low by default
             break;
           case 'distance':
-            result = a.delivery_fee - b.delivery_fee; // Low to high by default (closer = cheaper delivery)
+            result = (a.distance_km ?? 9999) - (b.distance_km ?? 9999); // Nearest first
             break;
           case 'time':
             result = parseInt(a.delivery_time) - parseInt(b.delivery_time); // Low to high by default (faster first)
@@ -466,7 +610,14 @@ export default function HomePage() {
           </h1>
 
           <div
-            onClick={() => !userAddress && router.push('/profile')}
+            onClick={() => {
+              if (userAddress && userLat) {
+                // Re-detect location (user wants to change)
+                detectUserLocation();
+              } else {
+                detectUserLocation();
+              }
+            }}
             style={{
               display: 'flex',
               alignItems: 'center',
@@ -478,14 +629,14 @@ export default function HomePage() {
               border: userAddress
                 ? '1px solid rgba(255, 255, 255, 0.2)'
                 : '1px dashed rgba(255, 255, 255, 0.4)',
-              cursor: userAddress ? 'default' : 'pointer',
+              cursor: 'pointer',
               transition: 'all 0.2s ease'
             }}
             onMouseEnter={(e) => {
-              if (!userAddress) e.currentTarget.style.background = 'rgba(255,255,255,0.15)';
+              e.currentTarget.style.background = 'rgba(255,255,255,0.2)';
             }}
             onMouseLeave={(e) => {
-              if (!userAddress) e.currentTarget.style.background = 'rgba(255,255,255,0.08)';
+              e.currentTarget.style.background = userAddress ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.08)';
             }}
           >
             <div style={{
@@ -499,17 +650,18 @@ export default function HomePage() {
               <Icon name="delivery/location" size={18} style={{ filter: 'brightness(0) invert(1)', flexShrink: 0 }} />
               {userAddress ? (
                 <>
-                  <span style={{ color: 'rgba(255,255,255,0.75)', fontSize: '0.8rem', fontWeight: '400' }}>Delivering to</span>
+                  <span style={{ color: 'rgba(255,255,255,0.75)', fontSize: '0.75rem', fontWeight: '400' }}>Delivering to</span>
                   <span
                     style={{
-                      color: 'white', fontSize: '0.9rem', fontWeight: '700',
-                      maxWidth: '150px', overflow: 'hidden', textOverflow: 'ellipsis',
+                      color: 'white', fontSize: '0.85rem', fontWeight: '700',
+                      maxWidth: '120px', overflow: 'hidden', textOverflow: 'ellipsis',
                       whiteSpace: 'nowrap'
                     }}
                     title={userAddress}
                   >
                     {userAddress}
                   </span>
+                  <span style={{ color: 'rgba(255,255,255,0.6)', fontSize: '0.7rem', fontWeight: '500' }}>▼</span>
                 </>
               ) : (
                 <>
@@ -1018,6 +1170,48 @@ export default function HomePage() {
         </div>
       </header>
 
+      {/* LOCATION PROMPT BANNER — shown when no location is set */}
+      {showLocationPrompt && (
+        <div style={{
+          background: 'linear-gradient(135deg, #fff5f2, #ffffff)',
+          border: '1px solid #ffe0d6',
+          borderRadius: '16px',
+          padding: '1rem 1.5rem',
+          margin: '1rem 2rem 0',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: '1rem',
+          boxShadow: '0 2px 12px rgba(255, 87, 34, 0.08)',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            <span style={{ fontSize: '1.5rem' }}>📍</span>
+            <div>
+              <div style={{ fontWeight: '600', color: '#333', fontSize: '0.9rem' }}>Set your delivery location</div>
+              <div style={{ fontSize: '0.8rem', color: '#666' }}>See restaurants that deliver to you</div>
+            </div>
+          </div>
+          <button
+            onClick={detectUserLocation}
+            disabled={locationLoading}
+            style={{
+              padding: '0.6rem 1.2rem',
+              borderRadius: '10px',
+              border: 'none',
+              background: 'linear-gradient(135deg, #FF5722, #FF7043)',
+              color: 'white',
+              fontWeight: '600',
+              fontSize: '0.85rem',
+              cursor: locationLoading ? 'not-allowed' : 'pointer',
+              opacity: locationLoading ? 0.7 : 1,
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {locationLoading ? '⏳ Detecting...' : '📍 Detect Location'}
+          </button>
+        </div>
+      )}
+
       {/* SECTION 1: CRAVING TEXT - CENTERED WITH TOP SPACING */}
       <section style={{
         paddingTop: '3rem',
@@ -1440,7 +1634,7 @@ export default function HomePage() {
                 </p>
                 <button
                   onClick={() => {
-                    fetchRestaurants();
+                    fetchRestaurants(userLat, userLng);
                     fetchCategories();
                   }}
                   style={{
@@ -1506,7 +1700,7 @@ export default function HomePage() {
                 </p>
                 <button
                   onClick={() => {
-                    fetchRestaurants();
+                    fetchRestaurants(userLat, userLng);
                     fetchCategories();
                   }}
                   style={{
@@ -1585,7 +1779,14 @@ export default function HomePage() {
               {filteredRestaurants.map((restaurant, index) => (
                 <div
                   key={restaurant.id}
-                  onClick={() => restaurant.is_online ? handleCardClick(restaurant.id) : null}
+                  onClick={() => {
+                    if (!restaurant.is_online) return;
+                    if (restaurant.is_deliverable === false) {
+                      // Show toast or alert that restaurant is not in delivery range
+                      return;
+                    }
+                    handleCardClick(restaurant.id);
+                  }}
                   onMouseEnter={() => restaurant.is_online ? setHoveredCard(restaurant.id) : null}
                   onMouseLeave={() => setHoveredCard(null)}
                   style={{
@@ -1763,14 +1964,31 @@ export default function HomePage() {
                         <span>{restaurant.delivery_time}</span>
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-                        <Image src="/icons/delivery/delivery.svg" alt="Delivery" width={16} height={16} />
-                        <span>${restaurant.delivery_fee}</span>
+                        <span>📍</span>
+                        <span>{restaurant.distance_km != null ? `${restaurant.distance_km} km` : 'Nearby'}</span>
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
                         <Image src="/icons/misc/list.svg" alt="Reviews" width={16} height={16} />
                         <span>{restaurant.reviews}</span>
                       </div>
                     </div>
+
+                    {/* Not deliverable badge */}
+                    {restaurant.is_deliverable === false && (
+                      <div style={{
+                        background: '#fef2f2',
+                        border: '1px solid #fecaca',
+                        borderRadius: '8px',
+                        padding: '0.35rem 0.6rem',
+                        fontSize: '0.7rem',
+                        color: '#dc2626',
+                        fontWeight: '600',
+                        textAlign: 'center',
+                        marginBottom: '0.5rem',
+                      }}>
+                        ❌ Not available in your area
+                      </div>
+                    )}
 
                     {/* Menu & Price Info */}
                     <div style={{

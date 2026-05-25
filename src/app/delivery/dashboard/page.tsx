@@ -67,6 +67,7 @@ export default function DeliveryDashboard() {
   const [isSubmittingIssue, setIsSubmittingIssue] = useState(false);
   const [confirmDeliveryAction, setConfirmDeliveryAction] = useState<{ type: 'deliver'; label: string; message: string } | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
+  const locationIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const showToast = (msg: string, type: 'success' | 'error' = 'success') => {
     setToast({ msg, type });
@@ -241,6 +242,41 @@ export default function DeliveryDashboard() {
       }
     } catch {}
   };
+
+  // Live location tracking — send GPS every 30s when online
+  useEffect(() => {
+    const sendLocation = () => {
+      if (!navigator.geolocation) return;
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const { latitude, longitude } = position.coords;
+          const token = getToken();
+          if (!token) return;
+          fetch(`${API_BASE_URL}/api/delivery/location`, {
+            method: 'PUT',
+            headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ latitude, longitude })
+          }).catch(() => {}); // Silent — don't block UI
+        },
+        () => {}, // GPS denied — silent
+        { enableHighAccuracy: true, timeout: 8000, maximumAge: 25000 }
+      );
+    };
+
+    if (isOnline) {
+      sendLocation(); // Send immediately when going online
+      locationIntervalRef.current = setInterval(sendLocation, 30000); // Then every 30s
+    } else {
+      if (locationIntervalRef.current) {
+        clearInterval(locationIntervalRef.current);
+        locationIntervalRef.current = null;
+      }
+    }
+
+    return () => {
+      if (locationIntervalRef.current) clearInterval(locationIntervalRef.current);
+    };
+  }, [isOnline]);
 
   const toggleOnline = async () => {
     // Block going offline if partner has an active order in progress

@@ -31,6 +31,8 @@ export default function RestaurantApplicationPage() {
     area: '',
     cuisineType: '',
     description: '',
+    latitude: null as number | null,
+    longitude: null as number | null,
     
     // Documents (for now just text fields, later we'll add file upload)
     businessLicense: '',
@@ -92,6 +94,7 @@ export default function RestaurantApplicationPage() {
       if (!formData.address.trim()) newErrors.address = 'Restaurant address is required';
       if (!formData.city.trim()) newErrors.city = 'City is required';
       if (!formData.area.trim()) newErrors.area = 'Area is required';
+      if (!formData.latitude || !formData.longitude) newErrors.address = 'Please use "Detect My Location" to set your restaurant location. This is mandatory.';
       if (!formData.cuisineType) newErrors.cuisineType = 'Please select cuisine type';
       if (!formData.description.trim()) newErrors.description = 'Restaurant description is required';
     }
@@ -817,6 +820,61 @@ export default function RestaurantApplicationPage() {
                   </h3>
                 </div>
 
+                {/* Detect Location Button — MANDATORY */}
+                <div style={{ marginBottom: '1.5rem' }}>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      if (!navigator.geolocation) return;
+                      const btn = document.getElementById('restaurant-detect-btn');
+                      if (btn) { btn.textContent = '⏳ Detecting...'; (btn as HTMLButtonElement).disabled = true; }
+                      try {
+                        const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+                          navigator.geolocation.getCurrentPosition(resolve, reject, {
+                            enableHighAccuracy: true, timeout: 10000, maximumAge: 60000,
+                          });
+                        });
+                        const { latitude, longitude } = position.coords;
+                        const res = await fetch(`${API_BASE_URL}/api/geocode/reverse?lat=${latitude}&lng=${longitude}`);
+                        if (res.ok) {
+                          const data = await res.json();
+                          setFormData(prev => ({
+                            ...prev,
+                            address: data.full_address || prev.address,
+                            city: data.city || prev.city,
+                            area: data.area || prev.area,
+                            latitude: latitude,
+                            longitude: longitude,
+                          }));
+                          setErrors(prev => ({ ...prev, address: '', city: '', area: '' }));
+                        } else {
+                          // Even if reverse geocode fails, store coordinates
+                          setFormData(prev => ({ ...prev, latitude, longitude }));
+                        }
+                      } catch {
+                        // Silent — user denied GPS
+                      } finally {
+                        const btn = document.getElementById('restaurant-detect-btn');
+                        if (btn) { btn.textContent = '📍 Detect My Location'; (btn as HTMLButtonElement).disabled = false; }
+                      }
+                    }}
+                    id="restaurant-detect-btn"
+                    style={{
+                      width: '100%', padding: '0.75rem', borderRadius: '10px',
+                      border: `2px solid ${formData.latitude ? '#10b981' : '#FF5722'}`,
+                      background: formData.latitude ? '#f0fdf4' : 'linear-gradient(135deg, #fff5f2, #ffffff)',
+                      color: formData.latitude ? '#166534' : '#FF5722',
+                      fontWeight: '600', fontSize: '0.9rem', cursor: 'pointer',
+                      fontFamily: 'Anuphan, system-ui, sans-serif',
+                    }}
+                  >
+                    {formData.latitude ? '✅ Location Detected' : '📍 Detect My Location *'}
+                  </button>
+                  <p style={{ fontSize: '0.75rem', color: formData.latitude ? '#10b981' : '#ef4444', marginTop: '0.4rem', textAlign: 'center', fontWeight: '500' }}>
+                    {formData.latitude ? `GPS: ${formData.latitude.toFixed(4)}, ${formData.longitude?.toFixed(4)}` : '⚠️ Mandatory — click to detect your restaurant location'}
+                  </p>
+                </div>
+
                 <div style={{ marginBottom: '1.5rem' }}>
                   <label style={{ display: 'block', marginBottom: '0.5rem', color: '#374151', fontWeight: '500', fontSize: '0.95rem', fontFamily: 'Anuphan, system-ui, sans-serif' }}>
                     Restaurant Address *
@@ -1348,6 +1406,8 @@ export default function RestaurantApplicationPage() {
                         area: '',
                         cuisineType: '',
                         description: '',
+                        latitude: null,
+                        longitude: null,
                         businessLicense: '',
                         foodPermit: ''
                       });

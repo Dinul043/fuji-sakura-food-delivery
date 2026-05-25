@@ -178,7 +178,6 @@ export default function DeliveryProfilePage() {
           {/* Read-only fields */}
           {[
             { label: '🛵 Vehicle', value: `${partner?.vehicle_type} · ${partner?.vehicle_number}` },
-            { label: '🏙️ City', value: partner?.city || '—' },
           ].map(f => (
             <div key={f.label} style={{ marginBottom: '1rem' }}>
               <div style={{ fontSize: '0.78rem', fontWeight: '600', color: '#9ca3af', textTransform: 'uppercase', marginBottom: '0.25rem' }}>{f.label}</div>
@@ -191,6 +190,7 @@ export default function DeliveryProfilePage() {
               <>
                 {[
                   { label: '📞 Phone', value: partner?.phone || '—' },
+                  { label: '🏙️ City', value: partner?.city || '—' },
                   { label: '📍 Area', value: partner?.area || 'Not set' },
                   { label: '💳 UPI ID', value: partner?.upi_id || 'Not set — required before taking orders', highlight: !partner?.upi_id },
                 ].map(f => (
@@ -206,10 +206,37 @@ export default function DeliveryProfilePage() {
               </>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-                {/* Location change warning */}
+                {/* Location info */}
                 <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '10px', padding: '0.75rem 1rem', fontSize: '0.82rem', color: '#1d4ed8' }}>
-                  ℹ️ Changing city or area updates which orders you see. Cannot change during an active delivery.
+                  ℹ️ City and area can only be updated via GPS detection. This ensures accurate order matching.
                 </div>
+                {/* Detect Location Button */}
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if (!navigator.geolocation) return;
+                    const btn = document.getElementById('del-profile-detect');
+                    if (btn) { btn.textContent = '⏳ Detecting...'; (btn as HTMLButtonElement).disabled = true; }
+                    try {
+                      const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+                        navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 });
+                      });
+                      const { latitude, longitude } = position.coords;
+                      const res = await fetch(`${API_BASE_URL}/api/geocode/reverse?lat=${latitude}&lng=${longitude}`);
+                      if (res.ok) {
+                        const data = await res.json();
+                        if (data.city) setCity(data.city);
+                        if (data.area) setArea(data.area);
+                        showToast('📍 Location detected!');
+                      }
+                    } catch { showToast('Could not detect location', 'error'); }
+                    finally { const btn = document.getElementById('del-profile-detect'); if (btn) { btn.textContent = '📍 Detect Location'; (btn as HTMLButtonElement).disabled = false; } }
+                  }}
+                  id="del-profile-detect"
+                  style={{ width: '100%', padding: '0.6rem', borderRadius: '8px', border: '1.5px solid #FF5722', background: '#fff5f2', color: '#FF5722', fontWeight: '600', fontSize: '0.85rem', cursor: 'pointer' }}
+                >
+                  📍 Detect Location
+                </button>
                 <div>
                   <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '600', color: '#374151', marginBottom: '0.4rem' }}>📞 Phone</label>
                   <input type="tel" value={phone} onChange={e => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
@@ -218,19 +245,16 @@ export default function DeliveryProfilePage() {
                     onBlur={e => { e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.backgroundColor = '#fafafa'; }} />
                 </div>
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '600', color: '#374151', marginBottom: '0.4rem' }}>🏙️ City *</label>
-                  <input value={city} onChange={e => setCity(e.target.value)}
-                    placeholder="e.g. Chennai, Coimbatore" style={inputStyle}
-                    onFocus={e => { e.currentTarget.style.borderColor = '#FF5722'; e.currentTarget.style.backgroundColor = '#fff'; }}
-                    onBlur={e => { e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.backgroundColor = '#fafafa'; }} />
+                  <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '600', color: '#374151', marginBottom: '0.4rem' }}>🏙️ City</label>
+                  <input value={city} readOnly
+                    style={{ ...inputStyle, backgroundColor: '#f1f5f9', cursor: 'not-allowed', color: '#6b7280' }} />
+                  <p style={{ margin: '0.2rem 0 0', fontSize: '0.72rem', color: '#9ca3af' }}>Set via "Detect Location" button above</p>
                 </div>
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '600', color: '#374151', marginBottom: '0.4rem' }}>📍 Area / Locality *</label>
-                  <input value={area} onChange={e => setArea(e.target.value)}
-                    placeholder="e.g. Velachery, T. Nagar, Karapakkam" style={inputStyle}
-                    onFocus={e => { e.currentTarget.style.borderColor = '#FF5722'; e.currentTarget.style.backgroundColor = '#fff'; }}
-                    onBlur={e => { e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.backgroundColor = '#fafafa'; }} />
-                  <p style={{ margin: '0.3rem 0 0', fontSize: '0.78rem', color: '#9ca3af' }}>Required — used to match you with nearby orders</p>
+                  <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '600', color: '#374151', marginBottom: '0.4rem' }}>📍 Area / Locality</label>
+                  <input value={area} readOnly
+                    style={{ ...inputStyle, backgroundColor: '#f1f5f9', cursor: 'not-allowed', color: '#6b7280' }} />
+                  <p style={{ margin: '0.2rem 0 0', fontSize: '0.72rem', color: '#9ca3af' }}>Set via "Detect Location" — used to match you with nearby orders</p>
                 </div>
                 <div>
                   <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '600', color: '#374151', marginBottom: '0.4rem' }}>

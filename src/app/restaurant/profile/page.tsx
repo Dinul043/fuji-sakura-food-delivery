@@ -844,27 +844,22 @@ export default function RestaurantProfile() {
                 📍 Restaurant Address
               </label>
               {isEditing ? (
-                <textarea
-                  value={editForm.address}
-                  onChange={(e) => setEditForm(prev => ({ ...prev, address: e.target.value }))}
-                  rows={3}
-                  style={{
-                    width: '100%',
-                    padding: '0.75rem',
-                    border: '2px solid #e9ecef',
-                    borderRadius: '8px',
-                    fontSize: '1rem',
-                    outline: 'none',
-                    resize: 'vertical',
-                    transition: 'border-color 0.2s ease'
-                  }}
-                  onFocus={(e) => {
-                    e.currentTarget.style.borderColor = '#FF5722';
-                  }}
-                  onBlur={(e) => {
-                    e.currentTarget.style.borderColor = '#e9ecef';
-                  }}
-                />
+                <>
+                <p style={{ margin: '0 0 0.5rem', fontSize: '0.8rem', color: '#9ca3af', fontStyle: 'italic' }}>
+                  ⚠️ Restaurant address cannot be changed after registration. Contact admin for address updates.
+                </p>
+                <p style={{ 
+                  margin: 0, 
+                  padding: '0.75rem',
+                  background: '#f8f9fa',
+                  borderRadius: '8px',
+                  fontSize: '1rem',
+                  color: '#333',
+                  lineHeight: '1.5'
+                }}>
+                  {profile?.address}
+                </p>
+                </>
               ) : (
                 <p style={{ 
                   margin: 0, 

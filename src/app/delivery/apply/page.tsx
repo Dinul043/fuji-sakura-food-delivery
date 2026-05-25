@@ -19,7 +19,8 @@ export default function DeliveryApplyPage() {
   const [form, setForm] = useState({
     name: '', email: '', phone: '', password: '', confirmPassword: '',
     vehicle_type: '', vehicle_number: '', driving_license: '', aadhar_number: '',
-    city: '', area: '', upi_id: ''
+    city: '', area: '', upi_id: '',
+    latitude: null as number | null, longitude: null as number | null
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(false);
@@ -39,6 +40,7 @@ export default function DeliveryApplyPage() {
     if (form.aadhar_number && !/^\d{12}$/.test(form.aadhar_number)) e.aadhar_number = 'Aadhar must be 12 digits';
     if (!form.city.trim()) e.city = 'City is required';
     if (!form.area.trim()) e.area = 'Area / Locality is required';
+    if (!form.latitude || !form.longitude) e.city = 'Please use "Detect My Location" to set your location. This is mandatory.';
     setErrors(e);
     return Object.keys(e).length === 0;
   };
@@ -247,6 +249,57 @@ export default function DeliveryApplyPage() {
               onBlur={e => { e.currentTarget.style.borderColor = errors.aadhar_number ? '#ef4444' : '#e2e8f0'; e.currentTarget.style.backgroundColor = '#fafafa'; }} />
             {errors.aadhar_number && <p style={{ color: '#ef4444', fontSize: '0.8rem', margin: '0.3rem 0 0' }}>{errors.aadhar_number}</p>}
             <p style={{ margin: '0.3rem 0 0', fontSize: '0.78rem', color: '#9ca3af' }}>Helps admin verify your identity before approval</p>
+          </div>
+
+          {/* Detect Location Button — MANDATORY */}
+          <div>
+            <button
+              type="button"
+              onClick={async () => {
+                if (!navigator.geolocation) return;
+                const btn = document.getElementById('delivery-detect-btn');
+                if (btn) { btn.textContent = '⏳ Detecting...'; (btn as HTMLButtonElement).disabled = true; }
+                try {
+                  const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+                    navigator.geolocation.getCurrentPosition(resolve, reject, {
+                      enableHighAccuracy: true, timeout: 10000, maximumAge: 60000,
+                    });
+                  });
+                  const { latitude, longitude } = position.coords;
+                  const res = await fetch(`${API_BASE_URL}/api/geocode/reverse?lat=${latitude}&lng=${longitude}`);
+                  if (res.ok) {
+                    const data = await res.json();
+                    setForm(p => ({
+                      ...p,
+                      city: data.city || p.city,
+                      area: data.area || p.area,
+                      latitude: latitude,
+                      longitude: longitude,
+                    }));
+                    setErrors(prev => ({ ...prev, city: '', area: '' }));
+                  } else {
+                    setForm(p => ({ ...p, latitude, longitude }));
+                  }
+                } catch { /* GPS denied */ }
+                finally {
+                  const btn = document.getElementById('delivery-detect-btn');
+                  if (btn) { btn.textContent = form.latitude ? '✅ Location Detected' : '📍 Detect My Location *'; (btn as HTMLButtonElement).disabled = false; }
+                }
+              }}
+              id="delivery-detect-btn"
+              style={{
+                width: '100%', padding: '0.75rem', borderRadius: '10px',
+                border: `2px solid ${form.latitude ? '#10b981' : '#FF5722'}`,
+                background: form.latitude ? '#f0fdf4' : 'linear-gradient(135deg, #fff5f2, #ffffff)',
+                color: form.latitude ? '#166534' : '#FF5722',
+                fontWeight: '600', fontSize: '0.9rem', cursor: 'pointer',
+              }}
+            >
+              {form.latitude ? '✅ Location Detected' : '📍 Detect My Location *'}
+            </button>
+            <p style={{ margin: '0.3rem 0 0', fontSize: '0.75rem', color: form.latitude ? '#10b981' : '#ef4444', textAlign: 'center', fontWeight: '500' }}>
+              {form.latitude ? `GPS: ${form.latitude.toFixed(4)}, ${form.longitude?.toFixed(4)}` : '⚠️ Mandatory — click to detect your location'}
+            </p>
           </div>
 
           {/* City */}
