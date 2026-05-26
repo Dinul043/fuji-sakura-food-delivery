@@ -17,15 +17,6 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
  * Just wrap the app with this component in layout.tsx.
  */
 
-function getRole(): string | null {
-  if (typeof window === 'undefined') return null;
-  if (localStorage.getItem('token')) return 'user';
-  if (sessionStorage.getItem('restaurantToken') || localStorage.getItem('restaurantToken')) return 'restaurant';
-  if (localStorage.getItem('adminToken')) return 'admin';
-  if (sessionStorage.getItem('deliveryToken') || localStorage.getItem('deliveryToken')) return 'delivery';
-  return null;
-}
-
 function getRoleFromUrl(url: string): string | null {
   if (url.includes('/api/admin/')) return 'admin';
   if (url.includes('/api/restaurant/')) return 'restaurant';
