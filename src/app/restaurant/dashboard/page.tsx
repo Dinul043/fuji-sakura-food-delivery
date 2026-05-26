@@ -172,9 +172,18 @@ export default function RestaurantDashboard() {
         if (message.event === 'new_order') {
           handleNewOrder(message.data);
         }
+        // Platform setting update notification
+        if (message.type === 'platform_setting_updated') {
+          setStatusNotification({
+            show: true,
+            message: `⚙️ ${message.message}`,
+            type: 'success'
+          });
+          setTimeout(() => setStatusNotification({ show: false, message: '', type: 'success' }), 8000);
+        }
       } catch (error) {
         if (event.data !== 'pong') {
-          console.error('Failed to parse WebSocket message:', error);
+          // Silent — don't log parse errors
         }
       }
     };
