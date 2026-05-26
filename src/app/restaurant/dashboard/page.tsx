@@ -849,6 +849,33 @@ export default function RestaurantDashboard() {
                 {stats.reviewCount > 0 ? `${stats.reviewCount} customer review${stats.reviewCount !== 1 ? 's' : ''}` : 'No reviews yet'}
               </p>
             </button>
+
+            <button
+              onClick={() => router.push('/restaurant/platform-info')}
+              style={{
+                padding: '1.5rem', borderRadius: '10px',
+                border: '2px solid #e0e0e0', background: 'white',
+                cursor: 'pointer', transition: 'all 0.2s ease', textAlign: 'left'
+              }}
+              onMouseOver={(e) => {
+                e.currentTarget.style.borderColor = '#6366f1';
+                e.currentTarget.style.transform = 'translateY(-2px)';
+                e.currentTarget.style.boxShadow = '0 8px 25px rgba(99,102,241,0.15)';
+              }}
+              onMouseOut={(e) => {
+                e.currentTarget.style.borderColor = '#e0e0e0';
+                e.currentTarget.style.transform = 'translateY(0)';
+                e.currentTarget.style.boxShadow = 'none';
+              }}
+            >
+              <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>📢</div>
+              <h4 style={{ margin: '0 0 0.25rem 0', color: '#333', fontSize: '1.1rem' }}>
+                Platform Info
+              </h4>
+              <p style={{ margin: 0, color: '#666', fontSize: '0.85rem' }}>
+                Fees, tax rates & settings
+              </p>
+            </button>
           </div>
         </div>
 
