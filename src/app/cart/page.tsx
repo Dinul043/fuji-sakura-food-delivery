@@ -63,8 +63,8 @@ export default function CartPage() {
     return getSelectedItems().reduce((total, item) => total + item.quantity, 0);
   };
 
-  const deliveryFee = 40;
-  const taxRate = 0.08; // 8% tax
+  const deliveryFee = 40; // Display estimate — actual from platform_settings at checkout
+  const taxRate = 0.05; // 5% GST estimate — actual calculated per item at checkout
   const subtotal = getTotalPrice();
   const selectedSubtotal = getSelectedTotal();
   const selectedTax = selectedSubtotal * taxRate;
@@ -715,7 +715,7 @@ export default function CartPage() {
               justifyContent: 'space-between',
               marginBottom: '0.5rem'
             }}>
-              <span style={{ color: '#666' }}>Tax (8%)</span>
+              <span style={{ color: '#666' }}>GST (5%)</span>
               <span style={{ fontWeight: '600' }}>₹{(subtotal * taxRate).toFixed(2)}</span>
             </div>
           </div>

@@ -102,8 +102,8 @@ export default function CheckoutPage() {
 
   // Calculate totals
   const subtotal = checkoutItems.reduce((total, item) => total + (item.price * item.quantity), 0);
-  const deliveryFee = 40.00;  // Fixed delivery fee — paid to delivery partner
-  const taxRate = 0.08;
+  const deliveryFee = 40.00;  // Display estimate — actual from platform_settings
+  const taxRate = 0.05; // 5% GST estimate — actual calculated per item on backend
   const tax = subtotal * taxRate;
   const total = subtotal + deliveryFee + tax;
 
@@ -1435,7 +1435,7 @@ export default function CheckoutPage() {
                 color: '#6b7280',
                 fontSize: '0.95rem',
                 fontWeight: '500'
-              }}>Tax (8%)</span>
+              }}>GST (5%)</span>
               <span style={{ 
                 fontWeight: '600',
                 fontSize: '0.95rem',
