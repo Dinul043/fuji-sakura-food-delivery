@@ -101,7 +101,6 @@ export default function RestaurantOrders() {
         setOrders(transformedOrders);
       }
     } catch (error) {
-      console.error('Failed to fetch orders:', error);
     } finally {
       setIsLoading(false);
     }
@@ -153,7 +152,6 @@ export default function RestaurantOrders() {
         } catch (error) {
           // Silently ignore non-JSON messages (like pong)
           if (event.data !== 'pong') {
-            console.error('Failed to parse WebSocket message:', error);
           }
         }
       };
@@ -196,7 +194,6 @@ export default function RestaurantOrders() {
       const order = orders.find(o => o.order_id === orderId);
       const actualId = order?.id || orderId;
       
-      console.log(`Updating order ${actualId} (order_id: ${orderId}) to status: ${newStatus}`);
       
       const response = await fetch(`${API_BASE_URL}/api/orders/${actualId}/status`, {
         method: 'PUT',
@@ -205,7 +202,6 @@ export default function RestaurantOrders() {
       });
 
       const data = await response.json();
-      console.log('Response:', data);
 
       if (response.ok) {
         // Update the order status in the UI
@@ -228,12 +224,10 @@ export default function RestaurantOrders() {
         
         return true; // Success
       } else {
-        console.error('Failed to update status:', data);
         showToast('error', 'Failed to Update Order', data.detail || 'Unknown error occurred');
         return false; // Failure
       }
     } catch (error) {
-      console.error('Failed to update order status:', error);
       showToast('error', 'Network Error', 'Please check your connection and try again');
       return false; // Failure
     }

@@ -54,7 +54,6 @@ export default function OrderSuccessPage() {
           }
         } catch (err) {
           // Payment details are optional, don't fail if not available
-          console.log('Payment details not available');
         }
       } catch (err) {
         setError('Failed to load order details');

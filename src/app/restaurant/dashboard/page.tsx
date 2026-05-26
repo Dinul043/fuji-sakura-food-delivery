@@ -153,7 +153,6 @@ export default function RestaurantDashboard() {
     const ws = new WebSocket(`${wsUrl}/ws/restaurant-dashboard/${restaurantId}`);
     
     ws.onopen = () => {
-      console.log('WebSocket connected to dashboard');
       const heartbeat = setInterval(() => {
         if (ws.readyState === WebSocket.OPEN) {
           ws.send('ping');
@@ -181,7 +180,6 @@ export default function RestaurantDashboard() {
     
     ws.onerror = () => console.log('WebSocket error');
     ws.onclose = () => {
-      console.log('WebSocket disconnected');
       setTimeout(() => connectWebSocket(restaurantId), 3000);
     };
     

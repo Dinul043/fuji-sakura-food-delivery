@@ -272,7 +272,6 @@ export default function CheckoutPage() {
       setIsLoading(true);
       const token = localStorage.getItem('token');
       
-      console.log('Creating Razorpay order for:', orderId, 'amount:', amount);
       
       // Step 1: Create Razorpay order
       const response = await fetch(`${API_BASE_URL}/api/payments/razorpay/create-order`, {
@@ -288,17 +287,14 @@ export default function CheckoutPage() {
         let errorData: any = {};
         try {
           const text = await response.text();
-          console.error('Backend raw response:', text);
           errorData = text ? JSON.parse(text) : { detail: `Server error ${response.status}` };
         } catch {
           errorData = { detail: `Server error (${response.status}): ${response.statusText}` };
         }
-        console.error('Backend error:', errorData);
         throw new Error(errorData.detail || `Payment failed with status ${response.status}`);
       }
       
       const data = await response.json();
-      console.log('Razorpay order created:', data);
       
       // Flag to track if payment was successful
       let paymentSuccessful = false;
@@ -362,7 +358,6 @@ export default function CheckoutPage() {
       
     } catch (error) {
       setIsLoading(false);
-      console.error('Razorpay error:', error);
       setErrors({ submit: 'Failed to open payment gateway. Please try again.' });
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
@@ -398,7 +393,6 @@ export default function CheckoutPage() {
         window.scrollTo({ top: 0, behavior: 'smooth' });
       }
     } catch (error) {
-      console.error('Verification error:', error);
       setErrors({ submit: 'Payment verification failed. Please contact support.' });
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } finally {
@@ -422,7 +416,6 @@ export default function CheckoutPage() {
         })
       });
     } catch (error) {
-      console.error('Failed to record payment failure:', error);
     }
   };
 

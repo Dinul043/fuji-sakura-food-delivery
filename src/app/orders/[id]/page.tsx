@@ -202,7 +202,6 @@ export default function OrderTrackingPage() {
         };
         setCurrentStep(stepMap[data.status] ?? 0);
       } catch (error) {
-        console.error('❌ Error loading order:', error);
         setOrder(null);
       } finally {
         setIsLoading(false);
