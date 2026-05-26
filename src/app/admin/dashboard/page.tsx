@@ -828,6 +828,12 @@ export default function AdminDashboard() {
             style={{ padding: '0.75rem 1.5rem', borderRadius: '12px', cursor: 'pointer', fontWeight: '600', fontSize: '0.95rem', background: 'white', color: '#FF5722', boxShadow: '0 2px 8px rgba(0,0,0,0.08)', border: '1.5px solid #FF7043' }}>
             💸 Partner Payouts
           </button>
+          {/* Platform Settings */}
+          <button
+            onClick={() => router.push('/admin/settings')}
+            style={{ padding: '0.75rem 1.5rem', borderRadius: '12px', cursor: 'pointer', fontWeight: '600', fontSize: '0.95rem', background: 'white', color: '#FF5722', boxShadow: '0 2px 8px rgba(0,0,0,0.08)', border: '1.5px solid #FF7043' }}>
+            ⚙️ Platform Settings
+          </button>
         </div>
 
         {/* Filter Buttons — restaurants tab only */}
