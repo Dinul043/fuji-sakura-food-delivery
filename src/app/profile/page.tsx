@@ -605,13 +605,38 @@ export default function ProfilePage() {
                 const { latitude, longitude } = position.coords;
                 const res = await fetch(`${API_BASE_URL}/api/geocode/reverse?lat=${latitude}&lng=${longitude}`);
                 let label = `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`;
+                let fullAddress = label;
+                let cityVal = '';
+                let areaVal = '';
                 if (res.ok) {
                   const data = await res.json();
                   label = data.area ? `${data.area}, ${data.city}` : data.city || data.full_address;
+                  fullAddress = data.full_address || label;
+                  cityVal = data.city || '';
+                  areaVal = data.area || '';
                 }
                 localStorage.setItem('userLat', latitude.toString());
                 localStorage.setItem('userLng', longitude.toString());
                 localStorage.setItem('userLocationAddress', label);
+                
+                // Save to user_addresses table in DB
+                const token = localStorage.getItem('token');
+                if (token) {
+                  fetch(`${API_BASE_URL}/api/geocode/addresses`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      label: 'Current',
+                      full_address: fullAddress,
+                      city: cityVal,
+                      area: areaVal,
+                      latitude: latitude,
+                      longitude: longitude,
+                      is_default: true
+                    })
+                  }).catch(() => {});
+                }
+                
                 showToast('success', `📍 Location updated: ${label}`);
                 setProfile(prev => prev ? { ...prev } : null); // Force re-render
               } catch {
