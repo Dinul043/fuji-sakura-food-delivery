@@ -261,6 +261,8 @@ export default function HomePage() {
             longitude: longitude,
             is_default: true
           })
+        }).then(res => {
+          if (!res.ok) console.log('user_addresses save failed:', res.status);
         }).catch(() => {});
       }
 
