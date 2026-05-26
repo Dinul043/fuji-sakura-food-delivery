@@ -169,10 +169,24 @@ export default function RestaurantDashboard() {
       
       try {
         const message = JSON.parse(event.data);
+        
+        // Check if it's a platform setting update (not a new order)
+        if (message.event === 'new_order' && message.data?.type === 'platform_setting_updated') {
+          setStatusNotification({
+            show: true,
+            message: `⚙️ ${message.data.message}`,
+            type: 'success'
+          });
+          setTimeout(() => setStatusNotification({ show: false, message: '', type: 'success' }), 8000);
+          return;
+        }
+        
+        // Actual new order
         if (message.event === 'new_order') {
           handleNewOrder(message.data);
         }
-        // Platform setting update notification
+        
+        // Direct platform_setting_updated (in case format changes)
         if (message.type === 'platform_setting_updated') {
           setStatusNotification({
             show: true,
