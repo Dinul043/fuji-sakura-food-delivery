@@ -49,13 +49,18 @@ export default function OrdersPage() {
   useEffect(() => {
     const fetchOrders = async () => {
       try {
-        const token = localStorage.getItem('token');
+        let token = localStorage.getItem('token');
         
         if (!token) {
-          // User not logged in, redirect to login
-          setIsLoading(false);
-          router.push('/login');
-          return;
+          // Try refresh before redirecting
+          const { getValidToken } = await import('@/utils/authHelper');
+          const refreshedToken = await getValidToken();
+          if (!refreshedToken) {
+            setIsLoading(false);
+            router.push('/login');
+            return;
+          }
+          token = refreshedToken;
         }
 
         const response = await fetch(`${API_BASE_URL}/api/orders/`, {

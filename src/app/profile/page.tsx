@@ -53,7 +53,8 @@ export default function ProfilePage() {
 
   const fetchProfile = async () => {
     try {
-      const token = localStorage.getItem('token');
+      const { getValidToken } = await import('@/utils/authHelper');
+      const token = await getValidToken();
       if (!token) { router.push('/login'); return; }
 
       const res = await fetch(`${API_BASE_URL}/api/auth/me`, {
