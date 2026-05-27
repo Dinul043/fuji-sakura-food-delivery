@@ -12,20 +12,35 @@ export default function SplashScreen() {
       setIsVisible(false);
       setTimeout(() => {
         // Check if any user is already logged in (remember me)
+        // Validate token is not expired before redirecting
+        const isTokenValid = (token: string | null): boolean => {
+          if (!token) return false;
+          try {
+            const payload = JSON.parse(atob(token.split('.')[1]));
+            return Date.now() < payload.exp * 1000;
+          } catch { return false; }
+        };
+
         const userToken = localStorage.getItem('token');
         const restaurantToken = localStorage.getItem('restaurantToken') || sessionStorage.getItem('restaurantToken');
         const adminToken = localStorage.getItem('adminToken');
         const deliveryToken = localStorage.getItem('deliveryToken') || sessionStorage.getItem('deliveryToken');
 
-        if (restaurantToken) {
+        if (isTokenValid(restaurantToken)) {
           router.push('/restaurant/dashboard');
-        } else if (adminToken) {
+        } else if (isTokenValid(adminToken)) {
           router.push('/admin/dashboard');
-        } else if (deliveryToken) {
+        } else if (isTokenValid(deliveryToken)) {
           router.push('/delivery/dashboard');
-        } else if (userToken) {
+        } else if (isTokenValid(userToken)) {
           router.push('/home');
         } else {
+          // All tokens expired or missing — clear stale data and go to login
+          localStorage.removeItem('token');
+          localStorage.removeItem('refreshToken');
+          localStorage.removeItem('restaurantToken');
+          localStorage.removeItem('adminToken');
+          localStorage.removeItem('deliveryToken');
           router.push('/login');
         }
       }, 500);

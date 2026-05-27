@@ -17,10 +17,27 @@ export default function LoginPage() {
     link.rel = 'stylesheet';
     document.head.appendChild(link);
 
-    // Check if already logged in — redirect to home
+    // Check if already logged in with a VALID token — redirect to home
     const existingToken = localStorage.getItem('token');
     if (existingToken) {
-      router.push('/home');
+      // Decode JWT to check if expired (without verifying signature)
+      try {
+        const payload = JSON.parse(atob(existingToken.split('.')[1]));
+        const expiry = payload.exp * 1000; // Convert to milliseconds
+        if (Date.now() < expiry) {
+          router.push('/home');
+        } else {
+          // Token expired — clear it and stay on login
+          localStorage.removeItem('token');
+          localStorage.removeItem('refreshToken');
+          localStorage.removeItem('userName');
+          localStorage.removeItem('userEmail');
+        }
+      } catch {
+        // Invalid token format — clear and stay on login
+        localStorage.removeItem('token');
+        localStorage.removeItem('refreshToken');
+      }
     }
   }, []);
   const [currentStep, setCurrentStep] = useState<AuthStep>('welcome');
