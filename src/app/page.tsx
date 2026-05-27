@@ -10,7 +10,7 @@ export default function SplashScreen() {
   useEffect(() => {
     const timer = setTimeout(() => {
       setIsVisible(false);
-      setTimeout(() => {
+      setTimeout(async () => {
         // Check if any user is already logged in (remember me)
         // Validate token is not expired before redirecting
         const isTokenValid = (token: string | null): boolean => {
@@ -35,7 +35,26 @@ export default function SplashScreen() {
         } else if (isTokenValid(userToken)) {
           router.push('/home');
         } else {
-          // All tokens expired or missing — clear stale data and go to login
+          // Token missing or expired — check if refresh token exists
+          const refreshToken = localStorage.getItem('refreshToken');
+          if (refreshToken) {
+            // Try to refresh silently
+            try {
+              const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/auth/refresh`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ refresh_token: refreshToken })
+              });
+              if (res.ok) {
+                const data = await res.json();
+                localStorage.setItem('token', data.access_token);
+                localStorage.setItem('refreshToken', data.refresh_token);
+                router.push('/home');
+                return;
+              }
+            } catch {}
+          }
+          // Refresh failed or no refresh token — go to login
           localStorage.removeItem('token');
           localStorage.removeItem('refreshToken');
           localStorage.removeItem('restaurantToken');
