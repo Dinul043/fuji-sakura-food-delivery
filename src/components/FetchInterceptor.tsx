@@ -84,10 +84,39 @@ function getLoginRoute(role: string): string {
 let isRefreshing = false;
 let refreshPromise: Promise<boolean> | null = null;
 
+// Helper: check if a JWT token is expired
+function isTokenExpired(token: string): boolean {
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    return Date.now() >= payload.exp * 1000;
+  } catch {
+    return true; // Invalid token = treat as expired
+  }
+}
+
 export default function FetchInterceptor({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     // Only run on client
     if (typeof window === 'undefined') return;
+
+    // On mount: check ALL tokens — if expired AND no valid refresh token, clear and redirect
+    const userToken = localStorage.getItem('token');
+    if (userToken && isTokenExpired(userToken)) {
+      const refreshToken = localStorage.getItem('refreshToken');
+      if (!refreshToken) {
+        // No refresh token — session is dead, clear everything
+        localStorage.removeItem('token');
+        localStorage.removeItem('refreshToken');
+        localStorage.removeItem('userName');
+        localStorage.removeItem('userEmail');
+        localStorage.removeItem('isGuest');
+        if (window.location.pathname !== '/login' && window.location.pathname !== '/' && !window.location.pathname.startsWith('/restaurant') && !window.location.pathname.startsWith('/delivery') && !window.location.pathname.startsWith('/admin')) {
+          window.location.href = '/login';
+          return;
+        }
+      }
+      // If refresh token exists, let the interceptor handle it on next API call
+    }
 
     const originalFetch = window.fetch;
 
