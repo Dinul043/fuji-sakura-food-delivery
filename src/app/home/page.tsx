@@ -135,8 +135,29 @@ export default function HomePage() {
     const storedName = localStorage.getItem('userName') || 'Guest';
     setUserName(storedName);
 
-    // Fetch user profile image (NOT address — delivery location is separate)
+    // Validate token is not expired before making API calls
     const token = localStorage.getItem('token');
+    if (token) {
+      try {
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        if (Date.now() >= payload.exp * 1000) {
+          // Token expired — clear and redirect to login
+          localStorage.removeItem('token');
+          localStorage.removeItem('refreshToken');
+          localStorage.removeItem('userName');
+          localStorage.removeItem('userEmail');
+          router.push('/login');
+          return;
+        }
+      } catch {
+        // Invalid token — clear and redirect
+        localStorage.removeItem('token');
+        localStorage.removeItem('refreshToken');
+        router.push('/login');
+        return;
+      }
+    }
+
     if (token) {
       fetch(`${API_BASE_URL}/api/auth/me`, {
         headers: { 'Authorization': `Bearer ${token}` }
