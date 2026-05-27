@@ -384,8 +384,12 @@ export default function HomePage() {
     localStorage.removeItem('userName');
     localStorage.removeItem('userEmail');
     localStorage.removeItem('token');
+    localStorage.removeItem('refreshToken');
     localStorage.removeItem('isGuest');
     localStorage.removeItem('rememberMe');
+    localStorage.removeItem('userLat');
+    localStorage.removeItem('userLng');
+    localStorage.removeItem('userLocationAddress');
 
     // Redirect to login
     router.push('/login');

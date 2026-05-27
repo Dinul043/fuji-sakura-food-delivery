@@ -102,7 +102,7 @@ export default function FetchInterceptor({ children }: { children: React.ReactNo
     // On mount: check ALL tokens — if expired AND no valid refresh token, clear and redirect
     const currentPath = window.location.pathname;
 
-    // User token check
+    // User token check — proactive refresh if expired
     const userToken = localStorage.getItem('token');
     if (userToken && isTokenExpired(userToken)) {
       const refreshToken = localStorage.getItem('refreshToken');
@@ -116,6 +116,34 @@ export default function FetchInterceptor({ children }: { children: React.ReactNo
           window.location.href = '/login';
           return;
         }
+      } else {
+        // Refresh token exists — try to refresh NOW (proactive)
+        fetch(`${API_BASE_URL}/api/auth/refresh`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ refresh_token: refreshToken })
+        }).then(res => {
+          if (res.ok) {
+            return res.json();
+          } else {
+            // Refresh failed — clear and redirect
+            localStorage.removeItem('token');
+            localStorage.removeItem('refreshToken');
+            localStorage.removeItem('userName');
+            localStorage.removeItem('userEmail');
+            window.location.href = '/login';
+            return null;
+          }
+        }).then(data => {
+          if (data) {
+            localStorage.setItem('token', data.access_token);
+            localStorage.setItem('refreshToken', data.refresh_token);
+          }
+        }).catch(() => {
+          localStorage.removeItem('token');
+          localStorage.removeItem('refreshToken');
+          window.location.href = '/login';
+        });
       }
     }
 
