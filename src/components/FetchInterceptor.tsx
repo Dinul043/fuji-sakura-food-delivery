@@ -99,51 +99,45 @@ export default function FetchInterceptor({ children }: { children: React.ReactNo
     // Only run on client
     if (typeof window === 'undefined') return;
 
-    // On mount: check ALL tokens — if expired AND no valid refresh token, clear and redirect
+    // On mount: check ALL tokens — if expired/missing AND refresh token exists, try refresh
     const currentPath = window.location.pathname;
 
-    // User token check — proactive refresh if expired
+    // User token check — proactive refresh if expired OR missing
     const userToken = localStorage.getItem('token');
-    if (userToken && isTokenExpired(userToken)) {
-      const refreshToken = localStorage.getItem('refreshToken');
-      if (!refreshToken) {
-        localStorage.removeItem('token');
-        localStorage.removeItem('refreshToken');
-        localStorage.removeItem('userName');
-        localStorage.removeItem('userEmail');
-        localStorage.removeItem('isGuest');
-        if (currentPath.startsWith('/home') || currentPath.startsWith('/orders') || currentPath.startsWith('/checkout') || currentPath.startsWith('/profile') || currentPath.startsWith('/cart')) {
-          window.location.href = '/login';
-          return;
-        }
-      } else {
-        // Refresh token exists — try to refresh NOW (proactive)
+    const userRefreshToken = localStorage.getItem('refreshToken');
+    if ((!userToken || isTokenExpired(userToken)) && userRefreshToken) {
+      // Access token missing or expired, but refresh token exists — refresh NOW
+      if (currentPath.startsWith('/home') || currentPath.startsWith('/orders') || currentPath.startsWith('/checkout') || currentPath.startsWith('/profile') || currentPath.startsWith('/cart') || currentPath.startsWith('/order-success')) {
         fetch(`${API_BASE_URL}/api/auth/refresh`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ refresh_token: refreshToken })
+          body: JSON.stringify({ refresh_token: userRefreshToken })
         }).then(res => {
-          if (res.ok) {
-            return res.json();
-          } else {
-            // Refresh failed — clear and redirect
-            localStorage.removeItem('token');
-            localStorage.removeItem('refreshToken');
-            localStorage.removeItem('userName');
-            localStorage.removeItem('userEmail');
-            window.location.href = '/login';
-            return null;
-          }
+          if (res.ok) return res.json();
+          // Refresh failed — clear and redirect
+          localStorage.removeItem('token');
+          localStorage.removeItem('refreshToken');
+          window.location.href = '/login';
+          return null;
         }).then(data => {
           if (data) {
             localStorage.setItem('token', data.access_token);
             localStorage.setItem('refreshToken', data.refresh_token);
+            window.location.reload(); // Reload with new token
           }
         }).catch(() => {
           localStorage.removeItem('token');
           localStorage.removeItem('refreshToken');
           window.location.href = '/login';
         });
+        return; // Don't set up fetch override yet — wait for refresh
+      }
+    } else if (userToken && isTokenExpired(userToken) && !userRefreshToken) {
+      // Token expired, no refresh token — redirect to login
+      localStorage.removeItem('token');
+      if (currentPath.startsWith('/home') || currentPath.startsWith('/orders') || currentPath.startsWith('/checkout') || currentPath.startsWith('/profile') || currentPath.startsWith('/cart')) {
+        window.location.href = '/login';
+        return;
       }
     }
 
