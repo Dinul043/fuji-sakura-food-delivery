@@ -100,22 +100,70 @@ export default function FetchInterceptor({ children }: { children: React.ReactNo
     if (typeof window === 'undefined') return;
 
     // On mount: check ALL tokens — if expired AND no valid refresh token, clear and redirect
+    const currentPath = window.location.pathname;
+
+    // User token check
     const userToken = localStorage.getItem('token');
     if (userToken && isTokenExpired(userToken)) {
       const refreshToken = localStorage.getItem('refreshToken');
       if (!refreshToken) {
-        // No refresh token — session is dead, clear everything
         localStorage.removeItem('token');
         localStorage.removeItem('refreshToken');
         localStorage.removeItem('userName');
         localStorage.removeItem('userEmail');
         localStorage.removeItem('isGuest');
-        if (window.location.pathname !== '/login' && window.location.pathname !== '/' && !window.location.pathname.startsWith('/restaurant') && !window.location.pathname.startsWith('/delivery') && !window.location.pathname.startsWith('/admin')) {
+        if (currentPath.startsWith('/home') || currentPath.startsWith('/orders') || currentPath.startsWith('/checkout') || currentPath.startsWith('/profile') || currentPath.startsWith('/cart')) {
           window.location.href = '/login';
           return;
         }
       }
-      // If refresh token exists, let the interceptor handle it on next API call
+    }
+
+    // Restaurant token check
+    const restaurantToken = localStorage.getItem('restaurantToken') || sessionStorage.getItem('restaurantToken');
+    if (restaurantToken && isTokenExpired(restaurantToken)) {
+      const rRefresh = localStorage.getItem('restaurantRefreshToken') || sessionStorage.getItem('restaurantRefreshToken');
+      if (!rRefresh) {
+        localStorage.removeItem('restaurantToken');
+        sessionStorage.removeItem('restaurantToken');
+        localStorage.removeItem('restaurantRefreshToken');
+        sessionStorage.removeItem('restaurantRefreshToken');
+        if (currentPath.startsWith('/restaurant/dashboard') || currentPath.startsWith('/restaurant/orders') || currentPath.startsWith('/restaurant/menu') || currentPath.startsWith('/restaurant/profile') || currentPath.startsWith('/restaurant/earnings')) {
+          window.location.href = '/restaurant/login';
+          return;
+        }
+      }
+    }
+
+    // Admin token check
+    const adminToken = localStorage.getItem('adminToken');
+    if (adminToken && isTokenExpired(adminToken)) {
+      const aRefresh = localStorage.getItem('adminRefreshToken');
+      if (!aRefresh) {
+        localStorage.removeItem('adminToken');
+        localStorage.removeItem('adminRefreshToken');
+        localStorage.removeItem('isAdmin');
+        if (currentPath.startsWith('/admin/dashboard') || currentPath.startsWith('/admin/settings') || currentPath.startsWith('/admin/payouts')) {
+          window.location.href = '/admin';
+          return;
+        }
+      }
+    }
+
+    // Delivery token check
+    const deliveryToken = localStorage.getItem('deliveryToken') || sessionStorage.getItem('deliveryToken');
+    if (deliveryToken && isTokenExpired(deliveryToken)) {
+      const dRefresh = localStorage.getItem('deliveryRefreshToken') || sessionStorage.getItem('deliveryRefreshToken');
+      if (!dRefresh) {
+        localStorage.removeItem('deliveryToken');
+        sessionStorage.removeItem('deliveryToken');
+        localStorage.removeItem('deliveryRefreshToken');
+        sessionStorage.removeItem('deliveryRefreshToken');
+        if (currentPath.startsWith('/delivery/dashboard') || currentPath.startsWith('/delivery/profile') || currentPath.startsWith('/delivery/earnings') || currentPath.startsWith('/delivery/settle')) {
+          window.location.href = '/delivery/login';
+          return;
+        }
+      }
     }
 
     const originalFetch = window.fetch;
@@ -129,7 +177,7 @@ export default function FetchInterceptor({ children }: { children: React.ReactNo
       if (response.status !== 401 || !url.includes(API_BASE_URL)) {
         return response;
       }
-
+      
       // Don't intercept refresh endpoint itself (prevent infinite loop)
       if (url.includes('/refresh') || url.includes('/login') || url.includes('/verify')) {
         return response;
