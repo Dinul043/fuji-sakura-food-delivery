@@ -30,10 +30,10 @@ export function getFullImageUrl(imagePath?: string | null): string {
     return `${API_BASE_URL}${cleanPath}`;
   }
 
-  // If it's a static image path (from public folder), make it absolute
+  // If it's a static image path (from public folder), return relative path
+  // Next.js serves public folder at root — no need for absolute URL
   if (imagePath.startsWith('/images/') || imagePath.startsWith('images/')) {
-    const cleanPath = imagePath.startsWith('/') ? imagePath : `/${imagePath}`;
-    return `http://localhost:3000${cleanPath}`;
+    return imagePath.startsWith('/') ? imagePath : `/${imagePath}`;
   }
 
   // If it's an emoji or other text, return as-is
