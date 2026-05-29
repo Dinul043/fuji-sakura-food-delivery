@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 
 // API Configuration
@@ -10,6 +10,8 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 type AuthStep = 'welcome' | 'signin' | 'signup' | 'otp-signin' | 'otp-signup' | 'forgot-password' | 'reset-code' | 'new-password' | 'password-success' | 'register-name';
 
 export default function LoginPage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   // Load Anuphan font
   useEffect(() => {
     const link = document.createElement('link');
@@ -40,7 +42,12 @@ export default function LoginPage() {
       }
     }
   }, []);
-  const [currentStep, setCurrentStep] = useState<AuthStep>('welcome');
+  const [currentStep, setCurrentStep] = useState<AuthStep>(() => {
+    const step = searchParams.get('step');
+    if (step === 'signin') return 'signin';
+    if (step === 'signup') return 'signup';
+    return 'welcome';
+  });
   const [showPassword, setShowPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
@@ -69,7 +76,6 @@ export default function LoginPage() {
   });
   
   const [isLoading, setIsLoading] = useState(false);
-  const router = useRouter();
 
   // Auto-redirect after password success
   useEffect(() => {

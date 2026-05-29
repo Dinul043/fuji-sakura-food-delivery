@@ -14,11 +14,11 @@ export default function AuthPopup({ isOpen, onClose, message }: AuthPopupProps) 
   if (!isOpen) return null;
 
   const handleLogin = () => {
-    router.push('/login');
+    router.push('/login?step=signin');
   };
 
   const handleSignup = () => {
-    router.push('/login');
+    router.push('/login?step=signup');
   };
 
   return (
