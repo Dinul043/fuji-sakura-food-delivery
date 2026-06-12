@@ -17,17 +17,21 @@ export default function CartPage() {
   const [selectAll, setSelectAll] = useState(false);
   const [showAuthPopup, setShowAuthPopup] = useState(false);
   const [deliveryFee, setDeliveryFee] = useState(40); // Will be fetched from platform settings
+  const [gstRate, setGstRate] = useState(5); // Will be fetched from platform settings
 
   useEffect(() => {
     const storedName = localStorage.getItem('userName') || 'Guest';
     setUserName(storedName);
 
-    // Fetch platform settings (delivery fee)
+    // Fetch platform settings (delivery fee + GST rate)
     fetch(`${API_BASE_URL}/api/geocode/platform-info`)
       .then(r => r.ok ? r.json() : null)
       .then(data => {
         if (data?.settings?.delivery_fee?.value) {
           setDeliveryFee(parseFloat(data.settings.delivery_fee.value));
+        }
+        if (data?.settings?.default_gst_rate?.value) {
+          setGstRate(parseFloat(data.settings.default_gst_rate.value));
         }
       }).catch(() => {});
     
@@ -73,7 +77,7 @@ export default function CartPage() {
     return getSelectedItems().reduce((total, item) => total + item.quantity, 0);
   };
 
-  const taxRate = 0.05; // 5% GST estimate — actual calculated per item at checkout
+  const taxRate = gstRate / 100; // From platform settings
   const subtotal = getTotalPrice();
   const selectedSubtotal = getSelectedTotal();
   const selectedTax = selectedSubtotal * taxRate;
@@ -724,7 +728,7 @@ export default function CartPage() {
               justifyContent: 'space-between',
               marginBottom: '0.5rem'
             }}>
-              <span style={{ color: '#666' }}>GST (5%)</span>
+              <span style={{ color: '#666' }}>GST ({gstRate}%)</span>
               <span style={{ fontWeight: '600' }}>₹{(subtotal * taxRate).toFixed(2)}</span>
             </div>
           </div>

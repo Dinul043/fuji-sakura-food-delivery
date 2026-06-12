@@ -30,12 +30,20 @@ export default function DeliveryEarningsPage() {
   const router = useRouter();
   const [data, setData] = useState<EarningsSummary | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [deliveryFeePerOrder, setDeliveryFeePerOrder] = useState(40);
 
   const getToken = () => (localStorage.getItem('deliveryToken') || sessionStorage.getItem('deliveryToken'));
 
   useEffect(() => {
     const token = getToken();
     if (!token) { router.push('/delivery/login'); return; }
+    
+    // Fetch platform delivery fee
+    fetch(`${API_BASE_URL}/api/geocode/platform-info`)
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (d?.settings?.delivery_fee?.value) setDeliveryFeePerOrder(parseFloat(d.settings.delivery_fee.value)); })
+      .catch(() => {});
+    
     fetch(`${API_BASE_URL}/api/delivery/earnings`, {
       headers: { 'Authorization': `Bearer ${token}` }
     })
@@ -85,9 +93,9 @@ export default function DeliveryEarningsPage() {
             <div style={{ background: '#f0fdf4', borderRadius: '12px', padding: '1rem 1.25rem', marginBottom: '1.5rem', border: '1px solid #bbf7d0' }}>
               <div style={{ fontWeight: '700', color: '#166534', fontSize: '0.875rem', marginBottom: '0.5rem' }}>💡 How your payout works</div>
               <div style={{ fontSize: '0.82rem', color: '#374151', lineHeight: '1.7' }}>
-                • You earn <strong>₹40</strong> for every completed delivery<br />
+                • You earn <strong>₹{deliveryFeePerOrder}</strong> for every completed delivery<br />
                 • Admin reviews and transfers your pending payout to your UPI ID<br />
-                • For COD orders, you collect cash from the customer — keep ₹40, return the rest to the company
+                • For COD orders, you collect cash from the customer — return the full amount to company, admin pays ₹{deliveryFeePerOrder} earnings separately
               </div>
             </div>
 

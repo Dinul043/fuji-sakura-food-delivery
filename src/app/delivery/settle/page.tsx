@@ -22,6 +22,7 @@ export default function DeliverySettlePage() {
   const [showIssueForm, setShowIssueForm] = useState(false);
   const [toast, setToast] = useState<{ msg: string; type: 'success' | 'error' } | null>(null);
   const [settlements, setSettlements] = useState<any[]>([]);
+  const [codLimit, setCodLimit] = useState(1500); // Will be fetched from platform settings
 
   const getToken = () => (localStorage.getItem('deliveryToken') || sessionStorage.getItem('deliveryToken'));
   const getPartner = () => {
@@ -38,6 +39,15 @@ export default function DeliverySettlePage() {
   useEffect(() => {
     const token = getToken();
     if (!token) { router.push('/delivery/login'); return; }
+
+    // Fetch platform settings (COD limit)
+    fetch(`${API_BASE_URL}/api/geocode/platform-info`)
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (data?.settings?.cod_limit?.value) {
+          setCodLimit(parseFloat(data.settings.cod_limit.value));
+        }
+      }).catch(() => {});
 
     // Load Razorpay script
     if (!document.getElementById('razorpay-script')) {
@@ -240,7 +250,7 @@ export default function DeliverySettlePage() {
         ) : (
           <>
             {/* COD Limit warning */}
-            {amountToReturn >= 1500 && (
+            {amountToReturn >= codLimit && (
               <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '12px', padding: '0.875rem 1rem', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                 <span style={{ fontSize: '1.3rem' }}>🚫</span>
                 <div style={{ fontSize: '0.85rem', color: '#dc2626', fontWeight: '600' }}>
@@ -282,10 +292,10 @@ export default function DeliverySettlePage() {
               {/* Progress bar */}
               <div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.7rem', color: '#9ca3af', marginBottom: '0.3rem' }}>
-                  <span>₹0</span><span>₹1500 limit</span>
+                  <span>₹0</span><span>₹{codLimit} limit</span>
                 </div>
                 <div style={{ height: '8px', background: '#f3f4f6', borderRadius: '4px', overflow: 'hidden' }}>
-                  <div style={{ height: '100%', width: `${Math.min(100, (amountToReturn / 1500) * 100)}%`, background: amountToReturn >= 1500 ? '#ef4444' : amountToReturn >= 1200 ? '#f59e0b' : '#10b981', borderRadius: '4px' }} />
+                  <div style={{ height: '100%', width: `${Math.min(100, (amountToReturn / codLimit) * 100)}%`, background: amountToReturn >= codLimit ? '#ef4444' : amountToReturn >= (codLimit * 0.8) ? '#f59e0b' : '#10b981', borderRadius: '4px' }} />
                 </div>
               </div>
             </div>
