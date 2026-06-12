@@ -21,6 +21,7 @@ export default function CheckoutPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [showAuthPopup, setShowAuthPopup] = useState(false);
   const [errors, setErrors] = useState<{[key: string]: string}>({});
+  const [platformDeliveryFee, setPlatformDeliveryFee] = useState(40.00);
   const [deliveryAddress, setDeliveryAddress] = useState({
     fullName: '',
     phone: '',
@@ -34,6 +35,15 @@ export default function CheckoutPage() {
   const [orderInstructions, setOrderInstructions] = useState('');
 
   useEffect(() => {
+    // Fetch platform delivery fee
+    fetch(`${API_BASE_URL}/api/geocode/platform-info`)
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (data?.settings?.delivery_fee?.value) {
+          setPlatformDeliveryFee(parseFloat(data.settings.delivery_fee.value));
+        }
+      }).catch(() => {});
+
     // Check if user is guest and show popup
     const isGuest = localStorage.getItem('isGuest') === 'true';
     if (isGuest) {
@@ -102,7 +112,7 @@ export default function CheckoutPage() {
 
   // Calculate totals
   const subtotal = checkoutItems.reduce((total, item) => total + (item.price * item.quantity), 0);
-  const deliveryFee = 40.00;  // Display estimate — actual from platform_settings
+  const deliveryFee = platformDeliveryFee;
   const taxRate = 0.05; // 5% GST estimate — actual calculated per item on backend
   const tax = subtotal * taxRate;
   const total = subtotal + deliveryFee + tax;

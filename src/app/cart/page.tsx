@@ -16,10 +16,20 @@ export default function CartPage() {
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const [selectAll, setSelectAll] = useState(false);
   const [showAuthPopup, setShowAuthPopup] = useState(false);
+  const [deliveryFee, setDeliveryFee] = useState(40); // Will be fetched from platform settings
 
   useEffect(() => {
     const storedName = localStorage.getItem('userName') || 'Guest';
     setUserName(storedName);
+
+    // Fetch platform settings (delivery fee)
+    fetch(`${API_BASE_URL}/api/geocode/platform-info`)
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (data?.settings?.delivery_fee?.value) {
+          setDeliveryFee(parseFloat(data.settings.delivery_fee.value));
+        }
+      }).catch(() => {});
     
     // Load delivery address from detected location or profile
     const savedLocationAddress = localStorage.getItem('userLocationAddress');
@@ -63,7 +73,6 @@ export default function CartPage() {
     return getSelectedItems().reduce((total, item) => total + item.quantity, 0);
   };
 
-  const deliveryFee = 40; // Display estimate — actual from platform_settings at checkout
   const taxRate = 0.05; // 5% GST estimate — actual calculated per item at checkout
   const subtotal = getTotalPrice();
   const selectedSubtotal = getSelectedTotal();
