@@ -295,8 +295,32 @@ export default function DeliveryDashboard() {
         const updated = { ...partner!, is_available: data.is_available };
         setPartner(updated);
         sessionStorage.setItem('deliveryPartner', JSON.stringify(updated));        showToast(data.is_available ? '🟢 You are now Online' : '🔴 You are now Offline');
-        if (data.is_available) fetchAvailableOrders();
-        else setAvailableOrders([]);
+        if (data.is_available) {
+          // Send live location immediately when going online (before fetching orders)
+          if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(
+              (position) => {
+                const { latitude, longitude } = position.coords;
+                const token = getToken();
+                if (token) {
+                  fetch(`${API_BASE_URL}/api/delivery/location`, {
+                    method: 'PUT',
+                    headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ latitude, longitude })
+                  }).then(() => fetchAvailableOrders()).catch(() => fetchAvailableOrders());
+                } else {
+                  fetchAvailableOrders();
+                }
+              },
+              () => fetchAvailableOrders(), // GPS denied — fetch anyway
+              { enableHighAccuracy: true, timeout: 5000 }
+            );
+          } else {
+            fetchAvailableOrders();
+          }
+        } else {
+          setAvailableOrders([]);
+        }
       }
     } catch { showToast('Network error', 'error'); }
   };
