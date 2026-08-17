@@ -1,5 +1,5 @@
-import type { Metadata } from "next";
-import { Inter, Noto_Sans_JP } from "next/font/google";
+import type { Metadata, Viewport } from "next";
+import { Inter, Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 import { CartProvider } from "../contexts/CartContext";
 import FetchInterceptor from "../components/FetchInterceptor";
@@ -7,18 +7,20 @@ import FetchInterceptor from "../components/FetchInterceptor";
 const inter = Inter({
   subsets: ["latin"],
   variable: "--font-inter",
+  display: "swap",
 });
 
-const notoSansJP = Noto_Sans_JP({
+const plusJakarta = Plus_Jakarta_Sans({
   subsets: ["latin"],
-  variable: "--font-noto-sans-jp",
+  variable: "--font-plus-jakarta",
+  weight: ["400", "500", "600", "700", "800"],
+  display: "swap",
 });
 
 export const metadata: Metadata = {
-  title: "Fuji Sakura Food App - 富士桜フードアプリ",
+  title: "Fuji Sakura — Premium Food Delivery",
   description: "Premium Japanese Food Delivery Experience",
   keywords: "food delivery, japanese cuisine, sushi, ramen, bento",
-  viewport: "width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no",
   icons: {
     icon: "/images/logo/Logo.png",
     shortcut: "/images/logo/Logo.png",
@@ -26,20 +28,21 @@ export const metadata: Metadata = {
   },
 };
 
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+};
+
 export default function RootLayout({
   children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
+}: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en">
       <head>
-        {/* Razorpay Checkout Script */}
         <script src="https://checkout.razorpay.com/v1/checkout.js" async></script>
       </head>
-      <body
-        className={`${inter.variable} ${notoSansJP.variable} font-sans antialiased`}
-      >
+      <body className={`${inter.variable} ${plusJakarta.variable} antialiased`}>
         <FetchInterceptor>
           <CartProvider>
             {children}

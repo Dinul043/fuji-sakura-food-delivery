@@ -61,6 +61,9 @@ export default function HomePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showSortDropdown, setShowSortDropdown] = useState(false);
+  const [activeBanner, setActiveBanner] = useState(0);
+  const [showProfileDropdown, setShowProfileDropdown] = useState(false);
+  const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [userLat, setUserLat] = useState<number | null>(null);
   const [userLng, setUserLng] = useState<number | null>(null);
   const [locationLoading, setLocationLoading] = useState(false);
@@ -68,6 +71,48 @@ export default function HomePage() {
   const router = useRouter();
   const restaurantsRef = useRef<HTMLDivElement>(null);
   const { getTotalItems } = useCart();
+
+  // Banner data
+  const banners = [
+    {
+      id: 1,
+      tag: 'LIMITED TIME',
+      title: 'Free delivery on your first order',
+      subtitle: 'Use code WELCOME at checkout',
+      cta: 'Order Now',
+      bg: 'linear-gradient(135deg, #18181B 0%, #2d1b4e 100%)',
+      accent: '#E85D8E',
+      dot: '#a855f7',
+    },
+    {
+      id: 2,
+      tag: 'WEEKEND SPECIAL',
+      title: '20% off all Japanese cuisine',
+      subtitle: 'Valid Saturday & Sunday · Min order ₹299',
+      cta: 'Claim Offer',
+      bg: 'linear-gradient(135deg, #E85D8E 0%, #c2185b 100%)',
+      accent: '#fff',
+      dot: 'rgba(255,255,255,0.5)',
+    },
+    {
+      id: 3,
+      tag: 'NEW THIS WEEK',
+      title: 'Fresh restaurants near you',
+      subtitle: 'New menus added · Explore now',
+      cta: 'Explore',
+      bg: 'linear-gradient(135deg, #0f172a 0%, #1e3a5f 100%)',
+      accent: '#38bdf8',
+      dot: '#0ea5e9',
+    },
+  ];
+
+  // Auto-rotate banners
+  useEffect(() => {
+    const id = setInterval(() => {
+      setActiveBanner(prev => (prev + 1) % banners.length);
+    }, 4000);
+    return () => clearInterval(id);
+  }, [banners.length]);
 
   // Popular search suggestions
   const popularSuggestions = [
@@ -124,9 +169,9 @@ export default function HomePage() {
     } catch (err) {
       // Silent fallback - no console errors, just default categories for UI
       setCategories([
-        { id: 'italian', name: 'Italian', emoji: '🍝' },
-        { id: 'japanese', name: 'Japanese', emoji: '🍣' },
-        { id: 'indian', name: 'Indian', emoji: '🍛' }
+        { id: 'italian', name: 'Italian', emoji: '??' },
+        { id: 'japanese', name: 'Japanese', emoji: '??' },
+        { id: 'indian', name: 'Indian', emoji: '??' }
       ]);
     }
   };
@@ -135,7 +180,7 @@ export default function HomePage() {
     const storedName = localStorage.getItem('userName') || 'Guest';
     setUserName(storedName);
 
-    // Fetch user profile image (NOT address — delivery location is separate)
+    // Fetch user profile image (NOT address � delivery location is separate)
     const token = localStorage.getItem('token');
     if (token) {
       fetch(`${API_BASE_URL}/api/auth/me`, {
@@ -161,7 +206,7 @@ export default function HomePage() {
       if (savedLocationAddress) setUserAddress(savedLocationAddress);
       fetchRestaurants(lat, lng);
     } else if (token) {
-      // No localStorage location — try loading from DB (user_addresses)
+      // No localStorage location � try loading from DB (user_addresses)
       fetch(`${API_BASE_URL}/api/geocode/addresses`, {
         headers: { 'Authorization': `Bearer ${token}` }
       }).then(r => r.ok ? r.json() : null)
@@ -189,7 +234,7 @@ export default function HomePage() {
           fetchRestaurants();
         });
     } else {
-      // No saved delivery location — show prompt and fetch all restaurants
+      // No saved delivery location � show prompt and fetch all restaurants
       setShowLocationPrompt(true);
       fetchRestaurants();
     }
@@ -235,7 +280,7 @@ export default function HomePage() {
       localStorage.setItem('userLng', longitude.toString());
       localStorage.setItem('userLocationAddress', locationLabel);
 
-      // Save to DB (user_addresses table) — so it persists across devices
+      // Save to DB (user_addresses table) � so it persists across devices
       const token = localStorage.getItem('token');
       if (token) {
         // Update user profile address
@@ -269,7 +314,7 @@ export default function HomePage() {
       // Re-fetch restaurants with location
       fetchRestaurants(latitude, longitude);
     } catch {
-      // User denied or GPS failed — just dismiss prompt
+      // User denied or GPS failed � just dismiss prompt
       setShowLocationPrompt(false);
     } finally {
       setLocationLoading(false);
@@ -336,11 +381,17 @@ export default function HomePage() {
     // Apply both filters independently
     // Filter by search query first
     if (searchQuery.trim()) {
-      filtered = filtered.filter(restaurant =>
-        restaurant.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        restaurant.cuisine.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        restaurant.tags.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()))
+      const q = searchQuery.toLowerCase();
+      const searchFiltered = filtered.filter(restaurant =>
+        restaurant.name.toLowerCase().includes(q) ||
+        restaurant.cuisine.toLowerCase().includes(q) ||
+        restaurant.category?.toLowerCase().includes(q) ||
+        restaurant.description?.toLowerCase().includes(q) ||
+        restaurant.tags?.some(tag => tag.toLowerCase().includes(q))
       );
+      // If no exact match, show all restaurants (dish search fallback)
+      // The user can then browse and find their dish inside the restaurant menu
+      filtered = searchFiltered.length > 0 ? searchFiltered : filtered;
     }
 
     // Then filter by category (only if no search query)
@@ -437,24 +488,45 @@ export default function HomePage() {
     const value = e.target.value;
     setSearchQuery(value);
 
-    // Show suggestions when typing
     if (value.trim().length > 0) {
-      const filtered = popularSuggestions.filter(suggestion =>
-        suggestion.toLowerCase().includes(value.toLowerCase())
+      const q = value.toLowerCase();
+
+      // Build suggestions from real restaurant data first
+      const dynamicSuggestions: string[] = [];
+
+      restaurants.forEach(r => {
+        // Restaurant name
+        if (r.name.toLowerCase().includes(q) && !dynamicSuggestions.includes(r.name)) {
+          dynamicSuggestions.push(r.name);
+        }
+        // Cuisine
+        if (r.cuisine.toLowerCase().includes(q) && !dynamicSuggestions.includes(r.cuisine)) {
+          dynamicSuggestions.push(r.cuisine);
+        }
+        // Tags (dishes like pizza, biryani etc.)
+        r.tags?.forEach(tag => {
+          const formatted = tag.charAt(0).toUpperCase() + tag.slice(1).toLowerCase();
+          if (tag.toLowerCase().includes(q) && !dynamicSuggestions.includes(formatted)) {
+            dynamicSuggestions.push(formatted);
+          }
+        });
+      });
+
+      // Fill remaining slots from static popular suggestions
+      const staticMatches = popularSuggestions.filter(s =>
+        s.toLowerCase().includes(q) &&
+        !dynamicSuggestions.some(d => d.toLowerCase() === s.toLowerCase())
       );
-      setSearchSuggestions(filtered.slice(0, 6)); // Show max 6 suggestions
-      setShowSuggestions(true);
+
+      const combined = [...dynamicSuggestions, ...staticMatches].slice(0, 4);
+      setSearchSuggestions(combined);
+      setShowSuggestions(combined.length > 0);
     } else {
       setShowSuggestions(false);
       setSearchSuggestions([]);
     }
 
-    // Clear existing timeout - REMOVED AUTO-SCROLL ON TYPING
-    if (searchTimeout) {
-      clearTimeout(searchTimeout);
-    }
-
-    // NO AUTO-SCROLL - Only scroll when Enter is pressed or suggestion is clicked
+    if (searchTimeout) clearTimeout(searchTimeout);
   };
 
   const handleSearchKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -566,1591 +638,1286 @@ export default function HomePage() {
   const getHoverGradient = () => 'linear-gradient(135deg, #ff6b6b, #ee5a24)';
 
   return (
-    <div style={{
-      minHeight: '100vh',
-      background: 'linear-gradient(135deg, #ff6b6b 0%, #ee5a24 25%, #ff9ff3 50%, #54a0ff 75%, #5f27cd 100%)',
-      backgroundSize: '400% 400%',
-      animation: 'gradientShift 20s ease infinite', // Slower animation for better performance
-      position: 'relative',
-      overflow: 'hidden'
-    }}>
-      {/* Floating Food Emojis - Reduced for performance */}
-      <div style={{ position: 'absolute', top: '10%', left: '10%', fontSize: '2rem', animation: 'float 8s ease-in-out infinite', opacity: 0.4 }}>🍜</div>
-      <div style={{ position: 'absolute', top: '20%', right: '15%', fontSize: '1.5rem', animation: 'float 7s ease-in-out infinite 1s', opacity: 0.3 }}>🍱</div>
-      <div style={{ position: 'absolute', bottom: '20%', left: '20%', fontSize: '1.8rem', animation: 'float 9s ease-in-out infinite 2s', opacity: 0.4 }}>🍣</div>
+    <div style={{ minHeight: '100vh', background: '#FAFAFA', overflowX: 'hidden' }}>
 
-      {/* HEADER - MATCHING SPLASH/LOGIN THEME WITH CARD-LIKE ENDING */}
-      <header style={{
-        padding: '1rem 2rem 1.5rem 2rem',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        position: 'sticky',
-        top: 0,
-        zIndex: 100,
-        background: 'rgba(20, 10, 40, 0.55)',
-        backdropFilter: 'blur(20px)',
-        WebkitBackdropFilter: 'blur(20px)',
-        borderBottom: '1px solid rgba(255, 255, 255, 0.15)',
-        borderRadius: '0 0 24px 24px',
-        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)',
-        width: '100%',
-        maxWidth: '1600px',
-        margin: '0 auto'
-      }}>
-        {/* Logo & Location */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '2rem' }}>
-          <h1 style={{
-            color: 'white',
-            fontSize: '1.5rem',
-            fontWeight: '600',
-            margin: 0,
-            textShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
-            cursor: 'pointer',
-            transition: 'transform 0.2s ease'
-          }}
-            onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
-            onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
-          >
-            🌸 Fuji Sakura
-          </h1>
-
-          <div
-            onClick={() => {
-              if (userAddress && userLat) {
-                // Re-detect location (user wants to change)
-                detectUserLocation();
-              } else {
-                detectUserLocation();
-              }
-            }}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.5rem',
-              background: userAddress ? 'rgba(255, 255, 255, 0.15)' : 'rgba(255, 255, 255, 0.08)',
-              backdropFilter: 'blur(10px)',
-              borderRadius: '20px',
-              padding: '10px',
-              border: userAddress
-                ? '1px solid rgba(255, 255, 255, 0.2)'
-                : '1px dashed rgba(255, 255, 255, 0.4)',
-              cursor: 'pointer',
-              transition: 'all 0.2s ease'
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.background = 'rgba(255,255,255,0.2)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = userAddress ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.08)';
-            }}
-          >
-            <div style={{
-              display: 'flex',
-              justifyContent: 'center',
-              alignItems: 'center',
-              marginTop: '1px',
-              gap: '10px'
-
-            }}>
-              <Icon name="delivery/location" size={18} style={{ filter: 'brightness(0) invert(1)', flexShrink: 0 }} />
-              {userAddress ? (
-                <>
-                  <span style={{ color: 'rgba(255,255,255,0.75)', fontSize: '0.75rem', fontWeight: '400' }}>Delivering to</span>
-                  <span
-                    style={{
-                      color: 'white', fontSize: '0.85rem', fontWeight: '700',
-                      maxWidth: '120px', overflow: 'hidden', textOverflow: 'ellipsis',
-                      whiteSpace: 'nowrap'
-                    }}
-                    title={userAddress}
-                  >
-                    {userAddress}
-                  </span>
-                  <span style={{ color: 'rgba(255,255,255,0.6)', fontSize: '0.7rem', fontWeight: '500' }}>▼</span>
-                </>
-              ) : (
-                <>
-                  <span style={{ color: 'rgba(255,255,255,0.6)', fontSize: '0.85rem', fontWeight: '400', fontStyle: 'italic' }}>
-                    No address added
-                  </span>
-                  <span style={{
-                    background: 'rgba(255,255,255,0.2)',
-                    color: 'white', fontSize: '0.7rem', fontWeight: '700',
-                    padding: '0.15rem 0.5rem', borderRadius: '10px',
-                    letterSpacing: '0.03em'
-                  }}>
-                    + Add
-                  </span>
-                </>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Search Bar */}
-        <div style={{ flex: 1, maxWidth: '400px', margin: '0 2rem', position: 'relative' }}>
-          <div style={{ position: 'relative' }}>
-            <input
-              type="text"
-              placeholder="Search restaurants, cuisines, or dishes..."
-              value={searchQuery}
-              onChange={handleSearchChange}
-              onKeyPress={handleSearchKeyPress}
-              onFocus={(e) => {
-                // Show suggestions if available
-                if (searchQuery.trim().length > 0 && searchSuggestions.length > 0) {
-                  setShowSuggestions(true);
-                }
-                // Style changes
-                e.target.style.background = 'rgba(255, 255, 255, 0.95)';
-                e.target.style.borderColor = 'rgba(255, 255, 255, 0.6)';
-                e.target.style.boxShadow = '0 0 0 3px rgba(255, 255, 255, 0.1)';
-              }}
-              onBlur={(e) => {
-                // Delay hiding to allow clicking suggestions - INCREASED DELAY
-                setTimeout(() => setShowSuggestions(false), 300);
-                // Style changes
-                e.target.style.background = 'rgba(255, 255, 255, 0.9)';
-                e.target.style.borderColor = 'rgba(255, 255, 255, 0.3)';
-                e.target.style.boxShadow = 'none';
-              }}
-              style={{
-                width: '100%',
-                padding: '0.75rem 1rem 0.75rem 3rem',
-                background: 'rgba(255, 255, 255, 0.9)',
-                backdropFilter: 'blur(5px)',
-                border: '1px solid rgba(255, 255, 255, 0.3)',
-                borderRadius: '25px',
-                fontSize: '0.9rem',
-                outline: 'none',
-                transition: 'all 0.2s ease',
-                boxSizing: 'border-box'
-              }}
-            />
-            <span style={{
-              position: 'absolute',
-              left: '1rem',
-              top: '50%',
-              transform: 'translateY(-50%)',
-              color: '#666',
-              fontSize: '1rem'
-            }}>
-              <Image src="/icons/actions/search.svg" alt="Search" width={20} height={20} />
-            </span>
-          </div>
-
-          {/* Search Suggestions Dropdown */}
-          {showSuggestions && searchSuggestions.length > 0 && (
-            <div style={{
-              position: 'absolute',
-              top: '100%',
-              left: 0,
-              right: 0,
-              background: 'rgba(255, 255, 255, 0.95)',
-              backdropFilter: 'blur(15px)',
-              borderRadius: '16px',
-              marginTop: '0.5rem',
-              boxShadow: '0 10px 40px rgba(0, 0, 0, 0.15)',
-              border: '1px solid rgba(255, 255, 255, 0.3)',
-              zIndex: 1000,
-              overflow: 'hidden',
-              animation: 'slideDown 0.2s ease-out'
-            }}>
-              <div style={{
-                padding: '0.75rem 1rem 0.5rem',
-                borderBottom: '1px solid rgba(0, 0, 0, 0.1)',
-                fontSize: '0.75rem',
-                fontWeight: '600',
-                color: '#666',
-                textTransform: 'uppercase',
-                letterSpacing: '0.5px'
-              }}>
-                Popular Suggestions
-              </div>
-              {searchSuggestions.map((suggestion, index) => (
-                <button
-                  key={index}
-                  onClick={() => handleSuggestionClick(suggestion)}
-                  onMouseDown={(e) => {
-                    // Prevent blur from happening before click
-                    e.preventDefault();
-                    handleSuggestionClick(suggestion);
-                  }}
-                  style={{
-                    width: '100%',
-                    padding: '0.75rem 1rem',
-                    background: 'transparent',
-                    border: 'none',
-                    textAlign: 'left',
-                    cursor: 'pointer',
-                    fontSize: '0.9rem',
-                    color: '#333',
-                    transition: 'all 0.2s ease',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.75rem'
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.background = 'rgba(255, 107, 107, 0.1)';
-                    e.currentTarget.style.color = '#ff6b6b';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.background = 'transparent';
-                    e.currentTarget.style.color = '#333';
-                  }}
-                >
-                  <Icon name="actions/search" size={14} style={{ opacity: 0.6 }} />
-                  <span>{suggestion}</span>
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Sort Filter Icon - NEW */}
-        <div style={{ position: 'relative' }}>
-          <button
-            onClick={() => setShowSortDropdown(!showSortDropdown)}
-            onBlur={() => setTimeout(() => setShowSortDropdown(false), 200)}
-            style={{
-              position: 'relative',
-              padding: '0.75rem',
-              background: sortBy ? 'linear-gradient(135deg, #ff6b6b, #ee5a24)' : 'rgba(255, 255, 255, 0.15)',
-              backdropFilter: 'blur(10px)',
-              border: '1px solid rgba(255, 255, 255, 0.2)',
-              borderRadius: '50%',
-              color: 'white',
-              cursor: 'pointer',
-              transition: 'all 0.2s ease',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center'
-            }}
-            onMouseEnter={(e) => {
-              if (!sortBy) {
-                e.currentTarget.style.background = 'rgba(255, 255, 255, 0.25)';
-              }
-              e.currentTarget.style.transform = 'scale(1.05)';
-            }}
-            onMouseLeave={(e) => {
-              if (!sortBy) {
-                e.currentTarget.style.background = 'rgba(255, 255, 255, 0.15)';
-              }
-              e.currentTarget.style.transform = 'scale(1)';
-            }}
-            title="Sort restaurants"
-          >
-            <Icon name="actions/filter" size={20} style={{ filter: 'brightness(0) invert(1)' }} />
-            {sortBy && (
-              <span style={{
-                position: 'absolute',
-                top: '-5px',
-                right: '-5px',
-                background: '#10b981',
-                color: 'white',
-                fontSize: '0.65rem',
-                fontWeight: 'bold',
-                borderRadius: '50%',
-                width: '18px',
-                height: '18px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                border: '2px solid white'
-              }}>
-                <Image src="/icons/actions/check.svg" alt="Selected" width={16} height={16} />
-              </span>
-            )}
-          </button>
-
-          {/* Sort Dropdown */}
-          {showSortDropdown && (
-            <div style={{
-              position: 'absolute',
-              top: '100%',
-              right: 0,
-              marginTop: '0.5rem',
-              background: 'rgba(255, 255, 255, 0.98)',
-              backdropFilter: 'blur(15px)',
-              borderRadius: '16px',
-              boxShadow: '0 10px 40px rgba(0, 0, 0, 0.15)',
-              border: '1px solid rgba(255, 255, 255, 0.3)',
-              zIndex: 1000,
-              overflow: 'hidden',
-              minWidth: '220px',
-              animation: 'slideDown 0.2s ease-out'
-            }}>
-              <div style={{
-                padding: '0.75rem 1rem 0.5rem',
-                borderBottom: '1px solid rgba(0, 0, 0, 0.1)',
-                fontSize: '0.75rem',
-                fontWeight: '600',
-                color: '#666',
-                textTransform: 'uppercase',
-                letterSpacing: '0.5px'
-              }}>
-                Sort By
-              </div>
-
-              {[
-                { id: 'rating', label: 'Rating', icon: '/icons/status/star.svg', desc: 'High to Low' },
-                { id: 'distance', label: 'Distance', icon: '/icons/delivery/location.svg', desc: 'Nearest First' },
-                { id: 'time', label: 'Delivery Time', icon: '/icons/time/clock.svg', desc: 'Fastest First' },
-                { id: 'price', label: 'Delivery Fee', icon: '/icons/payment/money.svg', desc: 'Low to High' }
-              ].map((sort) => (
-                <button
-                  key={sort.id}
-                  onMouseDown={(e) => {
-                    e.preventDefault();
-                    handleSortClick(sort.id);
-                    setShowSortDropdown(false);
-                  }}
-                  style={{
-                    width: '100%',
-                    padding: '0.85rem 1rem',
-                    background: sortBy === sort.id ? 'rgba(255, 107, 107, 0.1)' : 'transparent',
-                    border: 'none',
-                    textAlign: 'left',
-                    cursor: 'pointer',
-                    transition: 'all 0.2s ease',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.75rem',
-                    borderLeft: sortBy === sort.id ? '3px solid #ff6b6b' : '3px solid transparent'
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.background = 'rgba(255, 107, 107, 0.08)';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.background = sortBy === sort.id ? 'rgba(255, 107, 107, 0.1)' : 'transparent';
-                  }}
-                >
-                  <Image src={sort.icon} alt={sort.label} width={20} height={20} />
-                  <div style={{ flex: 1 }}>
-                    <div style={{
-                      fontSize: '0.9rem',
-                      fontWeight: '600',
-                      color: sortBy === sort.id ? '#ff6b6b' : '#333',
-                      marginBottom: '0.1rem'
-                    }}>
-                      {sort.label}
-                    </div>
-                    <div style={{
-                      fontSize: '0.75rem',
-                      color: '#666'
-                    }}>
-                      {sort.desc}
-                    </div>
-                  </div>
-                  {sortBy === sort.id && (
-                    <span style={{
-                      fontSize: '0.9rem',
-                      color: '#ff6b6b',
-                      fontWeight: 'bold'
-                    }}>
-                      {sortOrder === 'high' ? '↓' : '↑'}
-                    </span>
-                  )}
-                </button>
-              ))}
-
-              {/* Clear Sort Option */}
-              {sortBy && (
-                <>
-                  <div style={{
-                    height: '1px',
-                    background: 'rgba(0, 0, 0, 0.1)',
-                    margin: '0.5rem 0'
-                  }}></div>
-                  <button
-                    onMouseDown={(e) => {
-                      e.preventDefault();
-                      setSortBy('');
-                      setSortOrder('high');
-                      setShowSortDropdown(false);
-                    }}
-                    style={{
-                      width: '100%',
-                      padding: '0.75rem 1rem',
-                      background: 'transparent',
-                      border: 'none',
-                      textAlign: 'left',
-                      cursor: 'pointer',
-                      transition: 'all 0.2s ease',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '0.75rem',
-                      color: '#dc2626',
-                      fontSize: '0.85rem',
-                      fontWeight: '600'
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.background = 'rgba(239, 68, 68, 0.08)';
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.background = 'transparent';
-                    }}
-                  >
-                    <span>✕</span>
-                    <span>Clear Sort</span>
-                  </button>
-                </>
-              )}
-            </div>
-          )}
-        </div>
-
-        {/* Cart & Profile */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <button
-            onClick={() => router.push('/cart')}
-            style={{
-              position: 'relative',
-              marginLeft: '5px',
-              padding: '0.75rem',
-              background: 'rgba(255, 255, 255, 0.15)',
-              backdropFilter: 'blur(10px)',
-              border: '1px solid rgba(255, 255, 255, 0.2)',
-              borderRadius: '50%',
-              color: 'white',
-              cursor: 'pointer',
-              transition: 'all 0.2s ease'
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.background = 'rgba(255, 255, 255, 0.25)';
-              e.currentTarget.style.transform = 'scale(1.05)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = 'rgba(255, 255, 255, 0.15)';
-              e.currentTarget.style.transform = 'scale(1)';
-            }}
-          >
-            <Image src="/icons/navigation/cart.svg" alt="Cart" width={24} height={24} />
-            {getTotalItems() > 0 && (
-              <span style={{
-                position: 'absolute',
-                top: '-5px',
-                right: '-5px',
-                background: '#ff6b6b',
-                color: 'white',
-                fontSize: '0.7rem',
-                fontWeight: 'bold',
-                borderRadius: '50%',
-                width: '20px',
-                height: '20px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                border: '2px solid white'
-              }}>{getTotalItems()}</span>
-            )}
-          </button>
-
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.75rem',
-            background: 'rgba(255, 255, 255, 0.15)',
-            backdropFilter: 'blur(10px)',
-            borderRadius: '25px',
-            padding: '0.5rem 1rem',
-            border: '1px solid rgba(255, 255, 255, 0.2)'
-          }}>
-            <div style={{ color: 'white', fontSize: '0.9rem' }}>
-              <div style={{ fontWeight: '500' }}>Hi, {userName}!</div>
-              <div style={{ fontSize: '0.75rem', opacity: 0.8 }}>Welcome back</div>
-            </div>
-
-            {/* Orders Button */}
-            <button
-              onClick={() => router.push('/orders')} style={{
-                padding: '0.5rem 1rem',
-                background: 'rgba(255, 255, 255, 0.2)',
-                border: '1px solid rgba(255, 255, 255, 0.3)',
-                borderRadius: '15px',
-                color: 'white',
-                fontSize: '0.8rem',
-                fontWeight: '500',
-                cursor: 'pointer',
-                transition: 'all 0.3s ease',
-                transform: 'scale(1)',
-                boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.5rem'
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.background = 'linear-gradient(135deg, #3b82f6, #1d4ed8)';
-                e.currentTarget.style.transform = 'scale(1.1)';
-                e.currentTarget.style.boxShadow = '0 4px 15px rgba(59, 130, 246, 0.4)';
-                e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.6)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = 'rgba(255, 255, 255, 0.2)';
-                e.currentTarget.style.transform = 'scale(1)';
-                e.currentTarget.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.1)';
-                e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.3)';
-              }}
-            >
-              <Image src="/icons/navigation/orders.svg" alt="Orders" width={20} height={20} />
-              <span>Orders</span>
-            </button>
-
-            {/* Profile Button */}
-            <button
-              onClick={() => router.push('/profile')}
-              style={{
-                padding: '0.5rem 1rem',
-                background: 'rgba(255, 255, 255, 0.2)',
-                border: '1px solid rgba(255, 255, 255, 0.3)',
-                borderRadius: '15px',
-                color: 'white',
-                fontSize: '0.8rem',
-                fontWeight: '500',
-                cursor: 'pointer',
-                transition: 'all 0.3s ease',
-                transform: 'scale(1)',
-                boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.5rem'
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.background = 'linear-gradient(135deg, #8b5cf6, #5f27cd)';
-                e.currentTarget.style.transform = 'scale(1.1)';
-                e.currentTarget.style.boxShadow = '0 4px 15px rgba(139, 92, 246, 0.4)';
-                e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.6)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = 'rgba(255, 255, 255, 0.2)';
-                e.currentTarget.style.transform = 'scale(1)';
-                e.currentTarget.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.1)';
-                e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.3)';
-              }}
-            >
-              {userProfileImage ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={`${API_BASE_URL}${userProfileImage}`}
-                  alt="Profile"
-                  style={{ width: '22px', height: '22px', borderRadius: '50%', objectFit: 'cover', border: '1.5px solid rgba(255,255,255,0.6)' }}
-                />
-              ) : (
-                <Image src="/icons/navigation/user.svg" alt="Profile" width={20} height={20} />
-              )}
-              <span>Profile</span>
-            </button>
-
-            <button
-              onClick={handleLogout}
-              style={{
-                padding: '0.5rem 1rem',
-                background: 'rgba(255, 255, 255, 0.2)',
-                border: '1px solid rgba(255, 255, 255, 0.3)',
-                borderRadius: '15px',
-                color: 'white',
-                fontSize: '0.8rem',
-                fontWeight: '500',
-                cursor: 'pointer',
-                transition: 'all 0.3s ease',
-                transform: 'scale(1)',
-                boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)'
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.background = 'linear-gradient(135deg, #ff6b6b, #ee5a24)';
-                e.currentTarget.style.transform = 'scale(1.1)';
-                e.currentTarget.style.boxShadow = '0 4px 15px rgba(255, 107, 107, 0.4)';
-                e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.6)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = 'rgba(255, 255, 255, 0.2)';
-                e.currentTarget.style.transform = 'scale(1)';
-                e.currentTarget.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.1)';
-                e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.3)';
-              }}
-            >
-              Logout
-            </button>
-          </div>
-        </div>
-      </header>
-
-      {/* LOCATION PROMPT BANNER — shown when no location is set */}
-      {showLocationPrompt && (
-        <div style={{
-          background: 'linear-gradient(135deg, #fff5f2, #ffffff)',
-          border: '1px solid #ffe0d6',
-          borderRadius: '16px',
-          padding: '1rem 1.5rem',
-          margin: '1rem 2rem 0',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: '1rem',
-          boxShadow: '0 2px 12px rgba(255, 87, 34, 0.08)',
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-            <span style={{ fontSize: '1.5rem' }}>📍</span>
-            <div>
-              <div style={{ fontWeight: '600', color: '#333', fontSize: '0.9rem' }}>Set your delivery location</div>
-              <div style={{ fontSize: '0.8rem', color: '#666' }}>See restaurants that deliver to you</div>
-            </div>
-          </div>
-          <button
-            onClick={detectUserLocation}
-            disabled={locationLoading}
-            style={{
-              padding: '0.6rem 1.2rem',
-              borderRadius: '10px',
-              border: 'none',
-              background: 'linear-gradient(135deg, #FF5722, #FF7043)',
-              color: 'white',
-              fontWeight: '600',
-              fontSize: '0.85rem',
-              cursor: locationLoading ? 'not-allowed' : 'pointer',
-              opacity: locationLoading ? 0.7 : 1,
-              whiteSpace: 'nowrap',
-            }}
-          >
-            {locationLoading ? '⏳ Detecting...' : '📍 Detect Location'}
-          </button>
-        </div>
+      {/* ─── HEADER ─────────────────────────────────────────────── */}
+      {/* Backdrop to close dropdowns */}
+      {(showProfileDropdown || showMobileMenu) && (
+        <div
+          onClick={() => { setShowProfileDropdown(false); setShowMobileMenu(false); }}
+          style={{ position: 'fixed', inset: 0, zIndex: 49 }}
+        />
       )}
 
-      {/* SECTION 1: CRAVING TEXT - CENTERED WITH TOP SPACING */}
-      <section style={{
-        paddingTop: '3rem',
-        paddingBottom: '2rem',
-        textAlign: 'center',
-        position: 'relative',
-        zIndex: 5
+      <header style={{
+        position: 'sticky', top: 0, zIndex: 50,
+        background: 'rgba(255,255,255,0.88)',
+        backdropFilter: 'blur(20px)',
+        WebkitBackdropFilter: 'blur(20px)',
+        borderBottom: '1px solid rgba(24,24,27,0.07)',
+        boxShadow: '0 1px 24px rgba(24,24,27,0.06)',
       }}>
-        <h2 style={{
-          fontSize: '2.5rem',
-          fontWeight: 'bold',
-          color: 'white',
-          marginBottom: '1rem',
-          textShadow: '0 2px 4px rgba(0, 0, 0, 0.2)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          gap: '1rem'
+        <div className="header-inner" style={{
+          maxWidth: 1440, margin: '0 auto',
+          padding: '0 24px',
+          height: 64,
+          display: 'flex', alignItems: 'center', gap: 12,
         }}>
-          <span style={{ fontSize: '2rem', marginRight: '8px' }}>🍽️</span>
-          What are you craving?
-        </h2>
-        <p style={{
-          fontSize: '1.1rem',
-          color: 'rgba(255, 255, 255, 0.8)',
-          textShadow: '0 1px 2px rgba(0, 0, 0, 0.1)',
-          margin: 0
-        }}>
-          Choose from popular categories
-        </p>
-      </section>
 
-      {/* SECTION 2: CATEGORY CAPSULES - MATCHING YOUR IMAGE */}
-      <section style={{
-        paddingTop: '2rem',
-        paddingBottom: '3rem',
-        position: 'relative',
-        zIndex: 5
-      }}>
-        <div style={{
-          maxWidth: '800px',
-          margin: '0 auto',
-          padding: '0 2rem'
-        }}>
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
-            gap: '1rem'
+          {/* ── Logo ── */}
+          <a href="/home" style={{
+            textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0,
           }}>
-            {/* All Category - Selected by default */}
-            <button
-              onClick={() => handleCategoryClick('')}
+            <div style={{
+              width: 36, height: 36,
+              background: 'linear-gradient(135deg, rgba(232,93,142,0.13), rgba(232,93,142,0.07))',
+              border: '1px solid rgba(232,93,142,0.15)',
+              borderRadius: 10,
+              display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
+            }}>
+              <Image src="/images/logo/Logo.png" alt="Fuji Sakura" width={28} height={28}
+                style={{ objectFit: 'contain' }} priority />
+            </div>
+            <span style={{ fontWeight: 700, fontSize: 16, color: '#111', letterSpacing: '-0.02em', whiteSpace: 'nowrap' }}>
+              Fuji <span style={{ color: '#E85D8E' }}>Sakura</span>
+            </span>
+          </a>
+
+          {/* ── Location pill — visible on all screens, compact on mobile ── */}
+          <button onClick={detectUserLocation} disabled={locationLoading}
+            className="header-location-pill"
+            style={{
+              display: 'flex', alignItems: 'center', gap: 6,
+              height: 38, padding: '0 14px',
+              background: '#F7F7F7', border: '1px solid #EBEBEB',
+              borderRadius: 100, cursor: 'pointer',
+              fontSize: 13, fontWeight: 500, color: '#333',
+              transition: 'all .18s ease',
+              flexShrink: 1, minWidth: 0, maxWidth: 220, overflow: 'hidden',
+            }}
+            onMouseEnter={e => { e.currentTarget.style.background = '#fff'; e.currentTarget.style.borderColor = '#E85D8E'; e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 4px 12px rgba(232,93,142,0.15)'; }}
+            onMouseLeave={e => { e.currentTarget.style.background = '#F7F7F7'; e.currentTarget.style.borderColor = '#EBEBEB'; e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = 'none'; }}
+          >
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#E85D8E" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }} aria-hidden="true"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+            {/* Show address text on tablet+, icon only on small mobile */}
+            <span className="header-location-text">
+              {locationLoading ? 'Detecting…'
+                : userAddress ? userAddress
+                : 'Set location'}
+            </span>
+            {userAddress && !locationLoading && <span style={{ color: '#bbb', fontSize: 10, flexShrink: 0 }} className="header-location-arrow">▼</span>}
+          </button>
+
+          {/* ── Spacer ── */}
+          <div style={{ flex: 1 }} />
+
+          {/* ── Cart — always visible ── */}
+          <button onClick={() => router.push('/cart')} aria-label="Cart"
+            style={{
+              position: 'relative', width: 44, height: 44,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              background: 'transparent', border: 'none', borderRadius: 12,
+              cursor: 'pointer', transition: 'all .18s ease', flexShrink: 0,
+            }}
+            onMouseEnter={e => { e.currentTarget.style.background = '#F7F7F7'; e.currentTarget.style.transform = 'scale(1.08)'; }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.transform = 'scale(1)'; }}
+          >
+            <Image src="/icons/navigation/cart.svg" alt="" width={22} height={22} />
+            {getTotalItems() > 0 && (
+              <span style={{
+                position: 'absolute', top: 4, right: 4,
+                width: 16, height: 16, borderRadius: '50%',
+                background: '#E85D8E', color: '#fff',
+                fontSize: 8, fontWeight: 700,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}>{getTotalItems() > 9 ? '9+' : getTotalItems()}</span>
+            )}
+          </button>
+
+          {/* ── Profile avatar + dropdown — desktop ── */}
+          <div style={{ position: 'relative', flexShrink: 0 }} className="header-desktop-only">
+            <button onClick={() => setShowProfileDropdown(p => !p)}
               style={{
-                background: selectedCategory === ''
-                  ? 'linear-gradient(135deg, #ff6b6b, #ee5a24)'
-                  : 'rgba(255, 255, 255, 0.9)',
-                backdropFilter: 'blur(10px)',
-                border: '1px solid rgba(255, 255, 255, 0.3)',
-                borderRadius: '20px',
-                padding: '2rem 1rem',
-                cursor: 'pointer',
-                transition: 'all 0.3s ease',
-                transform: selectedCategory === '' ? 'scale(1.05)' : 'scale(1)',
-                boxShadow: selectedCategory === ''
-                  ? '0 12px 35px rgba(255, 107, 107, 0.4)'
-                  : '0 8px 25px rgba(0, 0, 0, 0.1)',
-                position: 'relative',
-                overflow: 'hidden'
+                display: 'flex', alignItems: 'center', gap: 8,
+                height: 40, padding: '0 12px',
+                background: showProfileDropdown ? '#F7F7F7' : 'transparent',
+                border: '1px solid', borderColor: showProfileDropdown ? '#E85D8E33' : '#EBEBEB',
+                borderRadius: 100, cursor: 'pointer', transition: 'all .18s ease',
               }}
-              onMouseEnter={(e) => {
-                // Only apply hover effect if NOT selected
-                if (selectedCategory !== '') {
-                  e.currentTarget.style.background = 'linear-gradient(135deg, #ff6b6b, #ee5a24)';
-                  e.currentTarget.style.transform = 'scale(1.05)';
-                  e.currentTarget.style.boxShadow = '0 12px 35px rgba(255, 107, 107, 0.4)';
-                  // Change text color to white on hover
-                  const textElements = e.currentTarget.querySelectorAll('div');
-                  textElements.forEach(el => {
-                    (el as HTMLElement).style.color = 'white';
-                  });
+              onMouseEnter={e => { e.currentTarget.style.borderColor = '#E85D8E44'; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(232,93,142,0.08)'; }}
+              onMouseLeave={e => { if (!showProfileDropdown) { e.currentTarget.style.borderColor = '#EBEBEB'; e.currentTarget.style.boxShadow = 'none'; } }}
+            >
+              <div style={{
+                width: 28, height: 28, borderRadius: '50%',
+                background: userProfileImage ? 'transparent' : 'linear-gradient(135deg, #E85D8E, #c2185b)',
+                overflow: 'hidden', flexShrink: 0,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                boxShadow: '0 0 0 2px rgba(232,93,142,0.2)',
+              }}>
+                {userProfileImage
+                  // eslint-disable-next-line @next/next/no-img-element
+                  ? <img src={`${API_BASE_URL}${userProfileImage}`} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  : <span style={{ color: '#fff', fontSize: 12, fontWeight: 700 }}>{userName ? userName[0].toUpperCase() : 'U'}</span>
                 }
+              </div>
+              <span style={{ fontSize: 13, fontWeight: 600, color: '#222', maxWidth: 80, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {userName || 'Profile'}
+              </span>
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#888" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"
+                style={{ transform: showProfileDropdown ? 'rotate(180deg)' : 'rotate(0)', transition: 'transform .2s' }}>
+                <polyline points="6 9 12 15 18 9"/>
+              </svg>
+            </button>
+
+            {showProfileDropdown && (
+              <div style={{
+                position: 'absolute', top: 'calc(100% + 8px)', right: 0,
+                width: 200,
+                background: 'rgba(255,255,255,0.98)', backdropFilter: 'blur(20px)',
+                border: '1px solid #F0F0F0', borderRadius: 18,
+                boxShadow: '0 12px 40px rgba(0,0,0,0.12)',
+                overflow: 'hidden', animation: 'slideDown 0.18s ease', zIndex: 60,
+              }}>
+                <div style={{ padding: '14px 16px 12px', borderBottom: '1px solid #F5F5F5' }}>
+                  <p style={{ fontSize: 14, fontWeight: 700, color: '#111', margin: 0 }}>{userName}</p>
+                  <p style={{ fontSize: 12, color: '#999', margin: '2px 0 0' }}>Fuji Sakura Member</p>
+                </div>
+                {[
+                  { label: 'My Profile', action: () => { router.push('/profile'); setShowProfileDropdown(false); }, color: '#333' },
+                  { label: 'My Orders',  action: () => { router.push('/orders');  setShowProfileDropdown(false); }, color: '#333' },
+                  { label: 'Sign Out',   action: () => { handleLogout(); setShowProfileDropdown(false); }, color: '#ef4444' },
+                ].map((item, i, arr) => (
+                  <button key={item.label} onClick={item.action}
+                    style={{
+                      width: '100%', display: 'flex', alignItems: 'center', padding: '12px 16px',
+                      background: 'transparent', border: 'none',
+                      borderBottom: i < arr.length - 1 ? '1px solid #F7F7F7' : 'none',
+                      textAlign: 'left', cursor: 'pointer',
+                      fontSize: 13.5, fontWeight: 500, color: item.color, transition: 'background .15s',
+                    }}
+                    onMouseEnter={e => { e.currentTarget.style.background = item.color === '#ef4444' ? '#FEF2F2' : '#F9F9F9'; }}
+                    onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
+                  >{item.label}</button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* ── Hamburger — mobile only ── */}
+          <button
+            onClick={() => setShowMobileMenu(p => !p)}
+            aria-label={showMobileMenu ? 'Close menu' : 'Open menu'}
+            className="header-mobile-only"
+            style={{
+              width: 44, height: 44,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              background: 'transparent', border: '1px solid #EBEBEB',
+              borderRadius: 12, cursor: 'pointer', flexShrink: 0,
+              transition: 'all .15s ease',
+            }}
+          >
+            {showMobileMenu ? (
+              /* X icon */
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#333" strokeWidth="2.5" strokeLinecap="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            ) : (
+              /* Hamburger */
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#333" strokeWidth="2.5" strokeLinecap="round" aria-hidden="true"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+            )}
+          </button>
+        </div>
+
+
+        {/* Accent gradient line */}
+        <div style={{ height: 1, background: 'linear-gradient(90deg, transparent, #E85D8E44 30%, #E85D8E44 70%, transparent)' }} />
+      </header>
+        {/* ── Mobile menu drawer ── */}
+        {/* ── Premium slide-in drawer — right side ── */}
+        {showMobileMenu && (
+          <>
+            {/* Backdrop — fade in, click to close, drag right to dismiss */}
+            <div
+              className="drawer-backdrop"
+              onClick={() => setShowMobileMenu(false)}
+              onTouchStart={e => {
+                const backdrop = e.currentTarget;
+                const startX = e.touches[0].clientX;
+                const panel = backdrop.nextElementSibling as HTMLElement | null;
+
+                const onMove = (ev: TouchEvent) => {
+                  const dx = ev.touches[0].clientX - startX;
+                  if (dx > 0 && panel) {
+                    panel.style.transition = 'none';
+                    panel.style.transform = `translateX(${dx}px)`;
+                    backdrop.style.opacity = `${Math.max(0, 1 - dx / 300)}`;
+                  }
+                };
+
+                const onEnd = (ev: TouchEvent) => {
+                  const dx = ev.changedTouches[0].clientX - startX;
+                  backdrop.removeEventListener('touchmove', onMove);
+                  backdrop.removeEventListener('touchend', onEnd);
+                  if (dx > 100 && panel) {
+                    panel.style.transition = 'transform 0.22s cubic-bezier(0.4,0,1,1)';
+                    panel.style.transform = 'translateX(100%)';
+                    setTimeout(() => setShowMobileMenu(false), 220);
+                  } else if (panel) {
+                    panel.style.transition = 'transform 0.28s cubic-bezier(0.16,1,0.3,1)';
+                    panel.style.transform = 'translateX(0)';
+                    backdrop.style.opacity = '1';
+                  }
+                };
+
+                backdrop.addEventListener('touchmove', onMove, { passive: true });
+                backdrop.addEventListener('touchend', onEnd, { passive: true });
               }}
-              onMouseLeave={(e) => {
-                // Only remove hover effect if NOT selected
-                if (selectedCategory !== '') {
-                  e.currentTarget.style.background = 'rgba(255, 255, 255, 0.9)';
-                  e.currentTarget.style.transform = 'scale(1)';
-                  e.currentTarget.style.boxShadow = '0 8px 25px rgba(0, 0, 0, 0.1)';
-                  // Change text color back to dark
-                  const textElements = e.currentTarget.querySelectorAll('div');
-                  textElements.forEach(el => {
-                    (el as HTMLElement).style.color = '#333';
-                  });
-                }
+              aria-hidden="true"
+            />
+
+            {/* Drawer panel — slides from right, drag right to dismiss */}
+            <div
+              className="drawer-panel"
+              role="dialog"
+              aria-modal="true"
+              aria-label="Navigation menu"
+              onTouchStart={e => {
+                const panel = e.currentTarget;
+                const startX = e.touches[0].clientX;
+                let currentDx = 0;
+
+                const onMove = (ev: TouchEvent) => {
+                  const dx = ev.touches[0].clientX - startX;
+                  if (dx > 0) {
+                    currentDx = dx;
+                    panel.style.transition = 'none';
+                    panel.style.transform = `translateX(${dx}px)`;
+                  }
+                };
+
+                const onEnd = () => {
+                  panel.removeEventListener('touchmove', onMove);
+                  panel.removeEventListener('touchend', onEnd);
+                  if (currentDx > 100) {
+                    panel.style.transition = 'transform 0.22s cubic-bezier(0.4,0,1,1)';
+                    panel.style.transform = 'translateX(100%)';
+                    setTimeout(() => setShowMobileMenu(false), 220);
+                  } else {
+                    panel.style.transition = 'transform 0.28s cubic-bezier(0.16,1,0.3,1)';
+                    panel.style.transform = 'translateX(0)';
+                  }
+                };
+
+                panel.addEventListener('touchmove', onMove, { passive: true });
+                panel.addEventListener('touchend', onEnd, { passive: true });
               }}
             >
-              {/* Background Pattern */}
-              <div style={{
-                position: 'absolute',
-                top: 0,
-                left: 0,
-                right: 0,
-                bottom: 0,
-                background: selectedCategory === ''
-                  ? 'radial-gradient(circle at 30% 20%, rgba(255, 255, 255, 0.2) 0%, transparent 50%)'
-                  : 'radial-gradient(circle at 30% 20%, rgba(255, 107, 107, 0.1) 0%, transparent 50%)',
-                pointerEvents: 'none'
-              }}></div>
+              {/* Drag pill hint */}
+              <div className="drawer-handle" aria-hidden="true" />
 
-              <div style={{
-                textAlign: 'center',
-                position: 'relative',
-                zIndex: 1
-              }}>
-                <div style={{
-                  width: '80px',
-                  height: '80px',
-                  marginBottom: '1rem',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  margin: '0 auto 1rem auto',
-                  background: selectedCategory === ''
-                    ? 'rgba(255, 255, 255, 0.2)'
-                    : 'linear-gradient(135deg, #ff6b6b, #ee5a24)',
-                  borderRadius: '20px',
-                  boxShadow: '0 8px 20px rgba(0, 0, 0, 0.1)',
-                  border: '3px solid rgba(255, 255, 255, 0.3)',
-                  position: 'relative',
-                  overflow: 'hidden'
-                }}>
-                  <Image
-                    src="/images/auth/category-all.png"
-                    alt="All Categories"
-                    width={60}
-                    height={60}
+              {/* ── User greeting ── */}
+              <div className="drawer-user">
+                <div className="drawer-avatar">
+                  {userProfileImage
+                    // eslint-disable-next-line @next/next/no-img-element
+                    ? <img src={`${API_BASE_URL}${userProfileImage}`} alt={userName} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    : <span>{userName ? userName[0].toUpperCase() : 'U'}</span>
+                  }
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p className="drawer-user-name">{userName || 'Guest'}</p>
+                </div>
+                <button className="drawer-close" onClick={() => setShowMobileMenu(false)} aria-label="Close menu">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" aria-hidden="true">
+                    <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                  </svg>
+                </button>
+              </div>
+
+              <div className="drawer-divider" />
+
+              {/* ── Nav items — only real functionality ── */}
+              <button className="drawer-item" onClick={() => { router.push('/profile'); setShowMobileMenu(false); }}>
+                <span className="drawer-item-icon">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                </span>
+                <span className="drawer-item-text">
+                  <span className="drawer-item-label">My Profile</span>
+                  <span className="drawer-item-sub">View and edit your details</span>
+                </span>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#CCC" strokeWidth="2.5" strokeLinecap="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>
+              </button>
+
+              <button className="drawer-item" onClick={() => { router.push('/orders'); setShowMobileMenu(false); }}>
+                <span className="drawer-item-icon">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+                </span>
+                <span className="drawer-item-text">
+                  <span className="drawer-item-label">My Orders</span>
+                  <span className="drawer-item-sub">Track and reorder</span>
+                </span>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#CCC" strokeWidth="2.5" strokeLinecap="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>
+              </button>
+
+              <div className="drawer-divider" />
+
+              {/* ── Sign out ── */}
+              <button className="drawer-logout" onClick={() => { handleLogout(); setShowMobileMenu(false); }}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                Sign Out
+              </button>
+
+              {/* ── App version footer ── */}
+              <div style={{ marginTop: 'auto', padding: '20px', textAlign: 'center' }}>
+                <p style={{ fontSize: 11, color: '#CCC', margin: 0 }}>Fuji Sakura v1.0 · Premium Food Delivery</p>
+              </div>
+            </div>
+          </>
+        )}
+
+      {/* ═══════════════════════════════════════════════════════════
+          DESKTOP + TABLET LAYOUT (hidden on mobile < 768px)
+      ═══════════════════════════════════════════════════════════ */}
+      <div className="desktop-view">
+
+      {/* ─── HERO SECTION ────────────────────────────────────────── */}
+      {/* ─── HERO SECTION ────────────────────────────────────────── */}
+      <section className="home-hero">
+        <div className="home-hero__inner">
+          {/* LEFT */}
+          <div className="home-hero__left">
+            <span className="home-hero__tag">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#E85D8E" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"/></svg>
+              Premium Food Delivery
+            </span>
+            <h1 className="home-hero__title">
+              Authentic food,{' '}
+              <span className="home-hero__title-accent">delivered fast</span>
+            </h1>
+            <p className="home-hero__subtitle">
+              Japanese cuisine, fresh ingredients, and the restaurants you love — at your door in 30 min.
+            </p>
+
+            {/* Search bar */}
+            <div style={{ position: 'relative', marginBottom: 14 }}>
+              <div className="home-hero__search" style={{ marginBottom: 0 }}>
+                <div style={{ position: 'relative', flex: 1 }}>
+                  <Image src="/icons/actions/search.svg" alt="" width={16} height={16}
+                    style={{ position: 'absolute', left: 16, top: '50%', transform: 'translateY(-50%)', opacity: 0.4, pointerEvents: 'none' }} />
+                  <input
+                    id="hero-search-input"
+                    type="text"
+                    placeholder="Search restaurants or dishes…"
+                    value={searchQuery}
+                    onChange={handleSearchChange}
+                    onKeyPress={handleSearchKeyPress}
+                    onFocus={e => {
+                      if (searchQuery.trim() && searchSuggestions.length) setShowSuggestions(true);
+                      e.target.style.borderColor = '#E85D8E';
+                      e.target.style.boxShadow = '0 0 0 4px rgba(232,93,142,0.12)';
+                    }}
+                    onBlur={e => {
+                      setTimeout(() => setShowSuggestions(false), 200);
+                      e.target.style.borderColor = '#E0E0E0';
+                      e.target.style.boxShadow = 'none';
+                    }}
                     style={{
-                      objectFit: 'cover',
-                      borderRadius: '15px',
-                      filter: selectedCategory === '' ? 'brightness(1.2) contrast(1.1)' : 'none'
+                      width: '100%', height: 50, padding: '0 18px 0 44px',
+                      background: '#fff', border: '1.5px solid #E0E0E0',
+                      borderRadius: '14px 0 0 14px', fontSize: 14, color: '#222',
+                      outline: 'none', transition: 'border-color .15s, box-shadow .15s',
+                      boxSizing: 'border-box',
                     }}
                   />
                 </div>
-                <div style={{
-                  fontWeight: '700',
-                  fontSize: '1.1rem',
-                  color: selectedCategory === '' ? 'white' : '#333',
-                  textShadow: selectedCategory === '' ? '0 2px 4px rgba(0, 0, 0, 0.2)' : 'none'
-                }}>All</div>
-                <div style={{
-                  fontSize: '0.8rem',
-                  color: selectedCategory === '' ? 'rgba(255, 255, 255, 0.9)' : '#666',
-                  marginTop: '0.25rem',
-                  fontWeight: '500'
-                }}>View All</div>
+                <button
+                  onClick={() => { 
+                    setShowSuggestions(false); 
+                    if (searchQuery.trim()) {
+                      setTimeout(() => scrollToRestaurants(), 100);
+                    }
+                  }}
+                  style={{
+                    height: 50, padding: '0 24px', flexShrink: 0,
+                    background: '#E85D8E', color: '#fff', border: 'none',
+                    borderRadius: '0 14px 14px 0', fontSize: 14, fontWeight: 700,
+                    cursor: 'pointer', whiteSpace: 'nowrap',
+                    transition: 'background .15s',
+                  }}
+                  onMouseEnter={e => (e.currentTarget.style.background = '#d44d7a')}
+                  onMouseLeave={e => (e.currentTarget.style.background = '#E85D8E')}
+                >
+                  Find Food
+                </button>
               </div>
-            </button>
 
-            {/* Other Categories — show top 4, rest hidden behind More button */}
-            {(showAllCategories ? categories : categories.slice(0, 4)).map((category) => (
-              <button
-                key={category.id}
-                onClick={() => handleCategoryClick(category.id)}
-                style={{
-                  background: selectedCategory === category.id
-                    ? 'linear-gradient(135deg, #ff6b6b, #ee5a24)'
-                    : 'rgba(255, 255, 255, 0.9)',
-                  backdropFilter: 'blur(10px)',
-                  border: '1px solid rgba(255, 255, 255, 0.3)',
-                  borderRadius: '20px',
-                  padding: '2rem 1rem',
-                  cursor: 'pointer',
-                  transition: 'all 0.3s ease',
-                  transform: selectedCategory === category.id ? 'scale(1.05)' : 'scale(1)',
-                  boxShadow: selectedCategory === category.id
-                    ? '0 12px 35px rgba(255, 107, 107, 0.4)'
-                    : '0 8px 25px rgba(0, 0, 0, 0.1)',
-                  position: 'relative',
-                  overflow: 'hidden'
-                }}
-                onMouseEnter={(e) => {
-                  // Only apply hover effect if NOT selected
-                  if (selectedCategory !== category.id) {
-                    e.currentTarget.style.background = 'linear-gradient(135deg, #ff6b6b, #ee5a24)';
-                    e.currentTarget.style.transform = 'scale(1.05)';
-                    e.currentTarget.style.boxShadow = '0 12px 35px rgba(255, 107, 107, 0.4)';
-                    // Change text color to white on hover
-                    const textElements = e.currentTarget.querySelectorAll('div');
-                    textElements.forEach(el => {
-                      (el as HTMLElement).style.color = 'white';
-                    });
-                  }
-                }}
-                onMouseLeave={(e) => {
-                  // Only remove hover effect if NOT selected
-                  if (selectedCategory !== category.id) {
-                    e.currentTarget.style.background = 'rgba(255, 255, 255, 0.9)';
-                    e.currentTarget.style.transform = 'scale(1)';
-                    e.currentTarget.style.boxShadow = '0 8px 25px rgba(0, 0, 0, 0.1)';
-                    // Change text color back to dark
-                    const textElements = e.currentTarget.querySelectorAll('div');
-                    textElements.forEach(el => {
-                      (el as HTMLElement).style.color = '#333';
-                    });
-                  }
-                }}
-              >
-                {/* Background Pattern */}
+              {/* ── Suggestions dropdown — positioned relative to outer wrapper ── */}
+              {showSuggestions && searchSuggestions.length > 0 && (
                 <div style={{
                   position: 'absolute',
-                  top: 0,
+                  top: 'calc(100% + 6px)',
                   left: 0,
                   right: 0,
-                  bottom: 0,
-                  background: selectedCategory === category.id
-                    ? 'radial-gradient(circle at 30% 20%, rgba(255, 255, 255, 0.2) 0%, transparent 50%)'
-                    : 'radial-gradient(circle at 30% 20%, rgba(255, 107, 107, 0.1) 0%, transparent 50%)',
-                  pointerEvents: 'none'
-                }}></div>
-
-                <div style={{
-                  textAlign: 'center',
-                  position: 'relative',
-                  zIndex: 1
+                  zIndex: 300,
+                  background: '#fff',
+                  borderRadius: 14,
+                  boxShadow: '0 8px 32px rgba(0,0,0,0.14)',
+                  border: '1px solid #F0F0F0',
+                  overflow: 'hidden',
                 }}>
                   <div style={{
-                    width: '80px',
-                    height: '80px',
-                    marginBottom: '1rem',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    margin: '0 auto 1rem auto',
-                    background: selectedCategory === category.id
-                      ? 'rgba(255, 255, 255, 0.2)'
-                      : 'linear-gradient(135deg, #ff6b6b, #ee5a24)',
-                    borderRadius: '20px',
-                    boxShadow: '0 8px 20px rgba(0, 0, 0, 0.1)',
-                    border: '3px solid rgba(255, 255, 255, 0.3)',
-                    position: 'relative',
-                    overflow: 'hidden'
+                    padding: '8px 16px 6px',
+                    fontSize: 10,
+                    fontWeight: 700,
+                    color: '#BBB',
+                    letterSpacing: '0.07em',
+                    textTransform: 'uppercase',
+                    borderBottom: '1px solid #F5F5F5',
                   }}>
-                    <Image
-                      src={getCategoryImage(category.id)}
-                      alt={category.name}
-                      width={60}
-                      height={60}
-                      style={{
-                        objectFit: 'cover',
-                        borderRadius: '15px',
-                        filter: selectedCategory === category.id ? 'brightness(1.2) contrast(1.1)' : 'none'
-                      }}
-                    />
+                    Suggestions
                   </div>
-                  <div style={{
-                    fontWeight: '700',
-                    fontSize: '1.1rem',
-                    color: selectedCategory === category.id ? 'white' : '#333',
-                    textShadow: selectedCategory === category.id ? '0 2px 4px rgba(0, 0, 0, 0.2)' : 'none'
-                  }}>{category.name}</div>
-                  <div style={{
-                    fontSize: '0.8rem',
-                    color: selectedCategory === category.id ? 'rgba(255, 255, 255, 0.9)' : '#666',
-                    marginTop: '0.25rem',
-                    fontWeight: '500'
-                  }}>Explore</div>
+                  {searchSuggestions.map((s, i) => (
+                    <button
+                      key={i}
+                      onMouseDown={e => { e.preventDefault(); handleSuggestionClick(s); }}
+                      style={{
+                        width: '100%',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 12,
+                        padding: '12px 16px',
+                        background: 'transparent',
+                        border: 'none',
+                        borderBottom: i < searchSuggestions.length - 1 ? '1px solid #F8F8F8' : 'none',
+                        textAlign: 'left',
+                        fontSize: 14,
+                        color: '#222',
+                        cursor: 'pointer',
+                        transition: 'background .1s',
+                      }}
+                      onMouseEnter={e => { e.currentTarget.style.background = '#FFF5F8'; e.currentTarget.style.color = '#E85D8E'; }}
+                      onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#222'; }}
+                    >
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#CCC" strokeWidth="2.5" strokeLinecap="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                      {s}
+                    </button>
+                  ))}
                 </div>
-              </button>
-            ))}
+              )}
+            </div>
 
-            {/* More / Less button — only show if more than 4 categories */}
-            {categories.length > 4 && (
-              <button
-                onClick={() => setShowAllCategories(!showAllCategories)}
+            {/* Location detect */}
+            <button onClick={detectUserLocation} disabled={locationLoading}
+              className="home-hero__location">
+              <Image src="/icons/delivery/location.svg" alt="" width={14} height={14} style={{ opacity: 0.6 }} />
+              {locationLoading ? 'Detecting location…'
+                : userAddress
+                  ? <><span>Delivering to</span> <strong>{userAddress}</strong> <span style={{ color: '#E85D8E' }}>· Change</span></>
+                  : 'Detect my location'}
+            </button>
+          </div>
+
+          {/* RIGHT — food image only */}
+          <div className="home-hero__right">
+            <div className="home-hero__img-wrap">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/images/auth/Rectangle 1682 (1).png"
+                alt="Delicious food ready for delivery"
+                className="home-hero__img"
+              />
+              {/* Floating — delivery time */}
+              <div className="home-hero__float home-hero__float--tl">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#E85D8E" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                <span>30 min delivery</span>
+              </div>
+              {/* Floating — rating */}
+              <div className="home-hero__float home-hero__float--br">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="#F59E0B" aria-hidden="true"><path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"/></svg>
+                <span>4.8 rating</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* ── Full-width bottom strip: stats + feature cards ── */}
+        <div className="home-hero__bottom">
+          {/* Stats */}
+          <div className="home-hero__stats-row">
+            {[
+              { value: '50+', label: 'Restaurants' },
+              { value: '4.8★', label: 'Avg Rating' },
+              { value: '30 min', label: 'Avg Delivery' },
+            ].map(s => (
+              <div key={s.label} className="home-hero__stat">
+                <span className="home-hero__stat-value">{s.value}</span>
+                <span className="home-hero__stat-label">{s.label}</span>
+              </div>
+            ))}
+          </div>
+
+          {/* Divider */}
+          <div className="home-hero__bottom-divider" />
+
+          {/* Feature cards */}
+          <div className="home-hero__features-row">
+            {[
+              {
+                icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#E85D8E" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="1" y="3" width="15" height="13" rx="2"/><path d="M16 8h4l3 5v3h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>,
+                title: 'Fast Delivery',
+                desc: 'Avg 30 min',
+              },
+              {
+                icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#E85D8E" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 17l-6.2 4.3 2.4-7.4L2 9.4h7.6z"/></svg>,
+                title: 'Premium Quality',
+                desc: 'Top-rated only',
+              },
+              {
+                icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#E85D8E" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>,
+                title: 'Live Tracking',
+                desc: 'Real-time updates',
+              },
+            ].map(f => (
+              <div key={f.title} className="home-hero__feature-inline">
+                <div className="home-hero__feature-icon-sm">{f.icon}</div>
+                <div>
+                  <p className="home-hero__feature-title">{f.title}</p>
+                  <p className="home-hero__feature-desc">{f.desc}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ─── MAIN CONTENT ───────────────────────────────────────── */}
+      <main style={{ maxWidth: 1280, margin: '0 auto', padding: '20px 24px 64px' }}>
+
+        {/* Location banner */}
+        {showLocationPrompt && (
+          <div className="location-prompt" style={{
+            marginTop: 20,
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16,
+            padding: '14px 20px', background: '#fff',
+            border: '1px solid #F0F0F0', borderRadius: 16,
+            boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
+          }}>
+            <div>
+              <p style={{ fontSize: 14, fontWeight: 600, color: '#222', margin: 0 }}>Set your delivery location</p>
+              <p style={{ fontSize: 12, color: '#888', margin: '2px 0 0' }}>See restaurants that deliver to you</p>
+            </div>
+            <button onClick={detectUserLocation} disabled={locationLoading}
+              style={{
+                height: 38, padding: '0 20px', borderRadius: 100, border: 'none',
+                background: '#E85D8E', color: '#fff', fontSize: 13, fontWeight: 600,
+                cursor: locationLoading ? 'not-allowed' : 'pointer',
+                opacity: locationLoading ? 0.65 : 1, whiteSpace: 'nowrap',
+              }}>
+              {locationLoading ? 'Detecting…' : 'Detect Location'}
+            </button>
+          </div>
+        )}
+
+        {/* ─── CATEGORIES ─────────────────────────────────────── */}
+        <div className="category-tabs-wrap">
+          <div className="category-tabs-inner scrollbar-hide">
+            {/* All */}
+            {[{ id: '', name: 'All', emoji: '' }, ...categories].map(cat => {
+              const active = selectedCategory === cat.id;
+              return (
+                <button key={cat.id} onClick={() => handleCategoryClick(cat.id)}
+                  style={{
+                    flexShrink: 0,
+                    display: 'flex', alignItems: 'center', gap: 6,
+                    height: 44, padding: '0 16px',
+                    background: 'transparent', border: 'none',
+                    borderBottom: active ? '2.5px solid #E85D8E' : '2.5px solid transparent',
+                    cursor: 'pointer',
+                    fontSize: 14, fontWeight: active ? 700 : 500,
+                    color: active ? '#E85D8E' : '#666',
+                    transition: 'color .15s',
+                    whiteSpace: 'nowrap',
+                  }}
+                  onMouseEnter={e => { if (!active) e.currentTarget.style.color = '#E85D8E'; }}
+                  onMouseLeave={e => { if (!active) e.currentTarget.style.color = '#666'; }}
+                >
+                  {cat.emoji && <span style={{ fontSize: 15 }}>{cat.emoji}</span>}
+                  {cat.name}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* ─── OFFER BANNERS ──────────────────────────────────── */}
+        <div className="offer-banner-section">
+          {/* Banner track */}
+          <div className="offer-banner-track">
+            {banners.map((b, i) => (
+              <div key={b.id}
                 style={{
-                  background: 'rgba(255, 255, 255, 0.9)',
-                  backdropFilter: 'blur(10px)',
-                  border: '1px solid rgba(255, 255, 255, 0.3)',
-                  borderRadius: '20px',
-                  padding: '2rem 1rem',
-                  cursor: 'pointer',
-                  transition: 'all 0.3s ease',
-                  boxShadow: '0 8px 25px rgba(0, 0, 0, 0.1)'
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = 'linear-gradient(135deg, #ff6b6b, #ee5a24)';
-                  e.currentTarget.style.transform = 'scale(1.05)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = 'rgba(255, 255, 255, 0.9)';
-                  e.currentTarget.style.transform = 'scale(1)';
+                  position: 'absolute', inset: 0,
+                  background: b.bg,
+                  padding: '0 28px',
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  opacity: activeBanner === i ? 1 : 0,
+                  transition: 'opacity 0.4s ease',
+                  pointerEvents: activeBanner === i ? 'auto' : 'none',
                 }}
               >
-                <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>
-                  {showAllCategories ? '▲' : '⋯'}
+                {/* Decorative circles */}
+                <div style={{ position: 'absolute', right: -30, top: -30, width: 180, height: 180, borderRadius: '50%', background: 'rgba(255,255,255,0.04)', pointerEvents: 'none' }} />
+                <div style={{ position: 'absolute', right: 60, bottom: -50, width: 140, height: 140, borderRadius: '50%', background: 'rgba(255,255,255,0.04)', pointerEvents: 'none' }} />
+
+                {/* Text */}
+                <div style={{ zIndex: 1 }}>
+                  <span style={{
+                    display: 'inline-block', fontSize: 10, fontWeight: 700,
+                    letterSpacing: '0.08em', color: b.accent,
+                    background: `${b.accent}22`, borderRadius: 100,
+                    padding: '2px 10px', marginBottom: 8,
+                  }}>{b.tag}</span>
+                  <h3 style={{ fontSize: 18, fontWeight: 800, color: '#fff', margin: '0 0 4px', lineHeight: 1.2, maxWidth: 340 }}>{b.title}</h3>
+                  <p style={{ fontSize: 12.5, color: 'rgba(255,255,255,0.65)', margin: 0 }}>{b.subtitle}</p>
                 </div>
-                <div style={{ fontSize: '0.85rem', fontWeight: '700', color: '#333' }}>
-                  {showAllCategories ? 'Less' : `+${categories.length - 4} More`}
-                </div>
-                <div style={{ fontSize: '0.8rem', color: '#666', marginTop: '0.25rem', fontWeight: '500' }}>
-                  {showAllCategories ? 'Show less' : 'View all'}
-                </div>
-              </button>
+
+                {/* CTA */}
+                <button style={{
+                  flexShrink: 0, height: 40, padding: '0 22px',
+                  background: b.accent === '#fff' ? 'rgba(255,255,255,0.2)' : b.accent,
+                  border: `1.5px solid ${b.accent === '#fff' ? 'rgba(255,255,255,0.4)' : b.accent}`,
+                  borderRadius: 100, color: '#fff', fontSize: 13.5, fontWeight: 700,
+                  cursor: 'pointer', zIndex: 1,
+                  backdropFilter: 'blur(4px)',
+                  transition: 'opacity .15s',
+                }}
+                onMouseEnter={e => (e.currentTarget.style.opacity = '0.85')}
+                onMouseLeave={e => (e.currentTarget.style.opacity = '1')}
+                >{b.cta}</button>
+              </div>
+            ))}
+          </div>
+
+          {/* Dot indicators */}
+          <div style={{ display: 'flex', justifyContent: 'center', gap: 6, marginTop: 10 }}>
+            {banners.map((_, i) => (
+              <button key={i} onClick={() => setActiveBanner(i)}
+                style={{
+                  width: activeBanner === i ? 20 : 6,
+                  height: 6, borderRadius: 100, border: 'none',
+                  background: activeBanner === i ? '#E85D8E' : '#D1D5DB',
+                  cursor: 'pointer', transition: 'all .25s ease', padding: 0,
+                }}
+              />
+            ))}
+          </div>
+        </div>
+
+        {/* ─── SECTION HEADER ─────────────────────────────────── */}
+        <div className="section-header">
+          <div>
+            <h2 style={{ fontSize: 22, fontWeight: 700, color: '#111', margin: 0, letterSpacing: '-0.3px' }}>
+              {searchQuery.trim()
+                ? `Results for "${searchQuery}"`
+                : selectedCategory
+                  ? (categories.find(c => c.id === selectedCategory)?.name ?? 'Restaurants')
+                  : 'Popular Near You'}
+            </h2>
+            {!loading && (
+              <p style={{ fontSize: 12, color: '#999', margin: '4px 0 0' }}>
+                {filteredRestaurants.length} restaurant{filteredRestaurants.length !== 1 ? 's' : ''}
+              </p>
+            )}
+          </div>
+
+          {/* Sort */}
+          <div style={{ position: 'relative' }}>
+            <button onClick={() => setShowSortDropdown(!showSortDropdown)}
+              onBlur={() => setTimeout(() => setShowSortDropdown(false), 200)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 6,
+                height: 36, padding: '0 14px',
+                background: sortBy ? '#E85D8E' : '#fff',
+                border: `1px solid ${sortBy ? '#E85D8E' : '#EBEBEB'}`,
+                borderRadius: 100, cursor: 'pointer',
+                fontSize: 13, fontWeight: 500,
+                color: sortBy ? '#fff' : '#555',
+                transition: 'all .15s',
+              }}>
+              <Icon name="actions/filter" size={13}
+                style={sortBy ? { filter: 'brightness(0) invert(1)' } : { opacity: 0.5 }} />
+              Sort
+            </button>
+            {showSortDropdown && (
+              <div style={{
+                position: 'absolute', right: 0, top: 'calc(100% + 6px)',
+                width: 210, background: '#fff',
+                border: '1px solid #F0F0F0', borderRadius: 14,
+                boxShadow: '0 8px 28px rgba(0,0,0,0.10)',
+                zIndex: 30, overflow: 'hidden',
+                animation: 'slideDown 0.15s ease',
+              }}>
+                {[
+                  { key: '', label: 'Default' },
+                  { key: 'rating', label: 'Top Rated' },
+                  { key: 'distance', label: 'Nearest First' },
+                  { key: 'time', label: 'Fastest Delivery' },
+                  { key: 'price', label: 'Price: Low to High' },
+                ].map((opt, i, arr) => (
+                  <button key={opt.key}
+                    onMouseDown={e => { e.preventDefault(); setSortBy(opt.key); setShowSortDropdown(false); }}
+                    style={{
+                      width: '100%', padding: '11px 16px',
+                      background: sortBy === opt.key ? '#FFF5F8' : 'transparent',
+                      border: 'none',
+                      borderBottom: i < arr.length - 1 ? '1px solid #F7F7F7' : 'none',
+                      textAlign: 'left', fontSize: 13.5,
+                      color: sortBy === opt.key ? '#E85D8E' : '#333',
+                      fontWeight: sortBy === opt.key ? 600 : 400,
+                      cursor: 'pointer',
+                    }}
+                    onMouseEnter={e => { if (sortBy !== opt.key) e.currentTarget.style.background = '#F9F9F9'; }}
+                    onMouseLeave={e => { if (sortBy !== opt.key) e.currentTarget.style.background = 'transparent'; }}
+                  >{opt.label}</button>
+                ))}
+              </div>
             )}
           </div>
         </div>
-      </section>
 
-      {/* SECTION 3: POPULAR RESTAURANTS TITLE */}
-      <section style={{
-        paddingTop: '2rem',
-        paddingBottom: '1.5rem',
-        position: 'relative',
-        zIndex: 5
-      }}>
-        <div style={{
-          maxWidth: '1200px',
-          margin: '0 auto',
-          padding: '0 2rem',
-          textAlign: 'center'
-        }}>
-          <h3 style={{
-            fontSize: '2rem',
-            fontWeight: 'bold',
-            color: 'white',
-            marginBottom: '0.25rem',
-            textShadow: '0 2px 4px rgba(0, 0, 0, 0.2)',
-            margin: '0 0 0.25rem 0'
-          }}>
-            Popular Restaurants
-          </h3>
-          <p style={{
-            fontSize: '0.9rem',
-            color: 'rgba(255, 255, 255, 0.8)',
-            textShadow: '0 1px 2px rgba(0, 0, 0, 0.1)',
-            margin: 0
-          }}>
-            {filteredRestaurants.length} restaurants found
-          </p>
-        </div>
-      </section>
-
-      {/* SECTION 4: RESTAURANT CARDS GRID */}
-      <section
-        ref={restaurantsRef}
-        style={{
-          paddingTop: '2rem',
-          paddingBottom: '4rem',
-          position: 'relative',
-          zIndex: 5
-        }}
-      >
-        <div style={{
-          maxWidth: '1200px',
-          margin: '0 auto',
-          padding: '0 2rem'
-        }}>
-          {/* Loading State */}
-          {loading && (
-            <div style={{
-              display: 'flex',
-              justifyContent: 'center',
-              alignItems: 'center',
-              minHeight: '400px',
-              flexDirection: 'column',
-              gap: '1rem'
-            }}>
-              <div style={{
-                width: '60px',
-                height: '60px',
-                border: '4px solid rgba(255, 107, 107, 0.3)',
-                borderTop: '4px solid #ff6b6b',
-                borderRadius: '50%',
-                animation: 'spin 1s linear infinite'
-              }}></div>
-              <p style={{
-                color: 'white',
-                fontSize: '1.1rem',
-                textAlign: 'center'
-              }}>
-                Loading delicious restaurants...
-              </p>
-            </div>
-          )}
-
-          {/* Error State */}
-          {error && !loading && (
-            <div style={{
-              display: 'flex',
-              justifyContent: 'center',
-              alignItems: 'center',
-              minHeight: '400px',
-              flexDirection: 'column',
-              gap: '1rem'
-            }}>
-              <div style={{
-                background: 'rgba(239, 68, 68, 0.1)',
-                border: '1px solid rgba(239, 68, 68, 0.3)',
-                borderRadius: '16px',
-                padding: '2rem',
-                textAlign: 'center',
-                maxWidth: '500px'
-              }}>
-                <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>😔</div>
-                <h3 style={{
-                  color: 'white',
-                  fontSize: '1.2rem',
-                  marginBottom: '0.5rem',
-                  margin: '0 0 0.5rem 0'
-                }}>
-                  Oops! Something went wrong
-                </h3>
-                <p style={{
-                  color: 'rgba(255, 255, 255, 0.8)',
-                  fontSize: '1rem',
-                  marginBottom: '1.5rem',
-                  margin: '0 0 1.5rem 0'
-                }}>
-                  {error}
-                </p>
-                <button
-                  onClick={() => {
-                    fetchRestaurants(userLat, userLng);
-                    fetchCategories();
-                  }}
-                  style={{
-                    padding: '0.75rem 1.5rem',
-                    background: 'linear-gradient(135deg, #ff6b6b, #ee5a24)',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '12px',
-                    fontSize: '0.9rem',
-                    fontWeight: '600',
-                    cursor: 'pointer',
-                    transition: 'all 0.2s ease'
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.background = 'linear-gradient(135deg, #ee5a24, #dc2626)';
-                    e.currentTarget.style.transform = 'translateY(-1px)';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.background = 'linear-gradient(135deg, #ff6b6b, #ee5a24)';
-                    e.currentTarget.style.transform = 'translateY(0)';
-                  }}
-                >
-                  Try Again
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* Empty State - when no restaurants loaded due to network issues */}
-          {!loading && !error && filteredRestaurants.length === 0 && restaurants.length === 0 && (
-            <div style={{
-              display: 'flex',
-              justifyContent: 'center',
-              alignItems: 'center',
-              minHeight: '400px',
-              flexDirection: 'column',
-              gap: '1rem'
-            }}>
-              <div style={{
-                background: 'rgba(255, 193, 7, 0.1)',
-                border: '1px solid rgba(255, 193, 7, 0.3)',
-                borderRadius: '16px',
-                padding: '2rem',
-                textAlign: 'center',
-                maxWidth: '500px'
-              }}>
-                <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>📡</div>
-                <h3 style={{
-                  color: 'white',
-                  fontSize: '1.2rem',
-                  marginBottom: '0.5rem',
-                  margin: '0 0 0.5rem 0'
-                }}>
-                  No restaurants available
-                </h3>
-                <p style={{
-                  color: 'rgba(255, 255, 255, 0.8)',
-                  fontSize: '1rem',
-                  marginBottom: '1.5rem',
-                  margin: '0 0 1.5rem 0'
-                }}>
-                  Please check your network connection or try again later
-                </p>
-                <button
-                  onClick={() => {
-                    fetchRestaurants(userLat, userLng);
-                    fetchCategories();
-                  }}
-                  style={{
-                    padding: '0.75rem 1.5rem',
-                    background: 'linear-gradient(135deg, #ff6b6b, #ee5a24)',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '12px',
-                    fontSize: '0.9rem',
-                    fontWeight: '600',
-                    cursor: 'pointer',
-                    transition: 'all 0.2s ease'
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.background = 'linear-gradient(135deg, #ee5a24, #dc2626)';
-                    e.currentTarget.style.transform = 'translateY(-1px)';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.background = 'linear-gradient(135deg, #ff6b6b, #ee5a24)';
-                    e.currentTarget.style.transform = 'translateY(0)';
-                  }}
-                >
-                  Retry
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* No Results State - when no restaurants match filters */}
-          {!loading && !error && filteredRestaurants.length === 0 && restaurants.length > 0 && (
-            <div style={{
-              display: 'flex',
-              justifyContent: 'center',
-              alignItems: 'center',
-              minHeight: '400px',
-              flexDirection: 'column',
-              gap: '1rem'
-            }}>
-              <div style={{
-                background: 'rgba(255, 255, 255, 0.1)',
-                borderRadius: '16px',
-                padding: '2rem',
-                textAlign: 'center',
-                maxWidth: '500px'
-              }}>
-                <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>
-                  <Image src="/icons/actions/search.svg" alt="Search" width={48} height={48} />
-                </div>
-                <h3 style={{
-                  color: 'white',
-                  fontSize: '1.2rem',
-                  marginBottom: '0.5rem',
-                  margin: '0 0 0.5rem 0'
-                }}>
-                  No restaurants found
-                </h3>
-                <p style={{
-                  color: 'rgba(255, 255, 255, 0.8)',
-                  fontSize: '1rem',
-                  margin: 0
-                }}>
-                  Try adjusting your search or category filters
-                </p>
-              </div>
-            </div>
-          )}
-
-          {/* Restaurant Cards */}
-          {!loading && !error && filteredRestaurants.length > 0 && (
-            <div style={{
-              display: 'flex',
-              flexWrap: 'wrap',
-              justifyContent: 'center',
-              gap: '1.5rem'
-            }}>
-              {filteredRestaurants.map((restaurant, index) => (
-                <div
-                  key={restaurant.id}
-                  onClick={() => {
-                    if (!restaurant.is_online) return;
-                    if (restaurant.is_deliverable === false) {
-                      // Show toast or alert that restaurant is not in delivery range
-                      return;
-                    }
-                    handleCardClick(restaurant.id);
-                  }}
-                  onMouseEnter={() => restaurant.is_online ? setHoveredCard(restaurant.id) : null}
-                  onMouseLeave={() => setHoveredCard(null)}
-                  style={{
-                    background: restaurant.is_online ? 'rgba(255, 255, 255, 0.95)' : 'rgba(200, 200, 200, 0.7)',
-                    backdropFilter: 'blur(10px)',
-                    borderRadius: '16px',
-                    overflow: 'hidden',
-                    cursor: restaurant.is_online ? 'pointer' : 'not-allowed',
-                    transition: 'all 0.3s ease',
-                    transform: (hoveredCard === restaurant.id && restaurant.is_online) ? 'translateY(-8px) scale(1.02)' : 'translateY(0) scale(1)',
-                    boxShadow: (hoveredCard === restaurant.id && restaurant.is_online)
-                      ? '0 20px 40px rgba(0, 0, 0, 0.15)'
-                      : '0 8px 25px rgba(0, 0, 0, 0.1)',
-                    border: '1px solid rgba(255, 255, 255, 0.3)',
-                    opacity: restaurant.is_online ? 1 : 0.7,
-                    position: 'relative',
-                    width: 'calc(33.333% - 1rem)',
-                    minWidth: '280px',
-                    maxWidth: '380px',
-                  }}
-                >
-                  {/* Restaurant Image with Overlay Rating */}
-                  <div style={{
-                    height: '180px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    transition: 'all 0.3s ease',
-                    background: hoveredCard === restaurant.id
-                      ? getHoverGradient()
-                      : 'linear-gradient(135deg, #f8fafc, #e2e8f0)',
-                    overflow: 'hidden',
-                    position: 'relative'
-                  }}>
-                    {getFullImageUrl(restaurant.restaurant_image).startsWith('http') ? (
-                      <img
-                        src={getFullImageUrl(restaurant.restaurant_image)}
-                        alt={restaurant.name}
-                        style={{
-                          width: '100%',
-                          height: '100%',
-                          objectFit: 'cover',
-                          display: 'block'
-                        }}
-                        onError={(e) => {
-                          const target = e.target as HTMLImageElement;
-                          target.style.display = 'none';
-                          const parent = target.parentElement;
-                          if (parent) {
-                            parent.innerHTML = `
-                              <div style="
-                                display: flex; 
-                                align-items: center; 
-                                justify-content: center; 
-                                height: 100%; 
-                                font-size: 4rem;
-                              ">
-                                <img src="/icons/food/food.svg" alt="Food" width="64" height="64" />
-                              </div>
-                            `;
-                          }
-                        }}
-                      />
-                    ) : (
-                      <div style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        height: '100%',
-                        fontSize: '4rem'
-                      }}>
-                        {getFullImageUrl(restaurant.restaurant_image)}
-                      </div>
-                    )}
-
-                    {/* Rating Overlay */}
-                    <div style={{
-                      position: 'absolute',
-                      top: '12px',
-                      right: '12px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '0.25rem',
-                      background: 'rgba(255, 255, 255, 0.95)',
-                      backdropFilter: 'blur(10px)',
-                      padding: '0.375rem 0.75rem',
-                      borderRadius: '20px',
-                      boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
-                      border: '1px solid rgba(255, 255, 255, 0.2)'
-                    }}>
-                      <Image src="/icons/status/star.svg" alt="Rating" width={14} height={14} style={{ display: 'inline-block' }} />
-                      <span style={{
-                        fontSize: '0.8rem',
-                        fontWeight: '700',
-                        color: '#166534'
-                      }}>
-                        {restaurant.rating}
-                      </span>
-                    </div>
-
-                    {/* Offline Badge */}
-                    {!restaurant.is_online && (
-                      <div style={{
-                        position: 'absolute',
-                        top: '50%',
-                        left: '50%',
-                        transform: 'translate(-50%, -50%)',
-                        background: 'rgba(220, 38, 38, 0.95)',
-                        backdropFilter: 'blur(10px)',
-                        padding: '0.75rem 1.5rem',
-                        borderRadius: '12px',
-                        boxShadow: '0 8px 24px rgba(0, 0, 0, 0.3)',
-                        border: '2px solid rgba(255, 255, 255, 0.3)',
-                        zIndex: 10
-                      }}>
-                        <div style={{
-                          fontSize: '1rem',
-                          fontWeight: '700',
-                          color: 'white',
-                          textAlign: 'center',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '0.5rem'
-                        }}>
-                          <span>🔴</span>
-                          <span>OFFLINE</span>
-                        </div>
-                        <div style={{
-                          fontSize: '0.7rem',
-                          color: 'rgba(255, 255, 255, 0.9)',
-                          textAlign: 'center',
-                          marginTop: '0.25rem'
-                        }}>
-                          Not accepting orders
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Restaurant Info */}
-                  <div style={{ padding: '1.25rem' }}>
-                    {/* Restaurant Name & Cuisine */}
-                    <div style={{ marginBottom: '0.75rem' }}>
-                      <h4 style={{
-                        fontWeight: 'bold',
-                        fontSize: '1.1rem',
-                        color: '#1f2937',
-                        marginBottom: '0.25rem',
-                        margin: '0 0 0.25rem 0',
-                        lineHeight: '1.3'
-                      }}>
-                        {restaurant.name}
-                      </h4>
-                      <p style={{
-                        fontSize: '0.85rem',
-                        color: '#6b7280',
-                        margin: 0,
-                        fontWeight: '500'
-                      }}>
-                        {restaurant.cuisine} Cuisine
-                      </p>
-                    </div>
-
-                    {/* Key Stats Row */}
-                    <div style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      fontSize: '0.75rem',
-                      color: '#6b7280',
-                      marginBottom: '0.75rem'
-                    }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-                        <span>🕒</span>
-                        <span>{restaurant.delivery_time}</span>
-                      </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-                        <span>📍</span>
-                        <span>{restaurant.distance_km != null ? `${restaurant.distance_km} km` : 'Nearby'}</span>
-                      </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-                        <Image src="/icons/misc/list.svg" alt="Reviews" width={16} height={16} />
-                        <span>{restaurant.reviews}</span>
-                      </div>
-                    </div>
-
-                    {/* Not deliverable badge */}
-                    {restaurant.is_deliverable === false && (
-                      <div style={{
-                        background: '#fef2f2',
-                        border: '1px solid #fecaca',
-                        borderRadius: '8px',
-                        padding: '0.35rem 0.6rem',
-                        fontSize: '0.7rem',
-                        color: '#dc2626',
-                        fontWeight: '600',
-                        textAlign: 'center',
-                        marginBottom: '0.5rem',
-                      }}>
-                        ❌ Not available in your area
-                      </div>
-                    )}
-
-                    {/* Menu & Price Info */}
-                    <div style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      fontSize: '0.75rem',
-                      color: '#6b7280',
-                      marginBottom: '0.75rem'
-                    }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-                        <Image src="/icons/food/food.svg" alt="Menu" width={16} height={16} />
-                        <span>{restaurant.menu_items_count} items</span>
-                      </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-                        <span>💵</span>
-                        <span>Avg ${restaurant.average_price}</span>
-                      </div>
-                    </div>
-
-                    {/* Tags - Compact */}
-                    <div style={{
-                      display: 'flex',
-                      gap: '0.5rem',
-                      marginBottom: '1rem'
-                    }}>
-                      {restaurant.tags.slice(0, 2).map((tag, tagIndex) => (
-                        <span
-                          key={tagIndex}
-                          style={{
-                            padding: '0.25rem 0.5rem',
-                            background: '#fef3f2',
-                            color: '#dc2626',
-                            fontSize: '0.7rem',
-                            borderRadius: '8px',
-                            fontWeight: '600'
-                          }}
-                        >
-                          {tag}
-                        </span>
-                      ))}
-                    </div>
-
-                    {/* CTA Button */}
-                    <button
-                      disabled={!restaurant.is_online}
-                      style={{
-                        width: '100%',
-                        padding: '0.75rem',
-                        background: restaurant.is_online
-                          ? 'linear-gradient(135deg, #ff6b6b, #ee5a24)'
-                          : 'linear-gradient(135deg, #9ca3af, #6b7280)',
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: '12px',
-                        fontSize: '0.875rem',
-                        fontWeight: '600',
-                        cursor: restaurant.is_online ? 'pointer' : 'not-allowed',
-                        transition: 'all 0.2s ease',
-                        opacity: restaurant.is_online ? 1 : 0.7
-                      }}
-                      onMouseEnter={(e) => {
-                        if (restaurant.is_online) {
-                          e.currentTarget.style.background = 'linear-gradient(135deg, #ee5a24, #dc2626)';
-                          e.currentTarget.style.transform = 'translateY(-1px)';
-                        }
-                      }}
-                      onMouseLeave={(e) => {
-                        if (restaurant.is_online) {
-                          e.currentTarget.style.background = 'linear-gradient(135deg, #ff6b6b, #ee5a24)';
-                          e.currentTarget.style.transform = 'translateY(0)';
-                        }
-                      }}
-                    >
-                      {restaurant.is_online ? 'View Menu →' : '🔴 Offline - Not Accepting Orders'}
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </section>
-
-      {/* SIMPLE FOOTER */}
-      <footer style={{
-        marginTop: '4rem',
-        background: 'rgba(0, 0, 0, 0.4)',
-        backdropFilter: 'blur(15px)',
-        borderTop: '1px solid rgba(255, 255, 255, 0.3)',
-        padding: '2rem',
-        textAlign: 'center',
-        width: '100%',
-        maxWidth: '1600px',
-        margin: '0 auto',
-      }}>
-        <div style={{
-          maxWidth: '1200px',
-          margin: '0 auto'
-        }}>
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: '0.75rem',
-            marginBottom: '1rem'
-          }}>
-            <span style={{ fontSize: '2rem' }}>🌸</span>
-            <h3 style={{
-              fontSize: '1.5rem',
-              fontWeight: 'bold',
-              color: '#ffffff',
-              margin: 0
-            }}>
-              Fuji Sakura
-            </h3>
+        {/* ─── ERROR ──────────────────────────────────────────── */}
+        {error && (
+          <div style={{ textAlign: 'center', padding: '60px 0' }}>
+            <p style={{ color: '#888', fontSize: 14, marginBottom: 16 }}>{error}</p>
+            <button onClick={() => { fetchRestaurants(userLat, userLng); fetchCategories(); }}
+              style={{ height: 40, padding: '0 24px', borderRadius: 100, border: 'none', background: '#E85D8E', color: '#fff', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>
+              Try Again
+            </button>
           </div>
-          <p style={{
-            color: '#d1d5db',
-            fontSize: '0.9rem',
-            margin: '0 0 1rem 0'
-          }}>
-            Premium food delivery experience
-          </p>
-          <div style={{
-            color: '#d1d5db',
-            fontSize: '0.85rem'
-          }}>
-            © 2026 Fuji Sakura. All rights reserved.
+        )}
+
+        {/* ─── LOADING SKELETONS ──────────────────────────────── */}
+        {loading && !error && (
+          <div className="restaurant-grid">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <div key={i} style={{ background: '#fff', borderRadius: 18, overflow: 'hidden', border: '1px solid #F0F0F0' }}>
+                <div className="skeleton restaurant-card-img" />
+                <div className="restaurant-card-info" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <div className="skeleton" style={{ height: 16, borderRadius: 8, width: '70%' }} />
+                  <div className="skeleton" style={{ height: 12, borderRadius: 8, width: '45%' }} />
+                  <div className="skeleton" style={{ height: 12, borderRadius: 8, width: '90%' }} />
+                  <div className="skeleton" style={{ height: 38, borderRadius: 10, marginTop: 4 }} />
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* ─── EMPTY STATE ────────────────────────────────────── */}
+        {!loading && !error && filteredRestaurants.length === 0 && restaurants.length > 0 && (
+          <div style={{ textAlign: 'center', padding: '80px 0' }}>
+            <p style={{ fontSize: 16, fontWeight: 600, color: '#333', marginBottom: 8 }}>No restaurants found</p>
+            <p style={{ fontSize: 13, color: '#999', marginBottom: 20 }}>Try adjusting your search or filters</p>
+            <button onClick={() => { setSearchQuery(''); setSelectedCategory(''); }}
+              style={{ height: 40, padding: '0 24px', borderRadius: 100, border: 'none', background: '#E85D8E', color: '#fff', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>
+              Clear Filters
+            </button>
+          </div>
+        )}
+
+        {/* ─── RESTAURANT GRID ────────────────────────────────── */}
+        {!loading && !error && filteredRestaurants.length > 0 && (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 20 }}>
+            {filteredRestaurants.map(r => (
+              <div key={r.id}
+                className="restaurant-card"
+                onClick={() => { if (!r.is_online || r.is_deliverable === false) return; handleCardClick(r.id); }}
+                onMouseEnter={() => r.is_online && setHoveredCard(r.id)}
+                onMouseLeave={() => setHoveredCard(null)}
+                style={{
+                  background: '#fff',
+                  borderRadius: 18,
+                  overflow: 'hidden',
+                  border: '1px solid #F0F0F0',
+                  cursor: r.is_online ? 'pointer' : 'not-allowed',
+                  opacity: r.is_online ? 1 : 0.65,
+                  transition: 'transform .2s ease, box-shadow .2s ease',
+                  transform: hoveredCard === r.id ? 'translateY(-5px)' : 'translateY(0)',
+                  boxShadow: hoveredCard === r.id
+                    ? '0 16px 40px rgba(0,0,0,0.11)'
+                    : '0 2px 10px rgba(0,0,0,0.05)',
+                }}
+              >
+                {/* Food photo */}
+                <div className="restaurant-card-img" style={{ position: 'relative', background: '#F3F3F3', overflow: 'hidden' }}>
+                  {getFullImageUrl(r.restaurant_image).startsWith('http') ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={getFullImageUrl(r.restaurant_image)} alt={r.name}
+                      style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                      onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                    />
+                  ) : (
+                    <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 52 }}>
+                      {getFullImageUrl(r.restaurant_image)}
+                    </div>
+                  )}
+
+                  {/* Delivery time — top left */}
+                  <div style={{
+                    position: 'absolute', top: 10, left: 10,
+                    background: 'rgba(255,255,255,0.95)', backdropFilter: 'blur(6px)',
+                    borderRadius: 100, padding: '3px 10px',
+                    fontSize: 11.5, fontWeight: 600, color: '#222',
+                    boxShadow: '0 1px 6px rgba(0,0,0,0.10)',
+                  }}>
+                    {r.delivery_time}
+                  </div>
+
+                  {/* Rating — top right */}
+                  <div style={{
+                    position: 'absolute', top: 10, right: 10,
+                    background: 'rgba(255,255,255,0.95)', backdropFilter: 'blur(6px)',
+                    borderRadius: 100, padding: '3px 9px',
+                    display: 'flex', alignItems: 'center', gap: 4,
+                    boxShadow: '0 1px 6px rgba(0,0,0,0.10)',
+                  }}>
+                    <Image src="/icons/status/star.svg" alt="" width={11} height={11} />
+                    <span style={{ fontSize: 11.5, fontWeight: 700, color: '#166534' }}>{r.rating}</span>
+                  </div>
+
+                  {/* Offline badge */}
+                  {!r.is_online && (
+                    <div style={{
+                      position: 'absolute', inset: 0,
+                      background: 'rgba(0,0,0,0.45)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    }}>
+                      <span style={{
+                        background: '#dc2626', color: '#fff',
+                        fontSize: 12, fontWeight: 700,
+                        padding: '5px 14px', borderRadius: 100,
+                      }}>CLOSED</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Info */}
+                <div className="restaurant-card-info" style={{ padding: '14px 16px 16px' }}>
+                  <h3 style={{ fontSize: 15.5, fontWeight: 700, color: '#111', margin: 0, lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {r.name}
+                  </h3>
+                  <p style={{ fontSize: 12.5, color: '#888', margin: '3px 0 10px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {r.cuisine} Cuisine
+                  </p>
+
+                  {/* Meta row */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12, color: '#999', marginBottom: 12 }}>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <Image src="/icons/delivery/location.svg" alt="" width={12} height={12} style={{ opacity: 0.5, flexShrink: 0 }} />
+                      {r.distance_km != null ? `${r.distance_km} km` : 'Nearby'}
+                    </span>
+                    <span style={{ color: '#E0E0E0' }}>•</span>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <Image src="/icons/misc/list.svg" alt="" width={12} height={12} style={{ opacity: 0.5 }} />
+                      {r.reviews} reviews
+                    </span>
+                  </div>
+
+                  {/* Not deliverable */}
+                  {r.is_deliverable === false && (
+                    <p style={{ fontSize: 11.5, color: '#ef4444', fontWeight: 600, marginBottom: 8 }}>
+                      Not available in your area
+                    </p>
+                  )}
+
+                  {/* CTA */}
+                  <button disabled={!r.is_online}
+                    style={{
+                      width: '100%', height: 40, borderRadius: 10, border: 'none',
+                      background: r.is_online ? '#E85D8E' : '#D1D5DB',
+                      color: '#fff', fontSize: 14, fontWeight: 600,
+                      cursor: r.is_online ? 'pointer' : 'not-allowed',
+                      transition: 'background .15s',
+                      letterSpacing: '0.01em',
+                    }}
+                    onMouseEnter={e => { if (r.is_online) e.currentTarget.style.background = '#d44d7a'; }}
+                    onMouseLeave={e => { if (r.is_online) e.currentTarget.style.background = '#E85D8E'; }}
+                  >
+                    {r.is_online ? 'View Menu' : 'Closed'}
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </main>
+
+      </div>{/* end desktop-view */}
+
+      {/* ═══════════════════════════════════════════════════════════
+          MOBILE LAYOUT — shown only on < 768px
+          Same data, same state, touch-optimised layout
+      ═══════════════════════════════════════════════════════════ */}
+      <div className="mobile-view">
+
+        {/* ── Search + Location strip ── */}
+        <div className="mv-search-strip">
+          {/* Location row */}
+          <button className="mv-location-btn" onClick={detectUserLocation} disabled={locationLoading}>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#E85D8E" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+            <span className="mv-location-text">
+              {locationLoading ? 'Detecting…' : userAddress ? `Delivering to: ${userAddress}` : 'Set delivery location'}
+            </span>
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#999" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+
+          {/* Search input */}
+          <div className="mv-search-wrap" style={{ position: 'relative' }}>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#999" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="mv-search-icon" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input
+              id="hero-search-input"
+              type="search"
+              placeholder="Search restaurants or dishes…"
+              value={searchQuery}
+              onChange={handleSearchChange}
+              onKeyPress={handleSearchKeyPress}
+              onFocus={() => {
+                if (searchQuery.trim() && searchSuggestions.length) setShowSuggestions(true);
+              }}
+              onBlur={() => { setTimeout(() => setShowSuggestions(false), 200); }}
+              className="mv-search-input"
+              aria-label="Search restaurants"
+            />
+
+            {/* Mobile suggestions dropdown */}
+            {showSuggestions && searchSuggestions.length > 0 && (
+              <div style={{
+                position: 'absolute',
+                top: 'calc(100% + 6px)',
+                left: 0,
+                right: 0,
+                zIndex: 300,
+                background: '#fff',
+                borderRadius: 14,
+                boxShadow: '0 8px 28px rgba(0,0,0,0.14)',
+                border: '1px solid #F0F0F0',
+                overflow: 'hidden',
+              }}>
+                {searchSuggestions.map((s, i) => (
+                  <button
+                    key={i}
+                    onMouseDown={e => { e.preventDefault(); handleSuggestionClick(s); }}
+                    style={{
+                      width: '100%',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 12,
+                      padding: '13px 16px',
+                      background: 'transparent',
+                      border: 'none',
+                      borderBottom: i < searchSuggestions.length - 1 ? '1px solid #F8F8F8' : 'none',
+                      textAlign: 'left',
+                      fontSize: 14,
+                      color: '#222',
+                      cursor: 'pointer',
+                      transition: 'background .1s',
+                    }}
+                    onMouseEnter={e => { e.currentTarget.style.background = '#FFF5F8'; e.currentTarget.style.color = '#E85D8E'; }}
+                    onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#222'; }}
+                  >
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#CCC" strokeWidth="2.5" strokeLinecap="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                    {s}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* ── Offer Banner ── */}
+        <div className="mv-banner">
+          {banners.map((b, i) => (
+            <div key={b.id} className={`mv-banner-slide ${activeBanner === i ? 'mv-banner-slide--active' : ''}`}
+              style={{ background: b.bg }}>
+              {/* Decorative circle bg */}
+              <div className="mv-banner-circles" aria-hidden="true" />
+              {/* Second decorative circle */}
+              <div style={{
+                position: 'absolute', right: 60, bottom: -30,
+                width: 80, height: 80, borderRadius: '50%',
+                background: 'rgba(255,255,255,0.04)',
+                pointerEvents: 'none',
+              }} aria-hidden="true" />
+
+              {/* Left: text content */}
+              <div className="mv-banner-content">
+                <span className="mv-banner-tag" style={{ color: b.accent, background: `${b.accent}28` }}>
+                  {b.tag}
+                </span>
+                <h3 className="mv-banner-title">{b.title}</h3>
+                <p className="mv-banner-sub">{b.subtitle}</p>
+              </div>
+
+              {/* Right: CTA */}
+              <button className="mv-banner-cta"
+                style={{ background: b.accent === '#fff' ? 'rgba(255,255,255,0.18)' : b.accent, borderColor: 'rgba(255,255,255,0.3)' }}>
+                {b.cta}
+              </button>
+            </div>
+          ))}
+          {/* Dots */}
+          <div className="mv-banner-dots" aria-hidden="true">
+            {banners.map((_, i) => (
+              <button key={i} onClick={() => setActiveBanner(i)}
+                className={`mv-banner-dot ${activeBanner === i ? 'mv-banner-dot--active' : ''}`} />
+            ))}
+          </div>
+        </div>
+
+        {/* ── Categories ── */}
+        <div className="mv-section-header">
+          <span className="mv-section-title">Categories</span>
+          <span className="mv-scroll-hint">
+            scroll
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>
+          </span>
+        </div>
+        <div className="mv-categories-wrap">
+          <div className="mv-categories scrollbar-hide">
+          {[{ id: '', name: 'All', emoji: '' }, ...categories].map(cat => {
+            const active = selectedCategory === cat.id;
+            return (
+              <button key={cat.id} onClick={() => handleCategoryClick(cat.id)}
+                className={`mv-chip ${active ? 'mv-chip--active' : ''}`}>
+                {cat.emoji && <span className="mv-chip-emoji" aria-hidden="true">{cat.emoji}</span>}
+                <span>{cat.name}</span>
+              </button>
+            );
+          })}
+          </div>
+        </div>
+
+        {/* ── Restaurants section ── */}
+        <div className="mv-section-header" style={{ marginTop: 12 }}>
+          <span className="mv-section-title">
+            {searchQuery.trim() ? `Results for "${searchQuery}"` : selectedCategory ? (categories.find(c => c.id === selectedCategory)?.name ?? 'Restaurants') : 'Popular Near You'}
+          </span>
+          {!loading && (
+            <span className="mv-section-count">{filteredRestaurants.length} restaurants</span>
+          )}
+        </div>
+
+        {/* Error */}
+        {error && (
+          <div className="mv-error">
+            <p>{error}</p>
+            <button onClick={() => { fetchRestaurants(userLat, userLng); }} className="mv-retry-btn">Retry</button>
+          </div>
+        )}
+
+        {/* Skeleton */}
+        {loading && !error && (
+          <div className="mv-restaurant-list">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="mv-card-skeleton">
+                <div className="skeleton mv-card-skeleton-img" />
+                <div className="mv-card-skeleton-body">
+                  <div className="skeleton" style={{ height: 15, borderRadius: 6, width: '65%', marginBottom: 6 }} />
+                  <div className="skeleton" style={{ height: 12, borderRadius: 6, width: '40%', marginBottom: 10 }} />
+                  <div className="skeleton" style={{ height: 34, borderRadius: 8 }} />
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Empty */}
+        {!loading && !error && filteredRestaurants.length === 0 && restaurants.length > 0 && (
+          <div className="mv-empty">
+            <p className="mv-empty-title">No restaurants found</p>
+            <p className="mv-empty-sub">Try a different search or category</p>
+            <button onClick={() => { setSearchQuery(''); setSelectedCategory(''); }} className="mv-retry-btn">Clear filters</button>
+          </div>
+        )}
+
+        {/* Restaurant list */}
+        {!loading && !error && filteredRestaurants.length > 0 && (
+          <div className="mv-restaurant-list">
+            {filteredRestaurants.map(r => (
+              <div key={r.id} className={`mv-card ${!r.is_online ? 'mv-card--offline' : ''}`}
+                onClick={() => { if (!r.is_online || r.is_deliverable === false) return; handleCardClick(r.id); }}>
+                {/* Image */}
+                <div className="mv-card-img-wrap">
+                  {getFullImageUrl(r.restaurant_image).startsWith('http') ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={getFullImageUrl(r.restaurant_image)} alt={r.name} className="mv-card-img"
+                      onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                  ) : (
+                    <div className="mv-card-img-fallback">
+                      <Image src="/images/auth/Rectangle 1682 (1).png" alt={r.name} fill style={{ objectFit: 'cover' }} />
+                    </div>
+                  )}
+                  {/* Badges */}
+                  <div className="mv-card-time-badge">{r.delivery_time}</div>
+                  <div className="mv-card-rating-badge">
+                    <Image src="/icons/status/star.svg" alt="" width={10} height={10} />
+                    <span>{r.rating}</span>
+                  </div>
+                  {!r.is_online && <div className="mv-card-closed-overlay"><span>CLOSED</span></div>}
+                </div>
+                {/* Info */}
+                <div className="mv-card-body">
+                  <div className="mv-card-info">
+                    <h3 className="mv-card-name">{r.name}</h3>
+                    <p className="mv-card-cuisine">{r.cuisine} Cuisine</p>
+                    <div className="mv-card-meta">
+                      <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+                        <Image src="/icons/delivery/location.svg" alt="" width={11} height={11} style={{ opacity: 0.5, flexShrink: 0 }} />
+                        {r.distance_km != null ? `${r.distance_km} km` : 'Nearby'}
+                      </span>
+                      <span className="mv-card-meta-dot">·</span>
+                      <span>{r.reviews} reviews</span>
+                    </div>
+                    {r.is_deliverable === false && (
+                      <p className="mv-card-not-available">Not available in your area</p>
+                    )}
+                  </div>
+                  <button disabled={!r.is_online} className={`mv-card-cta ${!r.is_online ? 'mv-card-cta--disabled' : ''}`}
+                    onClick={e => { e.stopPropagation(); if (r.is_online && r.is_deliverable !== false) handleCardClick(r.id); }}>
+                    {r.is_online ? 'Order →' : 'Closed'}
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* ── Bottom Nav REMOVED — this is a website, not native app ── */}
+
+        {/* Spacer */}
+        <div style={{ height: 24 }} aria-hidden="true" />
+
+      </div>{/* end mobile-view */}
+
+      <style jsx>{`
+        @keyframes slideDown {
+          from { opacity: 0; transform: translateY(-6px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+        .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+        .scrollbar-hide::-webkit-scrollbar { display: none; }
+        .skeleton {
+          background: linear-gradient(90deg, #f0f0f0 25%, #f8f8f8 50%, #f0f0f0 75%);
+          background-size: 400px 100%;
+          animation: shimmer 1.4s ease infinite;
+        }
+        @keyframes shimmer {
+          0% { background-position: -400px 0; }
+          100% { background-position: 400px 0; }
+        }
+      `}</style>
+      {/* ─── FOOTER ─────────────────────────────────────────────── */}
+      <footer className="home-footer">
+        <div className="home-footer-inner">
+
+          {/* ── Col 1: Brand ── */}
+          <div className="footer-brand">
+            <Image src="/images/logo/Logo.png" alt="Fuji Sakura" width={96} height={36}
+              style={{ objectFit: 'contain', marginBottom: 14 }} />
+            <p className="footer-tagline">
+              Premium Japanese food delivery experience — authentic cuisine, delivered fast.
+            </p>
+            <a href="https://www.fujisakuratech.com" target="_blank" rel="noopener noreferrer"
+              className="footer-website">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+              fujisakuratech.com
+            </a>
+          </div>
+
+          {/* ── Col 2: Quick links ── */}
+          <div className="footer-col">
+            <h4 className="footer-col-title">Quick Links</h4>
+            <ul className="footer-links">
+              <li><a href="/home" className="footer-link">Home</a></li>
+              <li><a href="/orders" className="footer-link">My Orders</a></li>
+              <li><a href="/cart" className="footer-link">Cart</a></li>
+              <li><a href="/profile" className="footer-link">My Profile</a></li>
+            </ul>
+          </div>
+
+          {/* ── Col 3: Company ── */}
+          <div className="footer-col">
+            <h4 className="footer-col-title">Company</h4>
+            <ul className="footer-links">
+              <li>
+                <a href="https://www.fujisakuratech.com" target="_blank" rel="noopener noreferrer"
+                  className="footer-link">About Us</a>
+              </li>
+              <li>
+                <a href="https://www.fujisakuratech.com/contact" target="_blank" rel="noopener noreferrer"
+                  className="footer-link">Contact Us</a>
+              </li>
+              <li><a href="/restaurant/login" target="_blank" rel="noopener noreferrer" className="footer-link">Restaurant Partner</a></li>
+              <li><a href="/delivery/login" target="_blank" rel="noopener noreferrer" className="footer-link">Delivery Partner</a></li>
+            </ul>
+          </div>
+
+          {/* ── Col 4: Contact ── */}
+          <div className="footer-col">
+            <h4 className="footer-col-title">Get in Touch</h4>
+            <ul className="footer-links">
+              <li>
+                <a href="https://www.fujisakuratech.com/contact" target="_blank" rel="noopener noreferrer"
+                  className="footer-link footer-link--icon">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+                  Contact Support
+                </a>
+              </li>
+              <li>
+                <a href="https://www.fujisakuratech.com" target="_blank" rel="noopener noreferrer"
+                  className="footer-link footer-link--icon">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+                  Visit Website
+                </a>
+              </li>
+            </ul>
+
+            {/* Powered by badge */}
+            <div className="footer-powered">
+              <span>Powered by</span>
+              <a href="https://www.fujisakuratech.com" target="_blank" rel="noopener noreferrer"
+                className="footer-powered-link">Fuji Sakura Tech</a>
+            </div>
+          </div>
+
+        </div>
+
+        {/* ── Bottom bar ── */}
+        <div className="footer-mobile-links" style={{ display: 'none' }}>
+          {/* shown via CSS on mobile only */}
+          <a href="/home" className="footer-mobile-link">Home</a>
+          <a href="/orders" className="footer-mobile-link">Orders</a>
+          <a href="/cart" className="footer-mobile-link">Cart</a>
+          <a href="/profile" className="footer-mobile-link">Profile</a>
+          <a href="https://www.fujisakuratech.com/contact" target="_blank" rel="noopener noreferrer" className="footer-mobile-link">Help & Support</a>
+          <a href="https://www.fujisakuratech.com/contact" target="_blank" rel="noopener noreferrer" className="footer-mobile-link">Contact</a>
+        </div>
+
+        {/* ── Bottom bar ── */}
+        <div className="footer-bottom">
+          <div className="footer-bottom-inner">
+            <p className="footer-copy">
+              © 2026 Fuji Sakura Tech. All rights reserved.
+            </p>
+            <div className="footer-bottom-links">
+              <a href="https://www.fujisakuratech.com" target="_blank" rel="noopener noreferrer"
+                className="footer-bottom-link">Privacy Policy</a>
+              <span className="footer-bottom-dot" aria-hidden="true">·</span>
+              <a href="https://www.fujisakuratech.com" target="_blank" rel="noopener noreferrer"
+                className="footer-bottom-link">Terms of Service</a>
+            </div>
           </div>
         </div>
       </footer>
-
-      <style jsx>{`
-        @keyframes gradientShift {
-          0% { background-position: 0% 50%; }
-          50% { background-position: 100% 50%; }
-          100% { background-position: 0% 50%; }
-        }
-
-        @keyframes float {
-          0%, 100% { transform: translateY(0px); }
-          50% { transform: translateY(-20px); }
-        }
-
-        @keyframes slideDown {
-          0% { 
-            opacity: 0;
-            transform: translateY(-10px);
-          }
-          100% { 
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-      `}</style>
     </div>
   );
 }
+
